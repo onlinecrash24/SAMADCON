@@ -129,7 +129,7 @@ def test_filter_combines_type_and_query():
 def test_filter_escapes_the_query():
     """A wildcard typed into the search box must not widen the filter."""
     result = directory.build_filter(query="*")
-    assert "(anr=\\2a)" in result
+    assert "(anr=\\2A)" in result
 
 
 def test_filter_hides_advanced_objects_when_asked():

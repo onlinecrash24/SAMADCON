@@ -175,7 +175,11 @@ def test_filter_escaping_neutralises_wildcards():
     """A bare * would turn an exact lookup into a prefix match."""
     escaped = values.escape_filter("*")
     assert "*" not in escaped
-    assert escaped == "\\2a"
+    # Upper case, the way `ldb.binary_encode` writes it. This asserted `\2a`
+    # until the suite first ran on a host that has the samba bindings, where
+    # the real encoder runs instead of our fallback — the test had been
+    # checking the fallback's spelling rather than the escaping.
+    assert escaped == "\\2A"
 
 
 def test_filter_escaping_neutralises_parentheses():

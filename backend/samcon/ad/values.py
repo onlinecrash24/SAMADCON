@@ -179,10 +179,17 @@ def escape_filter(value: str) -> str:
         return binary_encode(value)
     except ImportError:
         # Same escaping rules, for hosts without the samba bindings (tests).
+        #
+        # Upper case on purpose. `ldb.binary_encode` writes `\2A` and this
+        # wrote `\2a`, so the escaped value changed shape depending on whether
+        # the bindings were installed — and every test of it asserted the
+        # environment rather than the behaviour. RFC 4515 allows either
+        # spelling and every server reads them alike, so matching the real
+        # path costs nothing and removes the divergence.
         out = []
         for char in value:
             if char in "\\*()\0/" or ord(char) > 127:
-                out.append("".join(f"\\{byte:02x}" for byte in char.encode("utf-8")))
+                out.append("".join(f"\\{byte:02X}" for byte in char.encode("utf-8")))
             else:
                 out.append(char)
         return "".join(out)
