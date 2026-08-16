@@ -1,0 +1,21 @@
+# Shell scripts and container files must keep LF endings — a CRLF shebang
+# makes the container fail to start with "bad interpreter".
+*.sh            text eol=lf
+entrypoint.sh   text eol=lf
+provision.sh    text eol=lf
+Dockerfile      text eol=lf
+*.conf          text eol=lf
+*.template      text eol=lf
+*.yml           text eol=lf
+*.yaml          text eol=lf
+
+# Normalise everything else on commit, check out per platform.
+*               text=auto
+
+# Never touch these.
+*.png           binary
+*.jpg           binary
+*.ico           binary
+*.pem           binary
+*.crt           binary
+*.key           binary

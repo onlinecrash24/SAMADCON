@@ -1,0 +1,45 @@
+# Nothing that identifies a domain, unlocks one, or is rebuilt from source.
+
+# --- Secrets and local state ---
+# .env is not needed any more — docker-compose.yml carries the configuration —
+# but compose still reads one if it is there, so it stays out of the history.
+.env
+.env.*
+!.env.example
+docker-compose.override.yml
+docker/tls/
+docker/ca/
+docker/servers/*.json
+!docker/servers/servers.example.json
+*.key
+*.pem
+*.crt
+*.keytab
+*.ccache
+audit.jsonl
+
+# --- Dependencies and build output ---
+node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/tsconfig.tsbuildinfo
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# --- Caches ---
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Editors and tooling ---
+.vscode/
+.idea/
+.claude/
+*.swp
+.DS_Store
+Thumbs.db

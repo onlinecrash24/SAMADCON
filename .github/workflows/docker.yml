@@ -1,0 +1,117 @@
+# Build SAMCON and publish the image to the GitHub container registry.
+#
+# The tests run first and the image is only published if they pass. Publishing
+# an image that fails its own suite is the failure this ordering prevents —
+# and the unit tests are the half that needs no domain controller, so they run
+# anywhere.
+#
+# The integration tests are deliberately not here. They create and delete
+# objects in a real directory; a runner has none, and pointing one at a real
+# domain from CI is not something to arrange by accident.
+
+name: Docker
+
+on:
+  push:
+    branches: [DEV, main]
+    tags: ["v*"]
+  pull_request:
+    branches: [DEV, main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  test:
+    name: Lint and unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The `test` stage of the Dockerfile is the runtime image plus pytest and
+      # the suite, so the tests run against exactly what ships rather than
+      # against a separately installed set of dependencies.
+      - name: Build the test image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          target: test
+          load: true
+          tags: samcon:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # --entrypoint skips the container's start-up — certificate generation,
+      # nginx templating, krb5.conf — none of which a test run needs.
+      - name: Unit tests
+        run: docker run --rm --entrypoint python samcon:test -m pytest tests/unit -q
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Ruff needs none of the Samba bindings, so it runs here rather than in
+      # the image — seconds instead of a container build.
+      - name: Install ruff
+        run: pip install "ruff>=0.5"
+
+      - name: Check
+        working-directory: backend
+        run: ruff check samcon tests
+
+  publish:
+    name: Publish to ghcr.io
+    runs-on: ubuntu-latest
+    needs: [test, lint]
+    # Nothing is published from a pull request: the token has no write access
+    # there, and an image built from unreviewed code should not carry a tag
+    # anyone might pull.
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to the registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Work out the tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          # The product, not the test image: pytest and the suite have no place
+          # in something people deploy.
+          target: runtime
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

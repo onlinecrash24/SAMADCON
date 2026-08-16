@@ -1,0 +1,794 @@
+/* SAMCON — three-pane console layout, light and dark. */
+
+:root {
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --surface-alt: #fafbfc;
+  --border: #d7dbe0;
+  --text: #20222f;
+  --text-muted: #5f6275;
+  /* Taken from the logo's accent stroke. Contrast against --surface is 5.4:1,
+     and white on it is 5.4:1 — both clear WCAG AA. */
+  --accent: #6a5cc0;
+  --accent-contrast: #ffffff;
+  --danger: #b3261e;
+  --warning: #8a5a00;
+  --warning-bg: #fff6e0;
+  --success: #17683a;
+  --success-bg: #e7f5ec;
+  --error-bg: #fdeceb;
+  --selected: #ebe8f8;
+  --hover: #f0f0f4;
+
+  --radius: 6px;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, 'Cascadia Code', Consolas, 'Liberation Mono', monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #131420;
+    --surface: #1b1d2b;
+    --surface-alt: #20222f;
+    --border: #333648;
+    --text: #e9e9ed;
+    --text-muted: #8c8fa3;
+    /* The logo's dark-theme accent; 4.9:1 against --surface. */
+    --accent: #9184d9;
+    --accent-contrast: #14151f;
+    --danger: #f2857c;
+    --warning: #e0b45f;
+    --warning-bg: #33290f;
+    --success: #7ed3a0;
+    --success-bg: #12291c;
+    --error-bg: #331b19;
+    --selected: #2c2a45;
+    --hover: #242634;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+}
+
+h1,
+h2,
+h3 {
+  margin: 0 0 0.4em;
+  font-weight: 600;
+}
+h1 { font-size: 1.5rem; }
+h2 { font-size: 1.1rem; }
+h3 { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
+
+.mono { font-family: var(--mono); font-size: 0.85em; }
+.muted { color: var(--text-muted); }
+.small { font-size: 0.85em; }
+.selectable { user-select: all; }
+
+/* --------------------------------------------------------------------- */
+/* Controls                                                              */
+/* --------------------------------------------------------------------- */
+
+.button {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+.button:hover:not(:disabled) { background: var(--hover); }
+.button:disabled { opacity: 0.55; cursor: default; }
+.button--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 500;
+}
+.button--danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); }
+
+.link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-align: left;
+}
+.link:hover { text-decoration: underline; }
+
+input,
+select,
+textarea {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  width: 100%;
+}
+input:focus-visible,
+select:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+.field__label { font-size: 0.85em; color: var(--text-muted); }
+.field__hint { font-size: 0.78em; color: var(--text-muted); }
+
+.checkbox { display: flex; align-items: center; gap: 8px; margin: 6px 0; cursor: pointer; }
+.checkbox input { width: auto; }
+.checkbox--inline { margin: 0; font-size: 0.9em; }
+
+/* Brand -------------------------------------------------------------- */
+
+.logo-lockup {
+  display: block;
+  width: 100%;
+  max-width: 260px;
+  height: auto;
+}
+.logo-mark { display: block; flex: 0 0 auto; }
+
+/* Visible to screen readers, not on screen. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.icon { width: 16px; height: 16px; fill: currentColor; flex: 0 0 auto; }
+.icon--large { width: 28px; height: 28px; color: var(--accent); }
+.chevron {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  transition: transform 0.12s ease;
+}
+.chevron--open { transform: rotate(90deg); }
+
+.badge {
+  display: inline-block;
+  padding: 1px 7px;
+  margin-left: 6px;
+  border-radius: 10px;
+  font-size: 0.75em;
+  font-weight: 500;
+}
+.badge--ok { background: var(--success-bg); color: var(--success); }
+.badge--warn { background: var(--warning-bg); color: var(--warning); }
+.badge--danger { background: var(--error-bg); color: var(--danger); }
+.badge--muted { background: var(--hover); color: var(--text-muted); }
+
+/* --------------------------------------------------------------------- */
+/* Alerts                                                                */
+/* --------------------------------------------------------------------- */
+
+.alert {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 8px 12px;
+  margin: 8px 0;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  font-size: 0.92em;
+}
+.alert--error { background: var(--error-bg); border-color: color-mix(in srgb, var(--danger) 35%, transparent); color: var(--danger); }
+.alert--warning { background: var(--warning-bg); border-color: color-mix(in srgb, var(--warning) 35%, transparent); color: var(--warning); }
+.alert--success { background: var(--success-bg); border-color: color-mix(in srgb, var(--success) 35%, transparent); color: var(--success); }
+.alert--info { background: var(--surface-alt); border-color: var(--border); color: var(--text-muted); }
+.alert__body { flex: 1; }
+.alert__hint { margin: 4px 0 0; font-weight: 400; }
+.alert__details { margin-top: 6px; }
+.alert__details code { font-family: var(--mono); font-size: 0.85em; word-break: break-word; }
+.alert__close { background: none; border: none; color: inherit; font-size: 1.2em; cursor: pointer; }
+
+.spinner { display: flex; align-items: center; gap: 8px; padding: 12px; color: var(--text-muted); }
+.spinner__dot {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .spinner__dot { animation: none; }
+  .chevron { transition: none; }
+}
+
+/* --------------------------------------------------------------------- */
+/* Login                                                                 */
+/* --------------------------------------------------------------------- */
+
+.boot,
+.login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 16px;
+}
+.login__card {
+  width: 100%;
+  max-width: 400px;
+  padding: 28px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.login__brand { margin-bottom: 22px; }
+.login__heading { margin-top: 16px; }
+.login__realm { color: var(--text-muted); font-size: 0.88em; margin-top: 0; }
+.login__card .button--primary { width: 100%; margin-top: 8px; padding: 9px; }
+
+.login__server { display: flex; gap: 8px; }
+.login__server input { flex: 1; }
+.login__probe {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+  font-size: 0.9em;
+}
+.login__probe .row__label { flex: 0 0 45%; }
+.login__insecure {
+  margin: 2px 0 10px;
+  color: var(--warning);
+  font-size: 0.85em;
+}
+.login__footer { display: flex; justify-content: space-between; margin-top: 16px; font-size: 0.85em; }
+.login__version { color: var(--text-muted); }
+
+/* --------------------------------------------------------------------- */
+/* Console shell                                                         */
+/* --------------------------------------------------------------------- */
+
+.console { display: flex; flex-direction: column; height: 100%; }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 14px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.topbar__brand { display: flex; align-items: center; gap: 8px; }
+.topbar__brand strong { letter-spacing: 0.08em; }
+.topbar__brand span { color: var(--text-muted); font-size: 0.85em; }
+.topbar__search { flex: 1; max-width: 380px; }
+.topbar__actions { display: flex; align-items: center; gap: 12px; margin-left: auto; }
+.topbar__user { color: var(--text-muted); font-size: 0.9em; }
+
+.console__panes {
+  display: grid;
+  /* The detail pane carries property sheets, permission tables and the
+     attribute editor — 380px left them cramped while the object list had room
+     to spare. The list keeps the elastic column; the panes beside it get
+     generous fixed bounds.
+
+     Names in this block are the *shell's*. Anything else that wants a pair of
+     panes needs its own prefix: a second `.console__panes` further down the
+     file silently turned this three-column grid into two, and the detail pane
+     wrapped onto a new row under the tree. */
+  grid-template-columns: minmax(210px, 280px) minmax(340px, 1fr) minmax(420px, 640px);
+  flex: 1;
+  min-height: 0;
+}
+
+.pane { overflow: auto; min-height: 0; background: var(--surface); }
+.pane--tree { border-right: 1px solid var(--border); background: var(--surface-alt); }
+.pane--detail { border-left: 1px solid var(--border); background: var(--surface-alt); }
+.pane__header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 1;
+}
+.pane__actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+@media (max-width: 1100px) {
+  .console__panes { grid-template-columns: 220px 1fr; }
+  .pane--detail { grid-column: 1 / -1; border-left: none; border-top: 1px solid var(--border); }
+}
+@media (max-width: 720px) {
+  .console__panes { grid-template-columns: 1fr; }
+  .pane--tree { display: none; }
+}
+
+/* --------------------------------------------------------------------- */
+/* Tree                                                                  */
+/* --------------------------------------------------------------------- */
+
+.tree { padding: 6px 0; }
+.tree__snapin + .tree__snapin { margin-top: 2px; }
+.tree__label--root { font-weight: 600; }
+.tree__label--muted { color: var(--text-muted); }
+/* An expander that is only a marker, not a control. */
+
+.placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 100%;
+  padding: 40px 24px;
+  text-align: center;
+}
+.placeholder h2 { margin: 0; }
+.placeholder p { max-width: 46ch; margin: 0; }
+
+.tree__row { display: flex; align-items: center; gap: 2px; padding: 1px 4px; }
+.tree__row:hover { background: var(--hover); }
+.tree__row--selected { background: var(--selected); }
+.tree__toggle {
+  background: none;
+  border: none;
+  padding: 2px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+}
+.tree__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  padding: 3px 4px;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+}
+.tree__label span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* --------------------------------------------------------------------- */
+/* Object list                                                           */
+/* --------------------------------------------------------------------- */
+
+.list { padding: 0 0 16px; }
+.list__toolbar { display: flex; gap: 10px; align-items: center; padding: 8px 12px; }
+.list__filter { max-width: 260px; }
+.list__count { color: var(--text-muted); font-size: 0.85em; }
+.list__empty { padding: 20px 12px; color: var(--text-muted); }
+
+.list__table { width: 100%; border-collapse: collapse; }
+.list__table th {
+  text-align: left;
+  padding: 6px 12px;
+  font-size: 0.78em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+}
+.list__row { cursor: pointer; }
+.list__row td { padding: 5px 12px; border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
+.list__row:hover { background: var(--hover); }
+.list__row--selected { background: var(--selected); }
+.list__name { display: flex; align-items: center; gap: 8px; }
+.list__description { color: var(--text-muted); max-width: 40ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* --------------------------------------------------------------------- */
+/* Detail pane                                                           */
+/* --------------------------------------------------------------------- */
+
+.detail { padding: 14px; }
+.detail--empty { color: var(--text-muted); }
+.detail__header { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+.detail__header h2 { margin: 0; word-break: break-word; }
+.detail__type { margin: 0; color: var(--text-muted); font-size: 0.85em; }
+.detail__actions { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.detail__section { margin-bottom: 18px; }
+
+/* Tabs ---------------------------------------------------------------- */
+
+.tabs {
+  display: flex;
+  /* Wrap rather than scroll. The worry about a second row shifting the content
+     below it does not apply: the strip holds the same tabs whatever is
+     selected, so its height never changes while the sheet is open. Scrolling
+     was the worse trade — the German labels of the policy editor run past the
+     window, and a tab nobody can see is a tab nobody finds. */
+  flex-wrap: wrap;
+  gap: 2px 2px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.tabs__tab {
+  padding: 6px 9px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.86em;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tabs__tab:hover { color: var(--text); }
+.tabs__tab--active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 500;
+}
+
+/* Property sheet ------------------------------------------------------- */
+
+.sheet textarea { resize: vertical; min-height: 2.4em; }
+.sheet__actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+  margin-top: 6px;
+  background: var(--surface-alt);
+  border-top: 1px solid var(--border);
+}
+.sheet__buttons { display: flex; gap: 8px; }
+
+.row { display: flex; gap: 10px; padding: 3px 0; font-size: 0.92em; }
+.row__label { flex: 0 0 42%; color: var(--text-muted); }
+.row__value { flex: 1; word-break: break-word; }
+
+/* Attribute editor ----------------------------------------------------- */
+
+.attrs { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.88em; }
+.attrs td { padding: 4px 6px; border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent); vertical-align: top; }
+.attrs__name { width: 38%; color: var(--text-muted); word-break: break-word; }
+.attrs__value { word-break: break-word; }
+.attrs__item { padding: 1px 0; }
+.attrs__action { width: 5.5em; text-align: right; white-space: nowrap; }
+
+/* Permissions ---------------------------------------------------------- */
+
+.acl { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.88em; }
+.acl td {
+  padding: 5px 6px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  vertical-align: top;
+}
+.acl__rights { word-break: break-word; }
+
+.picker__chosen { display: flex; align-items: center; gap: 8px; }
+.picker__results {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.picker__results li { padding: 4px 8px; }
+.picker__results li:hover { background: var(--hover); }
+
+.flags { margin: 0; padding-left: 18px; }
+.flags li { padding: 2px 0; }
+
+.linklist { list-style: none; margin: 8px 0 0; padding: 0; }
+.linklist li { display: flex; align-items: center; gap: 6px; padding: 3px 0; }
+
+/* --------------------------------------------------------------------- */
+/* Modal                                                                 */
+/* --------------------------------------------------------------------- */
+
+.modal__backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 45%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 50;
+}
+.modal {
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgb(0 0 0 / 25%);
+}
+.modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.modal__header h2 { margin: 0; }
+.modal__close { background: none; border: none; font-size: 1.3em; color: var(--text-muted); cursor: pointer; }
+.modal__body { padding: 16px; overflow: auto; }
+
+/* A console window, not a form: a fixed height, so the panes inside can divide
+   it up instead of the dialog growing until the screen runs out. */
+.modal--console { max-width: min(1180px, 96vw); height: min(880px, 92vh); max-height: none; }
+/* A column, so a pane that asks for the leftover height gets the height left
+   *beside the tabs* rather than the whole body — the two differ by exactly the
+   tab row, which is enough to push the panes out through the bottom.
+
+   The body itself does not scroll: everything below the tabs lives in a panel
+   that scrolls on its own. Letting the body scroll takes the tab row with it,
+   and a tab holding a long list then leaves no way back to the others. */
+.modal--console .modal__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.modal__panel {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+.modal__footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--border); }
+
+.form__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+@media (max-width: 480px) {
+  .form__grid { grid-template-columns: 1fr; }
+}
+
+/* Cards, tables and fact lists ----------------------------------------- */
+
+.stack { display: flex; flex-direction: column; gap: 14px; padding: 0 12px 16px; }
+.stack-tight { display: flex; flex-direction: column; gap: 2px; }
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 12px 14px;
+}
+.card h3 { margin: 0 0 10px; font-size: 0.95em; font-weight: 600; }
+
+/* Label/value pairs. Two columns on wide panes, stacked when narrow — the
+   values here are DNs and SIDs, which need the room more than the labels. */
+.facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 14px;
+  margin: 0;
+}
+.facts dt { color: var(--text-muted); font-size: 0.88em; }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .facts { grid-template-columns: 1fr; gap: 0 0; }
+  .facts dd { margin-bottom: 8px; }
+}
+
+/* Wide tables scroll inside their own box rather than pushing the pane. */
+.table-wrap { overflow-x: auto; }
+/* A table sitting straight in a pane needs the padding the pane's other
+   children bring with them; one inside a card already has it. */
+.pane > .table-wrap { padding: 0 12px 16px; }
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9em;
+}
+.table th,
+.table td {
+  text-align: left;
+  padding: 6px 10px 6px 0;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.table th {
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 0.92em;
+  white-space: nowrap;
+}
+.table tbody tr:hover { background: var(--hover); }
+.table__actions { white-space: nowrap; text-align: right; }
+.table__actions .link { margin-left: 10px; }
+
+.link--danger { color: var(--danger); }
+
+.checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 10px;
+}
+
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+@media (max-width: 480px) {
+  .field-row { grid-template-columns: 1fr; }
+}
+
+.pane__footnote { padding: 0 12px 12px; }
+
+/* Group policy ---------------------------------------------------------- */
+
+.badge-row { display: flex; gap: 4px; flex-wrap: wrap; }
+
+.plain-list { list-style: none; margin: 6px 0 0; padding: 0; }
+.plain-list li { padding: 2px 0; }
+
+/* A field with a button beside it — rename, and anything else where the
+   input alone is not the whole action. */
+.field-inline { display: flex; gap: 6px; align-items: center; }
+.field-inline input { flex: 1; min-width: 0; }
+
+.table tbody tr.table__row--selected { background: var(--selected); }
+
+/* A long list of settings: tighter rows, and the two trailing columns kept to
+   their content so the name gets the rest. */
+.table--compact th,
+.table--compact td { padding: 3px 10px 3px 0; vertical-align: middle; }
+.table--compact tbody tr:hover { background: var(--hover); }
+.table__cell--narrow { width: 1%; white-space: nowrap; }
+/* A column holding an input. Wide enough for a select's longest label and a
+   unit beside a number; the name column keeps whatever is left. */
+.table__cell--value { width: 16rem; }
+.table__cell--value input[type='number'] { width: 6rem; }
+.table__cell--value select { width: 100%; }
+
+/* Name/value pairs spread over many small tables — the settings report is a
+   stack of one table per section. Each would otherwise size its columns to its
+   own contents, so the values land at a different place in every section. A
+   fixed first column puts them all in one line down the page. */
+/* The folder column of the redirection tab. Not --narrow: that sizes to the
+   name and breaks the GUID underneath it across three lines. Wide enough for
+   the GUID on one line, and the target path keeps the rest. */
+.table__cell--folder { width: 21rem; }
+
+/* A column holding a select. Not --narrow: that sizes to the header, and a
+   dropdown squeezed to the width of the word "Aktion" shows one letter of its
+   own value. */
+.table__cell--action { width: 11rem; }
+
+.table--pairs { table-layout: fixed; }
+.table--pairs td { overflow-wrap: anywhere; }
+.table--pairs td:first-child { width: 22rem; }
+.table__cell--type { width: 7rem; }
+
+/* Administrative templates ---------------------------------------------- */
+
+/* The two-pane arrangement of the Windows policy editor: categories on the
+   left, the settings of the selected one on the right. Each pane scrolls on
+   its own — the window itself never does, which is what keeps the tree in
+   place while a long list of settings moves. */
+.gpedit { display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 0; }
+.gpedit__bar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.gpedit__bar .tabs { margin-bottom: 0; }
+.gpedit__bar-right { display: flex; align-items: center; gap: 14px; }
+
+.gpedit__panes {
+  display: grid;
+  grid-template-columns: minmax(190px, 280px) minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.gpedit__tree {
+  overflow: auto;
+  padding: 6px 0;
+  background: var(--surface-alt);
+  border-right: 1px solid var(--border);
+}
+.gpedit__list { overflow: auto; padding: 8px 10px; }
+
+@media (max-width: 720px) {
+  .gpedit__panes { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+  .gpedit__tree { max-height: 12rem; border-right: none; border-bottom: 1px solid var(--border); }
+}
+
+/* One category. Full width and left-aligned so a long name reads as a line of
+   text rather than as a button. */
+.cats { list-style: none; margin: 0; padding: 0; }
+.cats__node {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 8px;
+  text-align: left;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.cats__node:hover { background: var(--hover); }
+.cats__node--active { background: var(--selected); font-weight: 600; }
+/* A heading over a run of categories — the two halves of a policy, where the
+   same type appears once under each and the name alone would be ambiguous. */
+.cats__group {
+  padding: 10px 8px 3px;
+  font-size: 0.82em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.cats__twisty { flex: 0 0 auto; width: 0.8em; color: var(--text-muted); }
+.cats__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Configured states carry colour; "not configured" is the overwhelming
+   majority and stays muted, so the eye finds the other two. */
+.state { font-weight: 600; }
+.state--on { color: var(--success); }
+.state--off { color: var(--warning); }
+
+.explain { margin: 4px 0; }
+.explain summary { cursor: pointer; color: var(--text-muted); font-size: 0.9em; }
+.explain p { margin: 6px 0 0; white-space: pre-line; }
+
+/* A disabled fieldset greys its inputs; say why rather than leaving it to
+   be guessed at. */
+fieldset[disabled] { opacity: 0.6; }

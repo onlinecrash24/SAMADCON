@@ -1,0 +1,78 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "samcon"
+version = "0.1.0"
+description = "SAMCON — Samba AD Console: RSAT replacement for Samba AD DC, including a Group Policy editor"
+requires-python = ">=3.11"
+license = { text = "AGPL-3.0-or-later" }
+
+# Deliberately short. Two heavyweight dependencies are NOT listed here because
+# they come from the distribution and must not be pulled from PyPI:
+#   * samba (python3-samba)  — no PyPI equivalent exists
+#   * lxml  (python3-lxml)   — avoids a long native build in the image
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "python-multipart>=0.0.9",
+    "dnspython>=2.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "httpx>=0.27",
+    "ruff>=0.5",
+    "mypy>=1.10",
+    "lxml>=5.2",
+]
+
+[project.scripts]
+samconctl = "samcon.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["samcon*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "integration: needs a live Samba AD DC (SAMCON_TARGET=test, see the README)",
+    "gpo: touches Group Policy objects on the test domain",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "RUF", "BLE"]
+ignore = [
+    # Samba's python bindings hand us bytes/str mixtures that read badly when
+    # forced into ternaries.
+    "SIM108",
+    # Our exception names read as sentences at the call site (raise NotFound,
+    # raise Conflict). SamconError is the one that carries the suffix.
+    "N818",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# FastAPI's Depends() in parameter defaults is the framework's idiom, not a
+# mutable-default bug.
+"samcon/api/*" = ["B008"]
+"samcon/auth/deps.py" = ["B008"]
+# Tests reach into internals on purpose and use long assertion lines.
+"tests/*" = ["E501", "SLF001"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_ignores = true
+# The samba bindings are untyped C extensions.
+[[tool.mypy.overrides]]
+module = ["samba.*", "ldb", "dns.*"]
+ignore_missing_imports = true

@@ -1,0 +1,55 @@
+# Keep the build context small and free of host-built artefacts.
+#
+# node_modules is the important one: without this entry, a `COPY frontend/ ./`
+# overwrites the Linux packages installed inside the image with whatever the
+# host has — on Windows that means tsc and vite arrive as unusable shims and
+# the build dies with "tsc: Permission denied".
+
+# --- Dependencies and build output ---
+node_modules/
+**/node_modules/
+frontend/dist/
+frontend/.vite/
+.venv/
+venv/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# --- Caches ---
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+**/.cache/
+
+# --- Secrets and local state: never in an image layer ---
+.env
+.env.*
+docker-compose.override.yml
+docker/tls/
+docker/ca/
+docker/servers/*.json
+!docker/servers/servers.example.json
+*.key
+*.pem
+*.crt
+*.keytab
+audit.jsonl
+
+# --- Version control and editors ---
+.git/
+.gitignore
+.gitattributes
+.github/
+.vscode/
+.idea/
+.claude/
+
+# --- Documentation and other things the image does not need ---
+*.md
+!README.md
+docs/
