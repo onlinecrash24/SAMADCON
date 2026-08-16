@@ -1,5 +1,7 @@
 # SAMADCON — Samba AD Console
 
+<img src="docs/brand/samadcon-3a-transparent.svg" alt="SAMADCON — the Samba AD console" width="376">
+
 *[English version](README.md)*
 
 Browserbasierte Verwaltungskonsole für Samba-AD-DC-Domänen. Ersetzt die Windows-RSAT-Werkzeuge
