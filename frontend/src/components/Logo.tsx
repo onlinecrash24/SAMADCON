@@ -23,7 +23,7 @@ export function LogoLockup({ className }: { className?: string }) {
         src={lockupLight}
         alt={ALT}
         className={className ? `logo-lockup ${className}` : 'logo-lockup'}
-        width={520}
+        width={600}
         height={132}
       />
     </picture>
