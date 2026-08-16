@@ -154,7 +154,13 @@ fi
 mkdir -p /run/samadcon
 
 log "realm=${SAMADCON_REALM:-<chosen at sign-in>} dcs=${SAMADCON_DC_HOSTS:-<dns-discovery>}"
-log "samba $(samba-tool --version 2>/dev/null || echo unknown)"
+# `samba-tool --version` prints the version but also complains about a missing
+# subcommand, and the complaint goes to stdout — so redirecting stderr, which
+# is what this line used to do, discarded nothing and the log read
+# "samba samba-tool: missing subcommand" with the version on a line of its own.
+# Pick the version out instead of assuming where the noise lands.
+samba_version=$(samba-tool --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+[^[:space:]]*' | head -n 1)
+log "samba ${samba_version:-unknown}"
 
 case "${1:-supervisor}" in
     supervisor)
