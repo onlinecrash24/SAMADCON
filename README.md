@@ -2,86 +2,169 @@
 
 <img src="docs/brand/samadcon-3a-transparent.svg" alt="SAMADCON — the Samba AD console" width="376">
 
+*[Deutsche Fassung](README.de.md)*
 
-Browserbasierte Verwaltungskonsole für Samba-AD-DC-Domänen. Ersetzt die Windows-RSAT-Werkzeuge
-(ADUC, DNS-Manager, Sites & Services, GPMC) durch einen Docker-Container — **inklusive
-Gruppenrichtlinien-Editor**, den vergleichbare Projekte auslassen.
+A browser-based management console for Samba AD DC domains. It replaces the Windows RSAT tools
+(ADUC, DNS Manager, Sites & Services, GPMC) with a Docker container — **group policy editor
+included**, which comparable projects leave out.
 
-SAMADCON spricht ausschließlich Standardprotokolle: **LDAPS, Kerberos und SMB**. Der Container muss
-nicht auf einem Domänencontroller laufen und greift nie direkt auf dessen Dateisystem zu.
+SAMADCON speaks nothing but standard protocols: **LDAPS, Kerberos and SMB**. The container does
+not have to run on a domain controller and never touches its file system directly.
 
-> Status: in Entwicklung. Der Umsetzungsstand steht unter [Meilensteine](#meilensteine).
+> Status: under development. What is built is listed under [Milestones](#milestones).
 
-## Warum
+## Why
 
-RSAT setzt einen domänengejointen Windows-Client voraus. In reinen Linux-Umgebungen fällt es damit
-komplett aus, und `samba-tool` deckt als CLI-Werkzeug nur einen Teil des Tagesgeschäfts ab.
+RSAT requires a domain-joined Windows client. In a pure Linux environment it is simply not
+available, and `samba-tool`, being a command-line tool, covers only part of the daily work.
 
-## Sicherheitsmodell
+## Security model
 
-Jeder Administrator meldet sich mit seinem **eigenen AD-Konto** an. SAMADCON holt pro Sitzung ein
-Kerberos-TGT in einen sitzungseigenen Credential-Cache auf tmpfs und führt **alle** LDAP- und
-SMB-Operationen mit den Rechten dieses Kontos aus:
+Every administrator signs in with their **own AD account**. SAMADCON obtains a Kerberos TGT per
+session into a session-private credential cache on tmpfs and runs **every** LDAP and SMB
+operation with that account's rights:
 
-- Das Tool selbst braucht **kein** privilegiertes Dienstkonto.
-- AD-Delegation, Sicherheitsfilterung und serverseitiges Auditing bleiben wirksam.
-- Das Passwort wird nur zur Ticket-Beschaffung verwendet, **nie gespeichert und nie geloggt**.
-- Jede schreibende Operation landet zusätzlich im lokalen Audit-Log (wer, was, DN, Attribut-Diff).
+- The tool itself needs **no** privileged service account.
+- AD delegation, security filtering and server-side auditing keep working.
+- The password is used to obtain the ticket and for nothing else — **never stored, never logged**.
+- Every write also lands in the local audit log: who, what, DN, attribute diff.
 
-## Mehrere Domänen
+## Multiple domains
 
-Die Domäne wird **bei der Anmeldung** gewählt, nicht beim Start des Containers. In der
-Anmeldemaske stehen zur Auswahl:
+The domain is chosen **at sign-in**, not when the container starts. The sign-in form offers:
 
-- **Freie Eingabe** einer IP-Adresse oder eines Hostnamens,
-- **vorkonfigurierte Domänen** aus `SAMADCON_SERVERS_FILE` (siehe
+- **free entry** of an IP address or host name,
+- **pre-configured domains** from `SAMADCON_SERVERS_FILE` (see
   [servers.example.json](docker/servers/servers.example.json)),
-- **zuletzt verwendete** Server (nur im Browser gespeichert, keine Zugangsdaten),
-- die im Container hinterlegte **Standarddomäne**, falls konfiguriert.
+- **recently used** servers, kept in the browser only, never credentials,
+- the container's **default domain**, if one is configured.
 
-Bei Eingabe einer IP ermittelt SAMADCON die Domäne selbst: Ein anonymer rootDSE-Abruf liefert
-Realm, den FQDN des Domänencontrollers und die Naming Contexts. Das ist nötig, weil Kerberos
-Tickets auf `ldap/dc1.example.lan@EXAMPLE.LAN` ausstellt — aus einer nackten IP lässt sich weder
-der SPN noch der Realm ableiten. Anschließend wird eine Kerberos-Konfiguration erzeugt, die genau
-diese Adresse als KDC einträgt; damit funktioniert die Anmeldung auch ohne passende DNS-Einträge.
-Mehrere Realms werden parallel unterstützt.
+Given an IP address, SAMADCON works the domain out for itself: an anonymous rootDSE read returns
+the realm, the domain controller's FQDN and the naming contexts. That step is necessary because
+Kerberos issues tickets for `ldap/dc1.example.lan@EXAMPLE.LAN` — a bare address yields neither an
+SPN nor a realm. A Kerberos configuration naming exactly that address as the KDC is then written,
+so signing in works even without matching DNS records. Several realms are supported side by side.
 
 ### Transport
 
-SAMADCON verbindet sich in zwei Stufen, beide verschlüsselt:
+SAMADCON connects in two stages, both encrypted:
 
-1. **LDAP (389) mit GSSAPI Sign&Seal** — der Kerberos-Sitzungsschlüssel verschlüsselt den Verkehr,
-   ganz ohne Zertifikat. Das ist der Weg, den `samba-tool` und die Windows-Werkzeuge gehen, und der
-   in Sambas Client-Stack am besten unterstützte.
-2. **LDAPS (636)** als Rückfallebene, falls Port 389 gesperrt ist.
+1. **LDAP (389) with GSSAPI sign & seal** — the Kerberos session key encrypts the traffic, with no
+   certificate involved. This is the path `samba-tool` and the Windows tools take, and the one
+   best supported in Samba's client stack.
+2. **LDAPS (636)** as a fallback, for when port 389 is closed.
 
-`seal` wird dabei *verlangt*, nicht erbeten: Ein Server, der es nicht kann, lässt die Verbindung
-scheitern, statt still auf Klartext herunterzustufen.
+`seal` is *required*, not requested: a server that cannot do it fails the connection rather than
+quietly dropping to plain text.
 
-Die Anmeldemaske meldet vorab, ob das LDAPS-Zertifikat überprüfbar ist. Bei einem selbstsignierten
-Samba-Zertifikat kann die Prüfung **pro Sitzung** abgeschaltet werden — das betrifft aber nur
-Stufe 2. Für den Normalfall ist weder ein Zertifikat noch eine CA-Datei nötig.
+The sign-in form reports in advance whether the LDAPS certificate can be validated. Against a
+self-signed Samba certificate the check can be turned off **per session** — which affects stage 2
+only. The ordinary case needs neither a certificate nor a CA file.
 
-## Schnellstart
+## Quick start
+
+### Running the published image
+
+Every push to the default branch builds an image and pushes it to the GitHub container registry.
+Nothing has to be cloned or built:
 
 ```bash
+docker pull ghcr.io/onlinecrash24/samadcon:latest
+```
+
+A `docker-compose.yml` for that image, complete as it stands — put it in an empty directory:
+
+```yaml
+services:
+  samadcon:
+    image: ghcr.io/onlinecrash24/samadcon:latest
+    container_name: samadcon
+    restart: unless-stopped
+
+    environment:
+      # The name the console is reached under. It becomes the CN and the SAN of
+      # the self-signed certificate and the target of the HTTP-to-HTTPS
+      # redirect — the one value practically every installation must change.
+      SAMADCON_PUBLIC_HOST: "samadcon.example.lan"
+      # Must name the port the host publishes, not the one nginx listens on.
+      SAMADCON_PUBLIC_HTTPS_PORT: "8443"
+
+      # Both may stay empty: the sign-in form then asks for a server address.
+      # When set, use names that resolve — Kerberos needs the DC's own FQDN,
+      # and a bare IP fails with NT_STATUS_INVALID_PARAMETER.
+      SAMADCON_REALM: ""
+      SAMADCON_DC_HOSTS: ""
+
+      SAMADCON_LOG_LEVEL: "INFO"
+
+    ports:
+      - "8443:8443"
+      - "8080:8080"
+
+    volumes:
+      # A real certificate goes here as server.crt and server.key. Without one
+      # the container generates a self-signed certificate on first start.
+      - ./tls:/etc/samadcon/tls
+      # CA bundles for validating the DCs' LDAPS certificates.
+      - ./ca:/etc/samadcon/ca:ro
+      - samadcon-cache:/var/cache/samadcon
+      - samadcon-data:/var/lib/samadcon
+      # The audit trail should outlive the container.
+      - samadcon-logs:/var/log/samadcon
+
+    # Kerberos credential caches live in /dev/shm and must never hit a disk.
+    shm_size: 64m
+    tmpfs:
+      # uid/gid are required: a tmpfs mount belongs to root by default, and
+      # nginx and supervisor run as uid 1000.
+      - /run/samadcon:mode=0700,uid=1000,gid=1000,size=8m
+
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  samadcon-cache:
+  samadcon-data:
+  samadcon-logs:
+```
+
+The container runs as uid 1000 and a bind mount belongs to root, so the certificate directory has
+to be writable for it. Without this the entrypoint falls back to a volume with a warning, and the
+certificate is not where anyone looks for it:
+
+```bash
+mkdir -p tls ca && sudo chown -R 1000:1000 tls
+docker compose up -d
+```
+
+**Which tag.** `latest` follows the default branch, `DEV` names it explicitly, and every build
+also carries `sha-<short>`. For anything that matters, pin the `sha-` tag: `latest` moves under
+you on the next push.
+
+### Building from source
+
+```bash
+git clone https://github.com/onlinecrash24/SAMADCON.git
+cd SAMADCON
 docker compose up -d --build
 ```
 
-Keine `.env` nötig — die gesamte Konfiguration steht in `docker-compose.yml`. Ohne eingetragene
-Domäne fragt die Anmeldemaske nach einer Serveradresse und ermittelt den Rest selbst.
+No `.env` is needed — the whole configuration lives in `docker-compose.yml`. With no domain
+configured, the sign-in form asks for a server address and works the rest out itself.
 
-Die Oberfläche läuft anschließend auf `https://<host>:8443`. Ohne gemountetes Zertifikat erzeugt
-der Container beim ersten Start ein selbstsigniertes.
+The interface then runs on `https://<host>:8443`. Without a mounted certificate the container
+generates a self-signed one on first start.
 
 ## Deployment
 
-### Was auf dem Zielsystem liegen muss
+### What has to be on the target system
 
 ```
-Samba-AD-Tool/
-├── docker-compose.yml          die gesamte Konfiguration
-├── .dockerignore               hält node_modules und lokale Geheimnisse aus dem Image
+SAMADCON/
+├── docker-compose.yml          the whole configuration
+├── .dockerignore               keeps node_modules and local secrets out of the image
 ├── docker/
 │   ├── Dockerfile
 │   ├── entrypoint.sh
@@ -100,335 +183,351 @@ Samba-AD-Tool/
     └── public/
 ```
 
-`backend/tests/` wird nur gebraucht, wenn mit `SAMADCON_TARGET=test` gebaut wird.
+`backend/tests/` is only needed when building with `SAMADCON_TARGET=test`.
 
-Nicht mitkopieren: `frontend/node_modules`, `frontend/dist`, `backend/samadcon.egg-info`, alle
-`__pycache__`, `.venv`. Die `.dockerignore` fängt das ab und hält zugleich Zertifikate und eine
-etwaige lokale `.env` aus dem Image — Konfiguration kommt zur Laufzeit, nie in eine Bildschicht.
+Do not copy along: `frontend/node_modules`, `frontend/dist`, `backend/samadcon.egg-info`, any
+`__pycache__`, `.venv`. The `.dockerignore` catches those and at the same time keeps certificates
+and any local `.env` out of the image — configuration arrives at runtime, never in a layer.
 
-`docker/tls/`, `docker/ca/` und `docker/servers/` entstehen beim ersten Start.
+`docker/tls/`, `docker/ca/` and `docker/servers/` appear on first start.
 
-### Was eingestellt werden muss
+None of this is needed when running the published image: it carries everything.
 
-**Keine `.env`.** Alles steht in `docker-compose.yml`, mit dem Wert, den es haben soll — kein
-zweiter Ort, der mitgepflegt werden will, und nichts, das stillschweigend auf einen Leerstring
-zurückfällt, weil eine Variable nicht exportiert war.
+### What has to be configured
 
-| Einstellung | Wofür |
+**No `.env`.** Everything is in `docker-compose.yml` with the value it should have — no second
+place to keep in step, and nothing that quietly falls back to an empty string because a variable
+was not exported.
+
+| Setting | What for |
 |---|---|
-| `SAMADCON_PUBLIC_HOST` | Der Name, unter dem die Konsole erreichbar ist. Landet als CN und SAN im selbstsignierten Zertifikat und in der HTTPS-Weiterleitung. **Der einzige Wert, den praktisch jede Installation ändern muss.** |
-| `SAMADCON_REALM`, `SAMADCON_DC_HOSTS` | Vorbelegung der Anmeldemaske. **Auflösbare Namen, keine nackten IP-Adressen** — Kerberos braucht den FQDN des DCs. |
-| `SAMADCON_LDAP_CA_FILE` | Die CA des DCs, wenn das LDAPS-Zertifikat geprüft werden soll. |
+| `SAMADCON_PUBLIC_HOST` | The name the console is reached under. It becomes the CN and the SAN of the self-signed certificate and the target of the HTTPS redirect. **The one value practically every installation must change.** |
+| `SAMADCON_REALM`, `SAMADCON_DC_HOSTS` | Pre-fills the sign-in form. **Names that resolve, not bare IP addresses** — Kerberos needs the DC's FQDN. |
+| `SAMADCON_LDAP_CA_FILE` | The DC's CA, when the LDAPS certificate is to be validated. |
 
-Was zur Maschine gehört statt zum Projekt, bleibt als `${VAR:-Vorgabe}` stehen und kommt aus der
-Shell: die Ports, falls 8443 oder 8080 belegt sind, `SAMADCON_TARGET=test` für das Testimage, und
-die `TEST_*`-Werte der Integrationstests. **Ein Kennwort gehört nie in die Compose-Datei** — die
-liegt in der Versionskontrolle.
+What belongs to the machine rather than to the project stays as `${VAR:-default}` and comes from
+the shell: the ports, if 8443 or 8080 are taken; `SAMADCON_TARGET=test` for the test image; and
+the `TEST_*` values of the integration tests. **A password never belongs in the compose file** —
+that file is in version control.
 
-### Ablauf
+### Steps
 
-`docker-compose.yml` anpassen, mindestens `SAMADCON_PUBLIC_HOST`. Dann:
+Adjust `docker-compose.yml`, at least `SAMADCON_PUBLIC_HOST`. Then:
 
 ```bash
 docker compose up -d --build
 ```
 
-Für ein echtes Zertifikat `server.crt` und `server.key` nach `docker/tls/` legen. Eine Sache
-dabei: der Container läuft als uid 1000, ein Bind-Mount vom Host gehört root. Ist `docker/tls/`
-nicht beschreibbar, weicht der Entrypoint mit einer Warnung ins Volume `samadcon-data` aus — das
-Zertifikat liegt dann nicht dort, wo man es sucht. Deshalb einmalig:
+For a real certificate put `server.crt` and `server.key` into `docker/tls/`. One catch: the
+container runs as uid 1000 and a bind mount from the host belongs to root. If `docker/tls/` is not
+writable, the entrypoint falls back to the `samadcon-data` volume with a warning — the certificate
+is then not where you look for it. So, once:
 
 ```bash
 mkdir -p docker/tls docker/ca && chown -R 1000:1000 docker/tls
 ```
 
-Prüfen:
+Check:
 
 ```bash
 docker compose ps
 ```
 
-Der Container hat einen Healthcheck auf `/api/v1/health` und meldet sich nach etwa zwanzig
-Sekunden als `healthy`. Wenn nicht, sagt `docker compose logs samadcon` warum. Die Verbindung zum
-DC lässt sich ohne Zugangsdaten prüfen:
+The container has a health check on `/api/v1/health` and reports `healthy` after about twenty
+seconds. If it does not, `docker compose logs samadcon` says why. The connection to the DC can be
+checked without credentials:
 
 ```bash
 docker compose exec samadcon samadconctl probe dc1.example.lan
 ```
 
-Aktualisieren ist derselbe Befehl wie das Aufsetzen. Die Volumes `samadcon-cache`, `samadcon-data`
-und `samadcon-logs` — dort liegt der Audit-Verlauf — überleben das:
+Updating is the same command as installing. The volumes `samadcon-cache`, `samadcon-data` and
+`samadcon-logs` — the audit trail lives in the last one — survive it:
 
 ```bash
 docker compose up -d --build
 ```
 
-## Test gegen einen vorhandenen Samba AD
+## Testing against an existing Samba AD
 
-Die Zugangsdaten kommen aus der Shell, nicht aus einer Datei — ein Domänenadministrator-Kennwort
-hat in keiner Datei etwas verloren, die versehentlich mitgesichert werden kann.
+The credentials come from the shell, not from a file — a domain administrator's password has no
+business in a file that can be backed up by accident.
 
-Die Tests liegen im Image, nicht im Mount — dafür braucht es das Build-Ziel `test`:
+The tests live in the image rather than in a mount, which is what the `test` build target is for:
 
 ```bash
 SAMADCON_TARGET=test docker compose up -d --build
 ```
 
-Integrationstests gegen diese Domäne, mit den Zugangsdaten aus der Shell statt aus einer Datei:
+Integration tests against that domain:
 
 ```bash
 TEST_DC_HOST=dc1.example.lan TEST_ADMIN_PASSWORD=... docker compose exec samadcon python -m pytest tests/integration -q
 ```
 
-> Ein geänderter Test wird beim Bauen ins Image kopiert. Nach jeder Änderung an den Tests also
-> erst `up -d --build`, dann `exec`.
+> A changed test is copied into the image at build time. After every change to the tests, run
+> `up -d --build` first, then `exec`.
 
-> Die Tests legen Objekte an und löschen sie wieder — jeweils in einer eigenen OU
-> `samadcon-test-<zufall>`. Nur gegen eine Testdomäne laufen lassen.
+> The tests create objects and delete them again, each run inside its own OU
+> `samadcon-test-<random>`. Run them against a test domain only.
 
-Wenn die Verbindung nicht zustande kommt, beantwortet das CLI im Container die Frage, woran es
-liegt — ohne Zugangsdaten:
+If the connection does not come up, the CLI inside the container answers why — without
+credentials:
 
 ```bash
 docker compose exec samadcon samadconctl probe 192.168.1.10
 ```
 
-Und mit Anmeldung, den ganzen Weg bis zum rootDSE:
+And with a sign-in, all the way to the rootDSE:
 
 ```bash
 docker compose exec samadcon samadconctl check --server 192.168.1.10 --insecure
 ```
 
-## Meilensteine
+## Milestones
 
-| # | Umfang | Status |
+| # | Scope | Status |
 |---|---|---|
-| 1 | Fundament, Auth, Benutzer/Gruppen/Computer/OUs (ADUC-Ersatz) | steht, gegen eine echte Domäne verifiziert |
-| 2 | DNS, Sites & Services, Diagnose (FSMO, Replikation, Passwortrichtlinien) | steht, gegen eine echte Domäne verifiziert |
-| 3 | GPMC-Basis: GPOs, Verknüpfungen, Filterung, Backup/Restore, Report | steht, gegen eine echte Domäne verifiziert |
-| 4 | GPO-Editor: ADMX → Sicherheitseinstellungen → Linux/VGP → Preferences → Skripte/Ordnerumleitung | vollständig; jeder der fünf Teilbereiche auf einem echten Client als **angewendet** nachgewiesen (4c über `samba-gpupdate --rsop`), Preferences in allen drei Wellen |
+| 1 | Foundation, auth, users/groups/computers/OUs (the ADUC replacement) | done, verified against a real domain |
+| 2 | DNS, Sites & Services, diagnostics (FSMO, replication, password policies) | done, verified against a real domain |
+| 3 | GPMC basics: GPOs, links, filtering, backup/restore, report | done, verified against a real domain |
+| 4 | Group policy editor: ADMX → security settings → Linux/VGP → preferences → scripts/folder redirection | complete; each of the five parts proven **applied** on a real client (4c through `samba-gpupdate --rsop`), preferences in all three waves |
 
-Meilenstein 1 umfasst: Kerberos-Sitzungen, Baumnavigation, Objektlisten und Suche (ANR),
-Benutzer (anlegen, bearbeiten, Kontooptionen, Passwort-Reset, Entsperren, Ablauf),
-Gruppen (Bereich/Typ, Mitglieder inkl. verschachtelt und primär), Computer (inkl. LAPS-Lesen und
-Konto-Reset), OUs (inkl. Löschschutz), Verschieben/Umbenennen/Löschen, Attribut-Editor,
-ACL- und Delegationseditor, Audit-Log und die deutsche/englische Oberfläche.
+Milestone 1 covers: Kerberos sessions, tree navigation, object lists and search (ANR), users
+(create, edit, account options, password reset, unlock, expiry), groups (scope/type, members
+including nested and primary), computers (including reading LAPS and resetting the account), OUs
+(including deletion protection), move/rename/delete, the attribute editor, the ACL and delegation
+editor, the audit log and the German/English interface.
 
-Der DNS-Teil aus Meilenstein 2 arbeitet über LDAP statt über die DCE/RPC-Schnittstelle
-(`samba-tool dns`): Zonen aus allen drei Partitionen — Domäne, Forest und der alten Ablage
-unter `CN=System` —, Einträge der Typen A, AAAA, CNAME, NS, PTR, MX, SRV und TXT anlegen,
-ändern und löschen, dazu Zonen anlegen und löschen. Ein Name ist in AD **ein** Objekt mit
-allen seinen Einträgen in einem mehrwertigen Attribut; SAMADCON zeigt trotzdem eine Zeile je
-Eintrag und findet den zu ändernden über seine bisherigen Werte wieder. Passt der Eintrag
-nicht mehr, hat ihn jemand anders geändert — dann bricht die Änderung ab, statt zu raten.
-Jede Änderung zieht die SOA-Seriennummer der Zone hoch und stempelt den geschriebenen
-Eintrag damit, wie Samba es auf seinem eigenen Schreibweg tut; sonst erführe ein sekundärer
-Nameserver nie, dass es etwas zu holen gibt.
+The DNS part of milestone 2 works over LDAP rather than through the DCE/RPC interface
+(`samba-tool dns`): zones from all three partitions — domain, forest and the old storage under
+`CN=System` — records of types A, AAAA, CNAME, NS, PTR, MX, SRV and TXT to create, change and
+delete, plus creating and deleting zones. A name in AD is **one** object holding all its records
+in a multi-valued attribute; SAMADCON still shows one row per record and finds the one to change
+by its current values. If the record no longer matches, somebody else changed it — the edit is
+then refused rather than guessed at. Every change raises the zone's SOA serial and stamps the
+written record with it, the way Samba does on its own write path; otherwise a secondary name
+server would never learn that there is something to fetch.
 
-**Standorte und Dienste** decken Standorte, Subnetze, Standortverknüpfungen und die Server
-je Standort ab: anlegen, umbenennen, beschreiben, löschen, Subnetze einem Standort zuordnen
-oder wieder lösen, Kosten und Replikationsintervall der Verknüpfungen, Domänencontroller
-zwischen Standorten verschieben. Replikationsverbindungen werden nur angezeigt — die baut
-der KCC selbst, und was man dort von Hand ändert, macht er beim nächsten Lauf rückgängig.
-Standorte liegen in der Konfigurationspartition und gelten damit in der gesamten
-Gesamtstruktur; das Löschen eines Standorts wird verweigert, solange noch ein DC oder ein
-Subnetz darauf zeigt.
+**Sites and services** covers sites, subnets, site links and the servers per site: create, rename,
+describe, delete, assign a subnet to a site or detach it, cost and replication interval of the
+links, and moving domain controllers between sites. Replication connections are shown only — the
+KCC builds those itself, and whatever is changed there by hand it undoes on its next run. Sites
+live in the configuration partition and therefore apply forest-wide; deleting a site is refused
+while a DC or a subnet still points at it.
 
-**Gruppenrichtlinien** sind der erste Teil, der nicht mehr allein über LDAP läuft: Eine GPO
-besteht aus einem Verzeichnisobjekt und einem Verzeichnisbaum auf der SYSVOL-Freigabe, und
-nichts erzwingt, dass die beiden übereinstimmen. SAMADCON legt sie in der Reihenfolge an, die
-`samba-tool gpo create` verwendet — Objekt, Dateien, dann die aus dem Objekt abgeleiteten
-SYSVOL-Rechte — und rollt bei einem Fehler die früheren Schritte zurück. Dazu Verknüpfungen
-mit Reihenfolge, Erzwingung und Vererbungssperre, die Sicherheitsfilterung, und ein
-Konsistenzbericht, den GPMC nicht kennt: Weicht die Version in `GPT.INI` von `versionNumber`
-ab, lesen Clients die Richtlinie entweder nie neu oder bei jeder Anmeldung — und nichts sonst
-sagt es einem.
+**Group policy** is the first part that no longer runs over LDAP alone: a GPO is a directory
+object *and* a directory tree on the SYSVOL share, and nothing enforces that the two agree.
+SAMADCON creates them in the order `samba-tool gpo create` uses — object, files, then the SYSVOL
+rights derived from the object — and rolls the earlier steps back on failure. Along with links
+carrying order, enforcement and inheritance blocking, security filtering, and a consistency report
+GPMC does not have: when the version in `GPT.INI` differs from `versionNumber`, clients either
+never re-read the policy or re-read it at every sign-in — and nothing else tells you.
 
-Anlegen, Kopieren, Sichern, Wiederherstellen und Löschen stehen in der Oberfläche. Das Löschen
-fragt nach und wird abgelehnt, solange noch Verknüpfungen auf die Richtlinie zeigen — die liegen
-auf den Containern und müssen dort entfernt werden, was jede Konsole so hält.
+Create, copy, back up, restore and delete are all in the interface. Deleting asks first and is
+refused while links still point at the policy — those live on the containers and have to be
+removed there, which is how every console handles it.
 
-Ist der Container mit `SAMADCON_DC_HOSTS` auf eine **IP-Adresse** gesetzt, fragt SAMADCON den DC
-vor der Anmeldung nach seinem eigenen Namen und verbindet sich vorrangig darüber. Das ist keine
-Kosmetik: Kerberos stellt Tickets für `ldap/<Hostname>@REALM` aus, und für eine nackte Adresse
-gibt es keinen solchen Prinzipal. Ohne diesen Schritt scheitert die Anmeldung erst beim Bind,
-mit `NT_STATUS_INVALID_PARAMETER` und ohne jeden Hinweis auf den Namen.
+When the container is pointed at an **IP address** through `SAMADCON_DC_HOSTS`, SAMADCON asks the
+DC for its own name before signing in and connects through that by preference. This is not
+cosmetic: Kerberos issues tickets for `ldap/<hostname>@REALM`, and for a bare address no such
+principal exists. Without this step the sign-in fails at the bind, with
+`NT_STATUS_INVALID_PARAMETER` and no hint about the name.
 
-**Skripte** (Meilenstein 4e) liegen in `scripts.ini` und `psscripts.ini` je Hälfte, **UTF-16LE
-mit BOM und CRLF**. Als UTF-8 gespeichert liest der Client Buchstabensalat und führt nichts
-aus — ohne Meldung. Innerhalb eines Abschnitts sind die Einträge nummerierte Paare, und die
-Nummern *sind* die Ausführungsreihenfolge: sie müssen lückenlos bei null beginnen, weil Windows
-beim ersten fehlenden Index aufhört. Umsortieren, Löschen und Hinzufügen sind deshalb dieselbe
-Operation — SAMADCON schreibt immer die ganze Liste eines Ereignisses.
+### The policy editor
 
-Zwei Details stammen aus einer von GPMC erzeugten Datei statt aus der Spezifikation, und beide
-sähen sonst in jedem Diff wie eine Änderung aus, die niemand vorgenommen hat: zwischen BOM und
-erstem Abschnitt steht eine **Leerzeile**, und ein Ereignis ohne Skripte bekommt **gar keinen
-Abschnitt**, nicht etwa einen leeren. Der Unit-Test dazu vergleicht unsere Ausgabe Byte für Byte
-mit dieser Datei.
+**Administrative templates** (4a) are read from the central store on SYSVOL — `.admx` with the
+matching `.adml`, parsed once per domain and cached — and the input forms are generated from them.
+On write, Samba's `RegistryGroupPolicies` handles `Registry.pol`, `GPT.INI` and `versionNumber`;
+SAMADCON contributes the two things it does not do: registering the client-side extension in
+`gPCMachineExtensionNames`, and the ordering that attribute requires. A policy whose values are
+written but whose CSE is not listed is read by nobody — visible in every console, applied
+nowhere, with no error anywhere.
 
-Wird das letzte Skript einer Hälfte entfernt, trägt SAMADCON die Client-Erweiterung wieder aus.
-Bliebe sie stehen, holte jeder Client die Richtlinie bei jeder Aktualisierung und fände nichts
-darin.
+Proof is not the file's contents but the client: `gpresult /h` on a domain-joined Windows 11 lists
+the policy under *Applied GPOs* with *Extensions Configured: Registry* and *Revision: AD (9),
+SYSVOL (9)*, reports the registry CSE under *Component Status* as **Success**, and shows the
+setting under *Administrative Templates* as **Enabled**. Formally correct files are not the same
+thing as applied policies — that is the difference only this test sees.
 
-Die **Ordnerumleitung** (`User/Documents & Settings/fdeploy1.ini`) wird bisher nur **gelesen**
-und im Einstellungsreport gezeigt — bewusst ohne Editor-Reiter, der nicht speichern könnte. Die
-Struktur folgt dem, was Sambas `GPFDeploy1IniParser` gesondert behandelt; was zum Schreiben noch
-fehlt, ist die Kodierung der Datei, die Optionsschlüssel neben `FullPath` und die beiden
-CSE-GUIDs. Alle drei kommen aus einer von GPMC erzeugten Datei, nicht aus dem Gedächtnis: eine
-falsch geschriebene `fdeploy1.ini` verschiebt Benutzerprofile. Die Ordner erscheinen mit ihrer
-GUID statt mit einem Namen, solange die Zuordnung nicht belegt ist.
+Two format details, cross-checked against a policy GPMC produced rather than derived from the
+specification: an "off" that ADMX expresses as `<delete/>` writes a **real entry** `**del.<name>`
+(REG_SZ, a single space) — the marker tells the client to throw away the value it may already
+have. And in `versionNumber` the **computer version sits in the low word**, the user version in
+the high one.
 
-**Windows versteckt seine Richtliniendateien.** `scripts.ini`, `fdeploy1.ini` und `fdeploy.ini`
-tragen das DOS-Attribut `HIDDEN`, `fdeploy.ini` zusätzlich `READONLY`. Das hat zwei Folgen, die
-beide nicht wie das aussehen, was sie sind:
+The policy tree follows the **interface language**: in German SAMADCON reads the strings from
+`de-DE`, in English from `en-US`. The definitions themselves contain not one visible string —
+every name in the tree comes from a language directory, which is why that is the whole
+translation. If the wanted directory is missing, the server takes the same language from another
+region, otherwise English — and **says so**: the editor then shows which language was actually
+used and that the matching language pack is absent. A tree without labels would be the worse
+answer; a silent fallback the more confusing one.
 
-Eine Verzeichnisauflistung muss **ausdrücklich nach versteckten und System-Einträgen fragen** —
-sonst fehlen genau diese Dateien, ohne dass etwas fehlschlägt. Der Einstellungsreport zeigte
-dann eine Richtlinie als leerer, als sie ist. SAMADCON übergibt dieselbe Maske wie Sambas eigene
-`ntacls`- und `gpo`-Werkzeuge.
+Setting a policy to *Enabled* fills empty inputs with the template's default values, the way GPMC
+does. That is not cosmetic: whoever writes `defaultValue` means *that value*, and an empty field
+writes nothing at all. Otherwise you enable a policy whose options stay unset, and the difference
+only surfaces when a client behaves other than expected. Values already set are left alone.
 
-Und `savefile()` öffnet zum Überschreiben mit normalen Attributen, was SMB bei einer versteckten
-Datei **mit `ACCESS_DENIED` ablehnt** — eine Meldung, die zum Prüfen von ACLs verleitet, die
-völlig in Ordnung sind. SAMADCON öffnet stattdessen mit `FILE_OVERWRITE_IF` und nennt dabei die
-Attribute, die die Datei bereits hat; die Disposition kürzt selbst. Kein `truncate`: das ist in
-den Python-Bindungen ein SMB1-Aufruf und scheitert gegen eine SMB3-Verbindung mit
-`NT_STATUS_REVISION_MISMATCH`. Klappt auch das nicht, wird die Datei ersetzt — das kostet die
-Attribute und steht als Warnung im Protokoll, denn ein Editor, der eine von GPMC angelegte
-Richtlinie gar nicht bearbeiten kann, ist das schlechtere Ergebnis.
+Uploaded templates are validated **before** anything is written, and a package lands whole or not
+at all: Windows reads the central store as one, and a single unreadable file makes it abandon
+**every** administrative template in the domain — the group policy report then shows one parser
+error domain-wide instead of the settings. So what is checked is what makes that difference:
+well-formed XML, the right root element, the often-forgotten `<resources>`, for an `.admx` its own
+namespace, and for an `.adml` the header the schema demands, `<displayName>` and `<description>`
+before `<resources>`. Without the last, Windows reports *"Expected `<displayName>`, but found
+`<resources>`"* — an error pointing at the element that is there instead of the one that is not.
 
-Gefunden wurde beides erst an einer echten, von GPMC erzeugten Richtlinie. Die Integrationstests
-legen ihre GPOs selbst an, und deren Dateien haben normale Attribute — sie prüfen SAMADCON gegen
-SAMADCON. Die Schreibpfade sind deshalb zusätzlich als Unit-Tests abgesichert, mit einer Attrappe
-statt eines Domänencontrollers.
+A Windows client that has read the central store holds the templates open with a lease that
+refuses writes, long after the policy refresh. An upload then runs into `file_in_use`, and the
+usual workaround of deleting instead of overwriting does not help, because the lease refuses
+deletion too. Visible with `smbstatus --locks` on the DC; the lease clears by itself, and
+`smbcontrol smbd close-share sysvol` or a restart of `samba-ad-dc` ends it at once.
 
-Die SMB-Verbindung braucht eine **s3-LoadParm** (`samba.samba3.param`), nicht die aus
-`samba.param`, die SamDB nimmt. Mit der falschen antwortet `libsmb` mit
-`NT_STATUS_INVALID_PARAMETER_MIX`, ohne den Parameter zu nennen. `samadconctl sysvol` prüft
-diesen Pfad einzeln.
+**Security settings** (4b) live in `GptTmpl.inf`, an INI in UTF-16LE with a BOM: password and
+lockout policy, Kerberos policy, the audit categories, user rights assignment and restricted
+groups. Three details are copied from a file GPMC wrote rather than reasoned out, and each
+contradicts one of the *other* policy formats this project writes — which is the whole argument
+for reading a real file first. There is no preamble, where `scripts.ini` opens with a blank line.
+Empty sections are written out, where `scripts.ini` omits them. And spaces surround the equals
+sign everywhere except in `[Unicode]` and `[Version]`.
 
-Die **Sicherung** ist ein ZIP mit dem SYSVOL-Baum und den beiden `.SAMBAEXT`-Dateien unter
-Sambas eigenen Namen. Entpackt nimmt `samba-tool gpo restore` das Archiv an — gegengeprüft,
-nicht angenommen. Eine leere `.SAMBAEXT`-Datei wird dabei nicht geschrieben: LDB lehnt ein
-Attribut ohne Wert ab, und ein Archiv mit einer solchen Datei ließe sich mit `samba-tool`
-überhaupt nicht einspielen.
+**Samba's own policies** (4c) are the ones `samba-gpupdate` applies on Linux domain members: sudo
+rights, symbolic links, motd and issue, OpenSSH settings and host access control. Windows clients
+ignore them entirely, so the proof for them runs through `samba-gpupdate --rsop` on a member
+rather than through a `gpresult` report. No client-side extension is registered for them, and that
+is deliberate: `samba-tool gpo manage` registers none either, and `samba-gpupdate` runs every
+loaded extension against every applicable policy regardless.
 
-**Administrative Vorlagen** (Meilenstein 4a) liest SAMADCON aus dem Central Store auf SYSVOL —
-`.admx` samt sprachpassender `.adml`, einmal je Domäne geparst und gecacht — und erzeugt daraus
-die Eingabemasken. Beim Schreiben übernimmt Sambas `RegistryGroupPolicies` die `Registry.pol`,
-die `GPT.INI` und `versionNumber`; SAMADCON steuert zwei Dinge bei, die es nicht tut: die
-Registrierung der Client-Erweiterung in `gPCMachineExtensionNames` und deren vorgeschriebene
-Sortierung. Eine Richtlinie, deren Werte geschrieben, deren CSE aber nicht eingetragen ist,
-wird von keinem Client gelesen — sichtbar in jeder Konsole, wirkungslos, ohne Fehlermeldung.
+**Preferences** (4d) cover ten types across three waves: drive maps, registry values, files,
+folders, shortcuts, environment variables, printers, local users and groups, services and
+scheduled tasks. Every type has its **own** CSE GUID, so each was proven applied separately — one
+proof does not carry another. Two things the reference files contradicted outright: there is no
+shared preferences tool GUID, every type brings its own; and every type registers **two** groups,
+its own pair plus one in a shared `{00000000-…}` group that Windows calls *Group Policy
+Infrastructure*.
 
-Vom Editorbaum, den GPMC zeigt, ist damit **ein Ast** abgedeckt — dieser allerdings ganz, in
-beiden Hälften. Der Rest steht noch aus: *Sicherheitseinstellungen* (4b), *Preferences* (4d)
-sowie *Skripte* und *Ordnerumleitung* (4e). Nicht vorgesehen sind *Software installation*,
-*Name Resolution Policy*, *Deployed Printers* und *Policy-based QoS* — sie kommen dazu, wenn
-sie gebraucht werden. Eine kleine Abweichung innerhalb des fertigen Astes: den GPMC-Knoten
-*Alle Einstellungen*, der alles flach auflistet, gibt es nicht; dorthin führt die Suche.
+Scheduled tasks are read, edited and removed but **not created** here. A task in the V2 format
+carries a whole tree — registration info, principals, triggers, actions and eighteen settings —
+and writing one from scratch without a reference for each part is exactly the guess this project
+does not make. An existing task is preserved in full and stays editable.
 
-Nachgewiesen ist das nicht am geschriebenen Dateiinhalt, sondern am Client: `gpresult /h` auf
-einem domänengejointen Windows 11 führt die Richtlinie unter *Applied GPOs* mit
-*Extensions Configured: Registry* und *Revision: AD (9), SYSVOL (9)*, meldet die Registry-CSE
-unter *Component Status* als **Success** und zeigt die Einstellung unter *Administrative
-Templates* als **Enabled**. Formal korrekt geschriebene Dateien sind nicht dasselbe wie
-angewandte Richtlinien — das ist der Unterschied, den nur dieser Test sieht.
+An item's **item-level targeting** is displayed and left alone. Sending it back with every save
+would mean a rename could drop the filter that decides who a drive is mapped for — silently, and
+in the permissive direction. A stored password (`cpassword`, encrypted with a key Microsoft
+published in 2014) is carried through where it exists and can never be introduced from here.
 
-Zwei Formatdetails, gegengeprüft an einer von GPMC erzeugten Richtlinie statt aus der
-Spezifikation abgeleitet: Ein „Aus", das ADMX als `<delete/>` ausdrückt, schreibt einen
-**echten Eintrag** `**del.<Name>` (REG_SZ, ein Leerzeichen) — der Marker sagt dem Client, den
-Wert wegzuwerfen, den er vielleicht schon hat. Und in `versionNumber` steht die
-**Computerversion im niedrigen Halbwort**, die Benutzerversion im hohen.
+**Scripts** (4e) live in `scripts.ini` and `psscripts.ini` per half, **UTF-16LE with a BOM and
+CRLF**. Saved as UTF-8 the client reads mojibake and runs nothing — without a word. Within a
+section the entries are numbered pairs, and the numbers *are* the execution order: they must start
+at zero without gaps, because Windows stops at the first missing index. Reordering, deleting and
+adding are therefore the same operation — SAMADCON always writes an event's whole list.
 
-Der Richtlinienbaum folgt der **Sprache der Oberfläche**: auf Deutsch liest SAMADCON die Texte
-aus `de-DE`, auf Englisch aus `en-US`. Die Definitionen selbst enthalten keinen einzigen
-sichtbaren Text — jeder Name im Baum kommt aus einem Sprachverzeichnis, weshalb das die ganze
-Übersetzung ist. Fehlt das gewünschte Verzeichnis, nimmt der Server dieselbe Sprache aus einer
-anderen Region, sonst Englisch — und **sagt es**: der Editor zeigt dann, welche Sprache
-tatsächlich verwendet wurde und dass das passende Sprachpaket fehlt. Ein Baum ohne Beschriftung
-wäre die schlechtere Antwort, ein stiller Rückfall die verwirrendere.
+Two details come from a file GPMC produced rather than from the specification, and both would
+otherwise look in every diff like a change nobody made: between the BOM and the first section
+there is a **blank line**, and an event without scripts gets **no section at all**, not an empty
+one. The unit test for it compares our output with that file byte for byte.
 
-Wird eine Einstellung auf *Aktiviert* gestellt, füllt der Editor leere Eingaben mit den
-Standardwerten aus der Vorlage — wie GPMC. Das ist keine Kosmetik: Wer `defaultValue` schreibt,
-meint *diesen Wert*, und ein leeres Feld schreibt gar nichts. Sonst aktiviert man eine
-Richtlinie, deren Optionen ungesetzt bleiben, und der Unterschied fällt erst auf, wenn ein
-Client sich anders verhält als erwartet. Bereits gesetzte Werte bleiben unberührt.
+When the last script of a half is removed, SAMADCON unregisters the client-side extension. Left
+behind, every client would fetch the policy on every refresh and find nothing in it.
 
-Hochgeladene Vorlagen werden **vor** dem Schreiben geprüft, und ein Paket landet ganz oder gar
-nicht: Windows liest den Central Store als Ganzes und gibt bei einer einzigen unlesbaren Datei
-**jede** administrative Vorlage der Domäne auf — der Gruppenrichtlinienbericht zeigt dann
-domänenweit einen Parserfehler statt der Einstellungen. Geprüft wird deshalb, was diesen
-Unterschied macht: wohlgeformtes XML, das richtige Wurzelelement, das oft vergessene
-`<resources>`, bei einer `.admx` der eigene Namensraum und bei einer `.adml` die vom Schema
-verlangte Kopfzeile `<displayName>` und `<description>` vor `<resources>`. Fehlt letztere,
-meldet Windows *„Expected `<displayName>`, but found `<resources>`"* — ein Fehler, der auf das
-Element zeigt, das da ist, statt auf das fehlende.
+**Folder redirection** (also 4e) writes `User/Documents & Settings/fdeploy1.ini`, and its format
+disagrees with every other one here: the file opens with a blank line, five spaces and another
+blank line; the version section is spelled `[version]` in lower case; and an empty value is
+written as `Key =` with no trailing space. Each of those was read off a GPMC file, and each was
+wrong in the first attempt.
 
-Ein Windows-Client, der den Central Store gelesen hat, hält die Vorlagen mit einem Lease offen,
-das Schreiben verweigert — auch lange nach der Richtlinienaktualisierung. Ein Hochladen läuft
-dann in `file_in_use`, und der sonst greifende Umweg „löschen statt überschreiben" hilft nicht,
-weil das Lease auch das Löschen verweigert. Sichtbar mit `smbstatus --locks` auf dem DC; das
-Lease löst sich von selbst, `smbcontrol smbd close-share sysvol` oder ein Neustart von
-`samba-ad-dc` beendet es sofort.
+**Windows hides its policy files.** `scripts.ini`, `fdeploy1.ini` and `fdeploy.ini` carry the DOS
+attribute `HIDDEN`, and `fdeploy.ini` `READONLY` as well. That has two consequences, neither of
+which looks like what it is.
 
-Der Einstellungsreport zeigt jede Richtlinie mit dem, was auf SYSVOL steht. Dass die
-**Default Domain Policy einer Samba-Domäne dabei leer erscheint, ist richtig**: Samba legt sie
-mit leeren Ordnern `MACHINE` und `USER` an und schreibt keine `GptTmpl.inf`. Die
-Kennwortrichtlinie liegt am Domänenobjekt im Verzeichnis — dort liest sie die Diagnose, und
-dort bearbeitet sie auch `samba-tool domain passwordsettings`. Bei einer aus Windows
-gewachsenen Domäne steht in derselben Richtlinie dagegen eine Sicherheitsvorlage.
+A directory listing has to **ask explicitly for hidden and system entries** — otherwise exactly
+these files are missing without anything failing. The settings report then showed a policy as
+emptier than it is. SAMADCON passes the same mask as Samba's own `ntacls` and `gpo` tools.
 
-**Diagnose** ist durchgehend lesend: Domänencontroller mit Standort und GC-Kennzeichen, die
-sieben Betriebsmasterrollen samt Inhaber, Funktionsebenen, der Replikationsstand des
-verbundenen DCs aus `repsFrom`, die Kennwort- und Sperrrichtlinie einschließlich
-differenzierter Richtlinien (PSOs) sowie gesperrte, deaktivierte und abgelaufene Konten.
-Rollen zu übernehmen oder Replikation zu erzwingen gehört bewusst nicht dazu — dafür gibt es
-`samba-tool fsmo seize` und `samba-tool drs replicate` auf dem DC.
+And `savefile()` opens for overwrite with normal attributes, which SMB **refuses with
+`ACCESS_DENIED`** on a hidden file — a message that invites you to inspect ACLs that are perfectly
+fine. SAMADCON opens with `FILE_OVERWRITE_IF` instead and names the attributes the file already
+has; the disposition truncates by itself. No `truncate`: in the Python bindings that is an SMB1
+call and fails against an SMB3 connection with `NT_STATUS_REVISION_MISMATCH`. If that fails too,
+the file is replaced — which costs the attributes and is logged as a warning, because an editor
+that cannot edit a GPMC-created policy at all is the worse outcome.
 
-## Aufbau
+Both were found only against a real policy GPMC had produced. The integration tests create their
+own GPOs, and those files have ordinary attributes — they check SAMADCON against SAMADCON. The
+write paths are therefore additionally covered by unit tests, with a stand-in instead of a domain
+controller.
+
+The SMB connection needs an **s3 LoadParm** (`samba.samba3.param`), not the one from
+`samba.param` that SamDB takes. With the wrong one `libsmb` answers `NT_STATUS_INVALID_PARAMETER_MIX`
+without naming the parameter. `samadconctl sysvol` exercises that path on its own.
+
+The **backup** is a ZIP holding the SYSVOL tree and the two `.SAMBAEXT` files under Samba's own
+names. Unpacked, `samba-tool gpo restore` accepts the archive — cross-checked, not assumed. An
+empty `.SAMBAEXT` file is not written: LDB refuses an attribute without a value, and an archive
+containing one could not be restored with `samba-tool` at all.
+
+Of the editor tree GPMC shows, four branches are deliberately left out: *Software installation*,
+*Name Resolution Policy*, *Deployed Printers* and *Policy-based QoS*. They will be added when they
+are actually needed. One small deviation inside what is built: the GPMC node *All Settings*, which
+lists everything flat, does not exist — search leads there instead.
+
+The settings report shows every policy with what is on SYSVOL. That the **Default Domain Policy of
+a Samba domain looks empty there is correct**: Samba creates it with empty `MACHINE` and `USER`
+folders and writes no `GptTmpl.inf`. The password policy sits on the domain object in the
+directory — that is where diagnostics reads it, and where `samba-tool domain passwordsettings`
+edits it. In a domain grown out of Windows the same policy holds a security template instead.
+
+**Diagnostics** is read-only throughout: domain controllers with site and GC flag, the seven FSMO
+roles and their holders, functional levels, the connected DC's replication state from `repsFrom`,
+the password and lockout policy including fine-grained policies (PSOs), and locked, disabled and
+expired accounts. Seizing a role or forcing replication is deliberately not part of it — that is
+what `samba-tool fsmo seize` and `samba-tool drs replicate` on the DC are for.
+
+## Layout
 
 ```
-backend/samadcon/     FastAPI-Anwendung
-  core/             Executor (ein Worker-Thread je Sitzung), Audit, Fehlerübersetzung, Ratelimit
-  auth/             Kerberos-TGT, krb5.conf für mehrere Realms, Sessions, CSRF
-  ad/               LDAP-Zugriff: Verbindungsziele, Server-Probe, Verzeichnis, ACLs
-  gpo/              GPC/SYSVOL, ADMX, Registry.pol, Security-INF, Preferences, VGP
-  api/v1/           HTTP-Router
-frontend/src/       React + TypeScript (MMC-artiges Layout)
-frontend/public/    Favicon
-frontend/src/assets/  Lockup und Bildmarke, je hell/dunkel, dazu einfarbig
-docker/             Dockerfile, Entrypoint, nginx, supervisord
+backend/samadcon/     the FastAPI application
+  core/               executor (one worker thread per session), audit, error translation, rate limit
+  auth/               Kerberos TGT, krb5.conf for several realms, sessions, CSRF
+  ad/                 LDAP access: connection targets, server probe, directory, ACLs
+  gpo/                GPC/SYSVOL, ADMX, Registry.pol, security INF, preferences, VGP
+  api/v1/             HTTP routers
+frontend/src/         React + TypeScript, an MMC-like layout
+frontend/public/      favicon
+frontend/src/assets/  lockup and mark, light and dark, plus a monochrome one
+docker/               Dockerfile, entrypoint, nginx, supervisord
+docs/brand/           banner variants, not used by the interface
 ```
 
-Die Samba-Python-Bibliotheken sind blockierend und nicht threadsicher. Alle Samba-Aufrufe laufen
-deshalb ausschließlich über `samadcon/core/executor.py` (Threadpool mit Sperre je Sitzung) — nie
-direkt aus einem Router.
+The Samba Python libraries are blocking and not thread-safe. Every Samba call therefore goes
+through `samadcon/core/executor.py` — a thread pool with a lock per session — and never directly
+from a router.
 
-## Technische Grundlage
+## Technical foundation
 
-Der GPO-Teil stützt sich auf bestehende Samba-Bausteine statt auf Nachbauten:
+The GPO part builds on existing Samba pieces rather than reimplementations:
 
-- `samba.policies.RegistryGroupPolicies` — schreibt Registry.pol, hält GPT.INI und LDAP
-  `versionNumber` synchron und registriert CSE-GUIDs.
-- `samba.dcerpc.preg` + `ndr_pack`/`ndr_unpack` — PReg-Format für Sonderfälle.
-- `samba.gp_parse.*` — Parser für GptTmpl.inf, scripts.ini, \*.pol.
-- `samba.netcmd.gpo` — Referenz für GPO-Anlage inkl. `dsacl2fsacl()` (SYSVOL-ACLs).
+- `samba.policies.RegistryGroupPolicies` — writes Registry.pol, keeps GPT.INI and the LDAP
+  `versionNumber` in step, and registers CSE GUIDs.
+- `samba.dcerpc.preg` + `ndr_pack`/`ndr_unpack` — the PReg format for the special cases.
+- `samba.gp_parse.*` — parsers for GptTmpl.inf, scripts.ini, \*.pol.
+- `samba.netcmd.gpo` — the reference for GPO creation including `dsacl2fsacl()` (SYSVOL ACLs).
 
-## Entwicklung
+## Development
 
-Backend lokal (benötigt `python3-samba` aus der Distribution):
+The backend locally — needs `python3-samba` from the distribution:
 
 ```bash
 python3 -m venv --system-site-packages .venv && .venv/bin/pip install -e "backend[dev]"
 ```
 
-Tests ohne DC — laufen auch ohne `python3-samba` und ohne Container:
+Tests without a DC — these run without `python3-samba` and without a container:
 
 ```bash
 .venv/bin/pytest backend/tests/unit -q
 ```
 
-## Lizenz
+## Licence
 
 AGPL-3.0-or-later.
