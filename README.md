@@ -1,8 +1,9 @@
-# SAMADCON — Samba AD Console
+<p align="center">
+  <img src="docs/brand/samadcon-3a-transparent.svg"
+       alt="SAMADCON — the Samba AD console" width="560">
+</p>
 
-<img src="docs/brand/samadcon-3a-transparent.svg" alt="SAMADCON — the Samba AD console" width="376">
-
-*[Deutsche Fassung](README.de.md)*
+<p align="center"><em><a href="README.de.md">Deutsche Fassung</a></em></p>
 
 A browser-based management console for Samba AD DC domains. It replaces the Windows RSAT tools
 (ADUC, DNS Manager, Sites & Services, GPMC) with a Docker container — **group policy editor
