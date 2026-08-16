@@ -13,12 +13,12 @@ from pathlib import Path
 
 import pytest
 
-from samcon.auth.kerberos import CRED_SPECIFIED, ccache_url
+from samadcon.auth.kerberos import CRED_SPECIFIED, ccache_url
 
 
 def test_a_bare_path_gets_the_file_prefix():
     # Built from parts so the assertion holds on any platform's separator.
-    path = Path("/dev/shm/samcon-ccache/tkt-abc")
+    path = Path("/dev/shm/samadcon-ccache/tkt-abc")
     assert ccache_url(path) == f"FILE:{path}"
     assert ccache_url(path).startswith("FILE:")
 
@@ -34,7 +34,7 @@ def test_a_string_path_works_too():
         "DIR:/run/user/1000/krb5cc",
         "KEYRING:persistent:1000",
         "KCM:1000",
-        "MEMORY:samcon",
+        "MEMORY:samadcon",
     ],
 )
 def test_an_existing_type_prefix_is_left_alone(name: str):

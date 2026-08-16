@@ -1,5 +1,5 @@
 /**
- * The consoles SAMCON offers, as MMC presents them: each snap-in is a root of
+ * The consoles SAMADCON offers, as MMC presents them: each snap-in is a root of
  * the navigation tree rather than a separate page.
  *
  * The ones that are not built yet are listed on purpose. An administrator

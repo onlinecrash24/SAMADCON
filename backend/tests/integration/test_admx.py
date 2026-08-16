@@ -27,7 +27,7 @@ TEMPLATE_ADMX = """<?xml version="1.0" encoding="utf-8"?>
 <policyDefinitions revision="1.0" schemaVersion="1.0"
     xmlns="http://schemas.microsoft.com/GroupPolicy/2006/07/PolicyDefinitions">
   <policyNamespaces>
-    <target prefix="samcon" namespace="SAMCON.Test.Policies" />
+    <target prefix="samadcon" namespace="SAMADCON.Test.Policies" />
   </policyNamespaces>
   <resources minRequiredRevision="1.0" />
   <supportedOn>
@@ -36,14 +36,14 @@ TEMPLATE_ADMX = """<?xml version="1.0" encoding="utf-8"?>
     </definitions>
   </supportedOn>
   <categories>
-    <category name="SamconTest" displayName="$(string.SamconTest)" />
+    <category name="SamadconTest" displayName="$(string.SamadconTest)" />
   </categories>
   <policies>
     <policy name="TestSetting" class="Machine" displayName="$(string.TestSetting)"
             explainText="$(string.TestSetting_Help)" presentation="$(presentation.TestSetting)"
-            key="Software\\Policies\\SAMCON\\Test" valueName="Enabled">
-      <parentCategory ref="SamconTest" />
-      <supportedOn ref="samcon:SUPPORTED_Any" />
+            key="Software\\Policies\\SAMADCON\\Test" valueName="Enabled">
+      <parentCategory ref="SamadconTest" />
+      <supportedOn ref="samadcon:SUPPORTED_Any" />
       <elements>
         <decimal id="Interval" valueName="Interval" minValue="1" maxValue="24" />
         <text id="Server" valueName="Server" maxLength="64" />
@@ -64,11 +64,11 @@ TEMPLATE_ADMX = """<?xml version="1.0" encoding="utf-8"?>
 TEMPLATE_ADML = """<?xml version="1.0" encoding="utf-8"?>
 <policyDefinitionResources revision="1.0" schemaVersion="1.0"
     xmlns="http://schemas.microsoft.com/GroupPolicy/2006/07/PolicyDefinitions">
-  <displayName>SAMCON test settings</displayName>
-  <description>Administrative template used by the SAMCON integration tests.</description>
+  <displayName>SAMADCON test settings</displayName>
+  <description>Administrative template used by the SAMADCON integration tests.</description>
   <resources>
     <stringTable>
-      <string id="SamconTest">SAMCON test settings</string>
+      <string id="SamadconTest">SAMADCON test settings</string>
       <string id="TestSetting">A setting for the integration tests</string>
       <string id="TestSetting_Help">Exists only so the tests have something to write.</string>
       <string id="SUPPORTED_Any">Any version</string>
@@ -89,12 +89,12 @@ TEMPLATE_ADML = """<?xml version="1.0" encoding="utf-8"?>
 # own, only references into these.
 TEMPLATE_ADML_DE = (
     TEMPLATE_ADML.replace(
-        "<displayName>SAMCON test settings</displayName>",
-        "<displayName>SAMCON-Testeinstellungen</displayName>",
+        "<displayName>SAMADCON test settings</displayName>",
+        "<displayName>SAMADCON-Testeinstellungen</displayName>",
     )
     .replace(
-        '<string id="SamconTest">SAMCON test settings</string>',
-        '<string id="SamconTest">SAMCON-Testeinstellungen</string>',
+        '<string id="SamadconTest">SAMADCON test settings</string>',
+        '<string id="SamadconTest">SAMADCON-Testeinstellungen</string>',
     )
     .replace(
         '<string id="TestSetting">A setting for the integration tests</string>',
@@ -102,9 +102,9 @@ TEMPLATE_ADML_DE = (
     )
 )
 
-POLICY_ID = "SAMCON.Test.Policies:TestSetting"
-POLICY_KEY = "Software\\Policies\\SAMCON\\Test"
-CATEGORY_ID = "SAMCON.Test.Policies:SamconTest"
+POLICY_ID = "SAMADCON.Test.Policies:TestSetting"
+POLICY_KEY = "Software\\Policies\\SAMADCON\\Test"
+CATEGORY_ID = "SAMADCON.Test.Policies:SamadconTest"
 
 
 def quoted(value: str) -> str:
@@ -114,9 +114,9 @@ def quoted(value: str) -> str:
 def package() -> bytes:
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as archive:
-        archive.writestr("samcon-test.admx", TEMPLATE_ADMX)
-        archive.writestr("en-US/samcon-test.adml", TEMPLATE_ADML)
-        archive.writestr("de-DE/samcon-test.adml", TEMPLATE_ADML_DE)
+        archive.writestr("samadcon-test.admx", TEMPLATE_ADMX)
+        archive.writestr("en-US/samadcon-test.adml", TEMPLATE_ADML)
+        archive.writestr("de-DE/samadcon-test.adml", TEMPLATE_ADML_DE)
     return buffer.getvalue()
 
 
@@ -124,13 +124,13 @@ def package() -> bytes:
 def templates(api):
     """Our test template, installed in the domain's central store.
 
-    Left there afterwards: removing templates is not something SAMCON offers,
+    Left there afterwards: removing templates is not something SAMADCON offers,
     and one extra definition in a store is harmless — it describes a setting
     under a key nothing reads.
     """
     response = api.post(
         "/api/v1/admx/store?overwrite=true",
-        files={"files": ("samcon-test.zip", package(), "application/zip")},
+        files={"files": ("samadcon-test.zip", package(), "application/zip")},
     )
     if response.status_code != 200:
         pytest.skip(f"cannot install a template: {response.text}")
@@ -140,7 +140,7 @@ def templates(api):
 @pytest.fixture
 def test_gpo(api, templates):
     response = api.post(
-        "/api/v1/gpos", json={"display_name": f"SAMCON admx {uuid.uuid4().hex[:8]}"}
+        "/api/v1/gpos", json={"display_name": f"SAMADCON admx {uuid.uuid4().hex[:8]}"}
     )
     if response.status_code != 200:
         pytest.skip(f"cannot create a group policy: {response.text}")
@@ -159,7 +159,7 @@ def test_the_store_reports_what_is_installed(api, templates):
     described = api.get("/api/v1/admx/store").json()
 
     assert described["present"] is True
-    assert "samcon-test.admx" in [item["name"] for item in described["templates"]]
+    assert "samadcon-test.admx" in [item["name"] for item in described["templates"]]
     assert "en-US" in described["languages"]
 
 
@@ -175,14 +175,14 @@ def test_a_template_windows_cannot_read_never_reaches_the_store(api, templates):
 
     response = api.post(
         "/api/v1/admx/store?overwrite=true",
-        files={"files": ("samcon-broken.admx", broken.encode(), "text/xml")},
+        files={"files": ("samadcon-broken.admx", broken.encode(), "text/xml")},
     )
 
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "invalid_template"
 
     described = api.get("/api/v1/admx/store").json()
-    assert "samcon-broken.admx" not in [item["name"] for item in described["templates"]]
+    assert "samadcon-broken.admx" not in [item["name"] for item in described["templates"]]
 
 
 def test_a_package_with_one_bad_file_leaves_nothing_behind(api, templates):
@@ -193,29 +193,29 @@ def test_a_package_with_one_bad_file_leaves_nothing_behind(api, templates):
     a malformed file, arrived at from the other side. So the whole package is
     checked before any of it is written.
     """
-    broken_adml = TEMPLATE_ADML.replace("<displayName>SAMCON test settings</displayName>", "")
+    broken_adml = TEMPLATE_ADML.replace("<displayName>SAMADCON test settings</displayName>", "")
 
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as archive:
-        archive.writestr("samcon-partial.admx", TEMPLATE_ADMX)
-        archive.writestr("en-US/samcon-partial.adml", broken_adml)
+        archive.writestr("samadcon-partial.admx", TEMPLATE_ADMX)
+        archive.writestr("en-US/samadcon-partial.adml", broken_adml)
 
     response = api.post(
         "/api/v1/admx/store?overwrite=true",
-        files={"files": ("samcon-partial.zip", buffer.getvalue(), "application/zip")},
+        files={"files": ("samadcon-partial.zip", buffer.getvalue(), "application/zip")},
     )
 
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "invalid_template"
 
     described = api.get("/api/v1/admx/store").json()
-    assert "samcon-partial.admx" not in [item["name"] for item in described["templates"]]
+    assert "samadcon-partial.admx" not in [item["name"] for item in described["templates"]]
 
 
 def test_the_installed_template_is_one_windows_can_read(api, templates):
     """Our own template, through the same check the upload applies."""
     described = api.get("/api/v1/admx/store").json()
-    assert "samcon-test.admx" in [item["name"] for item in described["templates"]]
+    assert "samadcon-test.admx" in [item["name"] for item in described["templates"]]
 
 
 def test_a_template_lands_where_the_domain_expects_it(api, templates, domain):
@@ -233,7 +233,7 @@ def test_the_installed_category_shows_up_in_the_tree(api, templates):
     tree = api.get("/api/v1/admx/tree?half=Machine").json()
 
     names = [item["display_name"] for item in tree["categories"]]
-    assert "SAMCON test settings" in names, names
+    assert "SAMADCON test settings" in names, names
 
 
 def test_the_setting_is_listed_under_its_category(api, templates):
@@ -627,7 +627,7 @@ def test_the_filter_leaves_only_the_branches_that_lead_somewhere(api, test_gpo):
 
     filtered = tree(api, test_gpo, configured=True)
     names = [item["display_name"] for item in filtered["categories"]]
-    assert names == ["SAMCON test settings"], names
+    assert names == ["SAMADCON test settings"], names
     # The count is what is configured below, not what the category holds.
     assert filtered["categories"][0]["policy_count"] == 1
     assert len(unfiltered["categories"]) > len(filtered["categories"])

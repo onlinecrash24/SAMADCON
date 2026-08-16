@@ -1,6 +1,6 @@
 """Group policy against a live domain controller.
 
-This is the first part of SAMCON that talks SMB as well as LDAP, and the two
+This is the first part of SAMADCON that talks SMB as well as LDAP, and the two
 halves have to end up agreeing. What unit tests cannot show is whether the
 SYSVOL side is reachable at all with the session's ticket, whether the files
 land where the directory says they do, and whether the permissions derived
@@ -24,7 +24,7 @@ def quoted(value: str) -> str:
 
 
 def policy_name() -> str:
-    return f"SAMCON test {uuid.uuid4().hex[:8]}"
+    return f"SAMADCON test {uuid.uuid4().hex[:8]}"
 
 
 @pytest.fixture

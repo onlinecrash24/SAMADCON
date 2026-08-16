@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from samcon.gpo.admx import store
+from samadcon.gpo.admx import store
 
 # ---------------------------------------------------------------------------
 # Language

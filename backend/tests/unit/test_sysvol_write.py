@@ -8,7 +8,7 @@ the message says "attribute"; it cost an afternoon of reading ACLs that were
 correct all along.
 
 Covered here rather than against a domain because every policy the integration
-tests touch was created by SAMCON with plain attributes — which is exactly why
+tests touch was created by SAMADCON with plain attributes — which is exactly why
 none of them saw this.
 """
 
@@ -16,8 +16,8 @@ from __future__ import annotations
 
 import pytest
 
-from samcon.core.errors import SamconError
-from samcon.gpo.sysvol import SysvolConnection
+from samadcon.core.errors import SamadconError
+from samadcon.gpo.sysvol import SysvolConnection
 
 ACCESS_DENIED = "NT_STATUS_ACCESS_DENIED"
 SHARING_VIOLATION = "NT_STATUS_SHARING_VIOLATION"
@@ -165,7 +165,7 @@ def test_a_file_held_open_elsewhere_is_still_replaced():
 def test_another_refusal_is_not_swallowed():
     conn = FakeConn(refuse_savefile="NT_STATUS_DISK_FULL")
 
-    with pytest.raises(SamconError) as raised:
+    with pytest.raises(SamadconError) as raised:
         share(conn).write("a\\b.ini", b"hello")
 
     assert conn.opened == []

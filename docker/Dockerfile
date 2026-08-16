@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 #
-# SAMCON — Samba AD Console
+# SAMADCON — Samba AD Console
 #
 # Debian instead of Alpine on purpose: the runtime needs python3-samba, which
 # exists only as a distribution package. There is no PyPI equivalent, and
@@ -33,11 +33,11 @@ RUN npm run build
 # ---------------------------------------------------------------------------
 FROM debian:${DEBIAN_RELEASE}-slim AS runtime
 
-ARG SAMCON_VERSION=0.1.0
+ARG SAMADCON_VERSION=0.1.0
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    SAMCON_VERSION=${SAMCON_VERSION}
+    SAMADCON_VERSION=${SAMADCON_VERSION}
 
 # python3-samba pulls in the LDAP/SMB/NDR bindings, samba-common-bin gives us
 # samba-tool for cross-checking, krb5-user gives us klist/kinit for diagnostics.
@@ -67,35 +67,35 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN python3 -m venv --system-site-packages /opt/venv
 ENV PATH="/opt/venv/bin:${PATH}"
 
-WORKDIR /opt/samcon
+WORKDIR /opt/samadcon
 
 COPY backend/pyproject.toml ./
-COPY backend/samcon ./samcon
+COPY backend/samadcon ./samadcon
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir .
 
-COPY --from=frontend /build/dist /srv/samcon/www
-COPY docker/nginx.conf.template /etc/samcon/nginx.conf.template
-COPY docker/supervisord.conf /etc/samcon/supervisord.conf
+COPY --from=frontend /build/dist /srv/samadcon/www
+COPY docker/nginx.conf.template /etc/samadcon/nginx.conf.template
+COPY docker/supervisord.conf /etc/samadcon/supervisord.conf
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Non-root. The ccache directory lives on tmpfs and is created by the
 # entrypoint, since /dev/shm is mounted fresh on every start.
-# The tls/ca/servers directories must exist in the image and belong to samcon:
+# The tls/ca/servers directories must exist in the image and belong to samadcon:
 # docker seeds a named volume from the image directory, permissions included.
-# Without them, a volume mounted at /etc/samcon/tls arrives owned by root and
+# Without them, a volume mounted at /etc/samadcon/tls arrives owned by root and
 # the entrypoint cannot write the fallback certificate.
-RUN groupadd --gid 1000 samcon \
-    && useradd --uid 1000 --gid 1000 --home-dir /var/lib/samcon --create-home samcon \
-    && mkdir -p /var/lib/samcon/tls /var/log/samcon /var/cache/samcon \
-                /etc/samcon/tls /etc/samcon/ca /etc/samcon/servers \
-                /var/lib/nginx /var/log/nginx /run/samcon \
-    && chown -R samcon:samcon /var/lib/samcon /var/log/samcon /var/cache/samcon \
-                              /etc/samcon /var/lib/nginx /var/log/nginx /run/samcon \
-                              /srv/samcon
+RUN groupadd --gid 1000 samadcon \
+    && useradd --uid 1000 --gid 1000 --home-dir /var/lib/samadcon --create-home samadcon \
+    && mkdir -p /var/lib/samadcon/tls /var/log/samadcon /var/cache/samadcon \
+                /etc/samadcon/tls /etc/samadcon/ca /etc/samadcon/servers \
+                /var/lib/nginx /var/log/nginx /run/samadcon \
+    && chown -R samadcon:samadcon /var/lib/samadcon /var/log/samadcon /var/cache/samadcon \
+                              /etc/samadcon /var/lib/nginx /var/log/nginx /run/samadcon \
+                              /srv/samadcon
 
-USER samcon
+USER samadcon
 
 # Ports above 1024 so nginx can bind without extra capabilities.
 EXPOSE 8080 8443
@@ -110,13 +110,13 @@ CMD ["supervisor"]
 # Stage 3 — test image
 #
 # Adds the test suite and pytest on top of the runtime image, so integration
-# tests exercise exactly the image that ships. Selected with SAMCON_TARGET=test
+# tests exercise exactly the image that ships. Selected with SAMADCON_TARGET=test
 # in .env, which docker-compose.yml passes through as the build target.
 # ---------------------------------------------------------------------------
 FROM runtime AS test
 
 USER root
-COPY backend/tests /opt/samcon/tests
+COPY backend/tests /opt/samadcon/tests
 RUN pip install --no-cache-dir "pytest>=8.2" "pytest-asyncio>=0.23" "httpx>=0.27" \
-    && chown -R samcon:samcon /opt/samcon
-USER samcon
+    && chown -R samadcon:samadcon /opt/samadcon
+USER samadcon

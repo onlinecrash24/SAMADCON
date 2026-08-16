@@ -1,4 +1,4 @@
-"""Which address SAMCON binds to, and how failures are reported.
+"""Which address SAMADCON binds to, and how failures are reported.
 
 Both matter for signing in through an IP address: Kerberos issues tickets for
 ldap/<hostname>@REALM, and when a bind fails the reason lives in Samba's own
@@ -7,9 +7,9 @@ message rather than in our summary of it.
 
 from __future__ import annotations
 
-from samcon.ad.connection import discover_dcs
-from samcon.ad.target import ConnectionTarget
-from samcon.core import errors
+from samadcon.ad.connection import discover_dcs
+from samadcon.ad.target import ConnectionTarget
+from samadcon.core import errors
 
 LdbError = type("LdbError", (Exception,), {})
 

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from samcon.core.errors import InvalidRequest
-from samcon.gpo import container, sysvol
+from samadcon.core.errors import InvalidRequest
+from samadcon.gpo import container, sysvol
 
 GUID = "{A1B2C3D4-1111-2222-3333-444455556666}"
 

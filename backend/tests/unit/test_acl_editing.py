@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from samcon.ad import delegation, rights, sacl
-from samcon.core.errors import Conflict, InvalidRequest, NotFound
+from samadcon.ad import delegation, rights, sacl
+from samadcon.core.errors import Conflict, InvalidRequest, NotFound
 
 # A realistic descriptor: owner, group, an inherited allow ACE, a deny ACE and
 # an object ACE granting the "reset password" extended right.

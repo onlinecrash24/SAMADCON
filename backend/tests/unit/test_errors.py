@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from samcon.core import errors
+from samadcon.core import errors
 
 
 class FakeLdbError(Exception):
@@ -132,7 +132,7 @@ def test_clock_skew_hint_mentions_time_sync():
     assert "ntp" in (error.hint or "").lower()
 
 
-def test_samcon_errors_pass_through_unchanged():
+def test_samadcon_errors_pass_through_unchanged():
     original = errors.NotFound("gone")
     assert errors.translate(original) is original
 

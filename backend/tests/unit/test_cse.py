@@ -12,7 +12,7 @@ asks for.
 
 from __future__ import annotations
 
-from samcon.gpo import cse
+from samadcon.gpo import cse
 
 CSE = "{35378EAC-683F-11D2-A89A-00C04FBBCFA2}"
 OTHER = "{827D319E-6EAC-11D2-A4EA-00C04F79F83A}"

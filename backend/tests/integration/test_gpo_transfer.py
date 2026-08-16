@@ -23,7 +23,7 @@ def quoted(value: str) -> str:
 
 
 def policy_name() -> str:
-    return f"SAMCON test {uuid.uuid4().hex[:8]}"
+    return f"SAMADCON test {uuid.uuid4().hex[:8]}"
 
 
 @pytest.fixture
@@ -211,7 +211,7 @@ def test_a_backup_contains_the_policy_files(api, test_gpo):
     names = set(archive.namelist())
 
     assert "GPT.INI" in names
-    assert "samcon-backup.json" in names
+    assert "samadcon-backup.json" in names
 
 
 def test_an_extension_file_is_written_only_when_there_is_something_in_it(api):
@@ -238,7 +238,7 @@ def test_a_backup_names_the_policy_it_came_from(api, test_gpo):
 
     import json
 
-    manifest = json.loads(archive.read("samcon-backup.json"))
+    manifest = json.loads(archive.read("samadcon-backup.json"))
     assert manifest["guid"] == test_gpo["guid"]
     assert manifest["display_name"] == test_gpo["display_name"]
 

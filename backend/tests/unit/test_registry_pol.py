@@ -12,8 +12,8 @@ import base64
 
 import pytest
 
-from samcon.core.errors import InvalidRequest
-from samcon.gpo import registry_pol as pol
+from samadcon.core.errors import InvalidRequest
+from samadcon.gpo import registry_pol as pol
 
 # ---------------------------------------------------------------------------
 # Types

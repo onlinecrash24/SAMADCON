@@ -33,7 +33,7 @@ def quoted(value: str) -> str:
 @pytest.fixture
 def gpo(api):
     response = api.post(
-        "/api/v1/gpos", json={"display_name": f"SAMCON pref {uuid.uuid4().hex[:8]}"}
+        "/api/v1/gpos", json={"display_name": f"SAMADCON pref {uuid.uuid4().hex[:8]}"}
     )
     if response.status_code != 200:
         pytest.skip(f"cannot create a group policy: {response.text}")
@@ -65,7 +65,7 @@ REGISTRY_ITEM = {
     "action": "U",
     "properties": {
         "hive": "HKEY_LOCAL_MACHINE",
-        "key": "SOFTWARE\\SAMCON",
+        "key": "SOFTWARE\\SAMADCON",
         "name": "Probe",
         "type": "REG_SZ",
         "value": "hallo",
@@ -143,7 +143,7 @@ def test_a_multi_sz_keeps_its_lines(api, gpo):
         [
             {
                 "action": "U",
-                "properties": {"key": "SOFTWARE\\SAMCON", "name": "Liste", "type": "REG_MULTI_SZ"},
+                "properties": {"key": "SOFTWARE\\SAMADCON", "name": "Liste", "type": "REG_MULTI_SZ"},
                 "values": ["eins", "zwei", "drei"],
             }
         ],
@@ -163,7 +163,7 @@ def test_a_dword_is_stored_as_eight_hex_digits(api, gpo):
         [
             {
                 "action": "U",
-                "properties": {"key": "SOFTWARE\\SAMCON", "name": "Zahl", "type": "REG_DWORD",
+                "properties": {"key": "SOFTWARE\\SAMADCON", "name": "Zahl", "type": "REG_DWORD",
                                "value": "255"},
             }
         ],
@@ -278,7 +278,7 @@ def test_an_edit_keeps_the_item_and_its_uid(api, gpo):
     assert after["uid"] == stored["uid"]
     assert after["properties"]["value"] == "anders"
     # Everything not sent came from the file rather than from a default.
-    assert after["properties"]["key"] == "SOFTWARE\\SAMCON"
+    assert after["properties"]["key"] == "SOFTWARE\\SAMADCON"
 
 
 def test_the_halves_do_not_overwrite_each_other(api, gpo):
@@ -288,7 +288,7 @@ def test_the_halves_do_not_overwrite_each_other(api, gpo):
         gpo,
         "registry",
         "User",
-        [{"action": "U", "properties": {"hive": "HKEY_CURRENT_USER", "key": "SOFTWARE\\SAMCON",
+        [{"action": "U", "properties": {"hive": "HKEY_CURRENT_USER", "key": "SOFTWARE\\SAMADCON",
                                         "name": "Benutzer", "type": "REG_SZ", "value": "du"}}],
     )
 
@@ -379,13 +379,13 @@ def test_two_printer_kinds_share_one_file(api, gpo):
             {
                 "kind": "port",
                 "action": "C",
-                "properties": {"ipAddress": "192.168.1.50", "localName": "SAMCON-IP",
+                "properties": {"ipAddress": "192.168.1.50", "localName": "SAMADCON-IP",
                                "path": "\\\\dc1\\Probe"},
             },
             {
                 "kind": "local",
                 "action": "C",
-                "properties": {"name": "SAMCON-Lokal", "port": "LPT1:", "location": "Buero"},
+                "properties": {"name": "SAMADCON-Lokal", "port": "LPT1:", "location": "Buero"},
             },
         ],
     )
@@ -404,12 +404,12 @@ def test_an_environment_variable_states_its_value_in_the_status(api, gpo):
         gpo,
         "environment",
         "Machine",
-        [{"action": "U", "properties": {"name": "SAMCON_PROBE", "value": "eins"}}],
+        [{"action": "U", "properties": {"name": "SAMADCON_PROBE", "value": "eins"}}],
     )
 
     item = read(api, gpo, "environment", "Machine")["items"][0]
-    assert item["name"] == "SAMCON_PROBE"
-    assert item["status"] == "SAMCON_PROBE = eins"
+    assert item["name"] == "SAMADCON_PROBE"
+    assert item["status"] == "SAMADCON_PROBE = eins"
 
 
 def test_a_shared_printer_in_the_computer_half_is_refused(api, gpo):
@@ -446,7 +446,7 @@ def test_a_group_keeps_its_members(api, gpo):
             {
                 "kind": "group",
                 "action": "C",
-                "properties": {"groupName": "SAMCON-Probe", "description": "Probe"},
+                "properties": {"groupName": "SAMADCON-Probe", "description": "Probe"},
                 "members": [
                     {"name": "EXAMPLE\\Domain Admins", "action": "ADD"},
                     {"name": "EXAMPLE\\Domain Users", "action": "REMOVE"},
@@ -457,7 +457,7 @@ def test_a_group_keeps_its_members(api, gpo):
     assert response.status_code == 200, response.text
 
     item = read(api, gpo, "groups", "Machine")["items"][0]
-    assert item["name"] == "SAMCON-Probe"
+    assert item["name"] == "SAMADCON-Probe"
     assert [(member["name"], member["action"]) for member in item["members"]] == [
         ("EXAMPLE\\Domain Admins", "ADD"),
         ("EXAMPLE\\Domain Users", "REMOVE"),
@@ -467,7 +467,7 @@ def test_a_group_keeps_its_members(api, gpo):
 
 
 def test_a_local_user_gets_no_password(api, gpo):
-    """GPMC itself warns that cpassword is a known security risk. SAMCON
+    """GPMC itself warns that cpassword is a known security risk. SAMADCON
     writes it empty and refuses anything sent for it."""
     write(
         api,
@@ -478,7 +478,7 @@ def test_a_local_user_gets_no_password(api, gpo):
             {
                 "kind": "user",
                 "action": "U",
-                "properties": {"userName": "samcon-probe", "cpassword": "AAAA"},
+                "properties": {"userName": "samadcon-probe", "cpassword": "AAAA"},
             }
         ],
     )

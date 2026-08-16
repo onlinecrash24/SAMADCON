@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from samcon.gpo import transfer, wmi
+from samadcon.gpo import transfer, wmi
 
 # ---------------------------------------------------------------------------
 # Archive member names

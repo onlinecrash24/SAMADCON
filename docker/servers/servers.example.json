@@ -4,7 +4,7 @@
     "label": "Produktion",
     "hosts": ["dc1.example.lan", "dc2.example.lan"],
     "realm": "EXAMPLE.LAN",
-    "ca_file": "/etc/samcon/ca/example.pem"
+    "ca_file": "/etc/samadcon/ca/example.pem"
   },
   {
     "id": "lab",

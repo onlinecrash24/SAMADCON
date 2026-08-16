@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 132" width="520" height="132" fill="none" font-family="Inter, sans-serif">
+  <g transform="translate(6 6)">
+    <path d="M40 14 H20 V106 H40" stroke="#3a3d52" stroke-width="4.5" stroke-linecap="square"></path>
+    <path d="M80 14 H100 V106 H80" stroke="#3a3d52" stroke-width="4.5" stroke-linecap="square"></path>
+    <path d="M78 32 H42 V60 H78 V88 H42" stroke="#9184d9" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"></path>
+    <circle cx="42" cy="32" r="7" fill="none" stroke="#9184d9" stroke-width="5"></circle>
+    <circle cx="78" cy="60" r="4.5" fill="#e9e9ed"></circle>
+    <circle cx="42" cy="88" r="4.5" fill="#e9e9ed"></circle>
+  </g>
+  <text x="146" y="66" fill="#e9e9ed" font-size="40" font-weight="500" letter-spacing="8">SAMADCON</text>
+  <text x="148" y="92" fill="#8c8fa3" font-size="12" font-weight="400" letter-spacing="3.6">SAMBA AD CONSOLE</text>
+</svg>

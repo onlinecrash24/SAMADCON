@@ -18,8 +18,8 @@ from pathlib import Path
 
 import pytest
 
-from samcon.ad.connection import TRANSPORTS
-from samcon.auth.kerberos import apply_transport_settings
+from samadcon.ad.connection import TRANSPORTS
+from samadcon.auth.kerberos import apply_transport_settings
 
 
 class FakeLoadParm:
@@ -60,7 +60,7 @@ def test_plain_ldap_never_goes_unencrypted(lp: FakeLoadParm):
 
 def test_plain_ldap_ignores_certificate_settings(lp: FakeLoadParm):
     apply_transport_settings(
-        lp, transport="ldap", ca_file=Path("/etc/samcon/ca/ca.pem"), insecure=False
+        lp, transport="ldap", ca_file=Path("/etc/samadcon/ca/ca.pem"), insecure=False
     )
     assert "tls cafile" not in lp.values
     assert "tls verify peer" not in lp.values
@@ -86,7 +86,7 @@ def test_ldaps_without_a_ca_file_trusts_the_system_store(lp: FakeLoadParm):
 
 def test_ldaps_uses_an_explicit_ca_file(lp: FakeLoadParm):
     apply_transport_settings(
-        lp, transport="ldaps", ca_file=Path("/etc/samcon/ca/ca.pem"), insecure=False
+        lp, transport="ldaps", ca_file=Path("/etc/samadcon/ca/ca.pem"), insecure=False
     )
     assert lp.values["tls verify peer"] == "ca_and_name"
     assert lp.values["tls cafile"].endswith("ca.pem")
@@ -103,7 +103,7 @@ def test_ldaps_insecure_disables_verification(lp: FakeLoadParm):
 def test_ldaps_insecure_configures_no_trust_anchor(lp: FakeLoadParm):
     """Nothing is verified, so naming a CA would only be misleading."""
     apply_transport_settings(
-        lp, transport="ldaps", ca_file=Path("/etc/samcon/ca/ca.pem"), insecure=True
+        lp, transport="ldaps", ca_file=Path("/etc/samadcon/ca/ca.pem"), insecure=True
     )
     assert "tls cafile" not in lp.values
 

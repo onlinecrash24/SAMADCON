@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from samcon.ad import values
+from samadcon.ad import values
 
 
 class FakeElement(list):

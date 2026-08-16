@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import pytest
 
-from samcon.core.errors import InvalidRequest
-from samcon.gpo import vgp
+from samadcon.core.errors import InvalidRequest
+from samadcon.gpo import vgp
 
 
 def roundtrip(policy: str, entries: list[dict]) -> list[dict]:

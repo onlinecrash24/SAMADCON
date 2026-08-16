@@ -10,12 +10,12 @@ from pathlib import Path
 
 import pytest
 
-from samcon.ad import discovery
-from samcon.ad.target import ConnectionTarget
-from samcon.auth.krb5conf import Krb5Configuration
-from samcon.config import ServerProfile, Settings
-from samcon.core.errors import InvalidRequest, SamconError
-from samcon.core.ratelimit import RateLimiter
+from samadcon.ad import discovery
+from samadcon.ad.target import ConnectionTarget
+from samadcon.auth.krb5conf import Krb5Configuration
+from samadcon.config import ServerProfile, Settings
+from samadcon.core.errors import InvalidRequest, SamadconError
+from samadcon.core.ratelimit import RateLimiter
 
 # ---------------------------------------------------------------------------
 # ConnectionTarget
@@ -157,7 +157,7 @@ def test_realm_falls_back_to_the_base_dn():
 
 
 def test_realm_derivation_fails_loudly_when_nothing_is_known():
-    with pytest.raises(SamconError) as excinfo:
+    with pytest.raises(SamadconError) as excinfo:
         discovery._realm_from_rootdse(rootdse(), "")
     assert excinfo.value.code == "realm_undetermined"
 
@@ -323,7 +323,7 @@ def test_profile_realm_is_uppercased(tmp_path: Path):
 @pytest.fixture
 def probed(monkeypatch):
     """Every probe answers, recording which host was asked."""
-    from samcon.ad import targets
+    from samadcon.ad import targets
 
     asked: list[str] = []
 
@@ -360,7 +360,7 @@ def test_the_configured_domain_learns_the_dc_name(probed):
     the failure arrives as NT_STATUS_INVALID_PARAMETER at bind time with
     nothing pointing at the name.
     """
-    from samcon.ad import targets
+    from samadcon.ad import targets
 
     settings = Settings(realm="example.lan", dc_hosts=["192.168.1.10"], _env_file=None)  # type: ignore[call-arg]
     target = targets.resolve_target(settings)
@@ -372,7 +372,7 @@ def test_the_configured_domain_learns_the_dc_name(probed):
 def test_a_probe_that_fails_does_not_block_the_configured_domain(monkeypatch):
     """The realm is already known, so a sign-in that might still work is not
     refused over it — it simply goes ahead without the name."""
-    from samcon.ad import targets
+    from samadcon.ad import targets
 
     def _fail(host, settings, **kwargs):
         raise OSError("no route to host")
@@ -389,7 +389,7 @@ def test_a_probe_that_fails_does_not_block_the_configured_domain(monkeypatch):
 def test_a_domain_discovered_by_dns_is_not_probed(probed):
     """Without a configured host there is nothing to ask; the SRV lookup at
     connect time returns names already."""
-    from samcon.ad import targets
+    from samadcon.ad import targets
 
     settings = Settings(realm="example.lan", dc_hosts=[], _env_file=None)  # type: ignore[call-arg]
     target = targets.resolve_target(settings)
@@ -401,7 +401,7 @@ def test_a_domain_discovered_by_dns_is_not_probed(probed):
 def test_only_addresses_are_reported_as_such():
     """The error that says "check the ports" is wrong when no name was ever
     available, and sends the reader to look at ports that are fine."""
-    from samcon.ad.connection import _is_address
+    from samadcon.ad.connection import _is_address
 
     assert _is_address("192.168.1.10")
     assert _is_address("[2001:db8::1]")
@@ -425,7 +425,7 @@ def test_the_limit_is_enforced_per_key():
     limiter.check("10.0.0.1")
     limiter.check("10.0.0.1")
 
-    with pytest.raises(SamconError) as excinfo:
+    with pytest.raises(SamadconError) as excinfo:
         limiter.check("10.0.0.1")
     assert excinfo.value.code == "rate_limited"
     assert excinfo.value.status_code == 429

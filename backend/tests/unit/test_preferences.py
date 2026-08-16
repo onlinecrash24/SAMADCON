@@ -30,9 +30,16 @@ from __future__ import annotations
 
 import pytest
 
-from samcon.core.errors import InvalidRequest
-from samcon.gpo import cse
-from samcon.gpo.preferences import catalogue, store, xmlfile
+from samadcon.core.errors import InvalidRequest
+from samadcon.gpo import cse
+from samadcon.gpo.preferences import catalogue, store, xmlfile
+
+# The literal "SAMCON" appears throughout the fixtures below and is left alone
+# on purpose. It is not the product's name in them — it is test *data*: a
+# registry key, a printer's local name, a shortcut path, a group, all typed
+# into GPMC when these files were produced. The fixtures are byte-for-byte
+# transcriptions, so rewriting them would falsify what they claim to be and
+# break the one size assertion that survived anonymisation.
 
 # Which half each type is exercised in. Only printers need more than one, and
 # those tests name the half themselves.

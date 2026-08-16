@@ -149,7 +149,7 @@ export const ACCOUNT_FLAGS: string[] = [
 
 /**
  * Options that weaken the account's security. Flagged in the UI so nobody
- * enables one without noticing — this mirrors samcon.ad.uac.DANGEROUS_FLAGS.
+ * enables one without noticing — this mirrors samadcon.ad.uac.DANGEROUS_FLAGS.
  */
 export const DANGEROUS_FLAGS = new Set([
   'password_not_required',

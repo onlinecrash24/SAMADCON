@@ -1,10 +1,10 @@
-# SAMCON — Samba AD Console
+# SAMADCON — Samba AD Console
 
 Browserbasierte Verwaltungskonsole für Samba-AD-DC-Domänen. Ersetzt die Windows-RSAT-Werkzeuge
 (ADUC, DNS-Manager, Sites & Services, GPMC) durch einen Docker-Container — **inklusive
 Gruppenrichtlinien-Editor**, den vergleichbare Projekte auslassen.
 
-SAMCON spricht ausschließlich Standardprotokolle: **LDAPS, Kerberos und SMB**. Der Container muss
+SAMADCON spricht ausschließlich Standardprotokolle: **LDAPS, Kerberos und SMB**. Der Container muss
 nicht auf einem Domänencontroller laufen und greift nie direkt auf dessen Dateisystem zu.
 
 > Status: in Entwicklung. Der Umsetzungsstand steht unter [Meilensteine](#meilensteine).
@@ -16,7 +16,7 @@ komplett aus, und `samba-tool` deckt als CLI-Werkzeug nur einen Teil des Tagesge
 
 ## Sicherheitsmodell
 
-Jeder Administrator meldet sich mit seinem **eigenen AD-Konto** an. SAMCON holt pro Sitzung ein
+Jeder Administrator meldet sich mit seinem **eigenen AD-Konto** an. SAMADCON holt pro Sitzung ein
 Kerberos-TGT in einen sitzungseigenen Credential-Cache auf tmpfs und führt **alle** LDAP- und
 SMB-Operationen mit den Rechten dieses Kontos aus:
 
@@ -31,12 +31,12 @@ Die Domäne wird **bei der Anmeldung** gewählt, nicht beim Start des Containers
 Anmeldemaske stehen zur Auswahl:
 
 - **Freie Eingabe** einer IP-Adresse oder eines Hostnamens,
-- **vorkonfigurierte Domänen** aus `SAMCON_SERVERS_FILE` (siehe
+- **vorkonfigurierte Domänen** aus `SAMADCON_SERVERS_FILE` (siehe
   [servers.example.json](docker/servers/servers.example.json)),
 - **zuletzt verwendete** Server (nur im Browser gespeichert, keine Zugangsdaten),
 - die im Container hinterlegte **Standarddomäne**, falls konfiguriert.
 
-Bei Eingabe einer IP ermittelt SAMCON die Domäne selbst: Ein anonymer rootDSE-Abruf liefert
+Bei Eingabe einer IP ermittelt SAMADCON die Domäne selbst: Ein anonymer rootDSE-Abruf liefert
 Realm, den FQDN des Domänencontrollers und die Naming Contexts. Das ist nötig, weil Kerberos
 Tickets auf `ldap/dc1.example.lan@EXAMPLE.LAN` ausstellt — aus einer nackten IP lässt sich weder
 der SPN noch der Realm ableiten. Anschließend wird eine Kerberos-Konfiguration erzeugt, die genau
@@ -45,7 +45,7 @@ Mehrere Realms werden parallel unterstützt.
 
 ### Transport
 
-SAMCON verbindet sich in zwei Stufen, beide verschlüsselt:
+SAMADCON verbindet sich in zwei Stufen, beide verschlüsselt:
 
 1. **LDAP (389) mit GSSAPI Sign&Seal** — der Kerberos-Sitzungsschlüssel verschlüsselt den Verkehr,
    ganz ohne Zertifikat. Das ist der Weg, den `samba-tool` und die Windows-Werkzeuge gehen, und der
@@ -86,7 +86,7 @@ Samba-AD-Tool/
 │   └── supervisord.conf
 ├── backend/
 │   ├── pyproject.toml
-│   └── samcon/
+│   └── samadcon/
 └── frontend/
     ├── package.json
     ├── package-lock.json
@@ -97,9 +97,9 @@ Samba-AD-Tool/
     └── public/
 ```
 
-`backend/tests/` wird nur gebraucht, wenn mit `SAMCON_TARGET=test` gebaut wird.
+`backend/tests/` wird nur gebraucht, wenn mit `SAMADCON_TARGET=test` gebaut wird.
 
-Nicht mitkopieren: `frontend/node_modules`, `frontend/dist`, `backend/samcon.egg-info`, alle
+Nicht mitkopieren: `frontend/node_modules`, `frontend/dist`, `backend/samadcon.egg-info`, alle
 `__pycache__`, `.venv`. Die `.dockerignore` fängt das ab und hält zugleich Zertifikate und eine
 etwaige lokale `.env` aus dem Image — Konfiguration kommt zur Laufzeit, nie in eine Bildschicht.
 
@@ -113,18 +113,18 @@ zurückfällt, weil eine Variable nicht exportiert war.
 
 | Einstellung | Wofür |
 |---|---|
-| `SAMCON_PUBLIC_HOST` | Der Name, unter dem die Konsole erreichbar ist. Landet als CN und SAN im selbstsignierten Zertifikat und in der HTTPS-Weiterleitung. **Der einzige Wert, den praktisch jede Installation ändern muss.** |
-| `SAMCON_REALM`, `SAMCON_DC_HOSTS` | Vorbelegung der Anmeldemaske. **Auflösbare Namen, keine nackten IP-Adressen** — Kerberos braucht den FQDN des DCs. |
-| `SAMCON_LDAP_CA_FILE` | Die CA des DCs, wenn das LDAPS-Zertifikat geprüft werden soll. |
+| `SAMADCON_PUBLIC_HOST` | Der Name, unter dem die Konsole erreichbar ist. Landet als CN und SAN im selbstsignierten Zertifikat und in der HTTPS-Weiterleitung. **Der einzige Wert, den praktisch jede Installation ändern muss.** |
+| `SAMADCON_REALM`, `SAMADCON_DC_HOSTS` | Vorbelegung der Anmeldemaske. **Auflösbare Namen, keine nackten IP-Adressen** — Kerberos braucht den FQDN des DCs. |
+| `SAMADCON_LDAP_CA_FILE` | Die CA des DCs, wenn das LDAPS-Zertifikat geprüft werden soll. |
 
 Was zur Maschine gehört statt zum Projekt, bleibt als `${VAR:-Vorgabe}` stehen und kommt aus der
-Shell: die Ports, falls 8443 oder 8080 belegt sind, `SAMCON_TARGET=test` für das Testimage, und
+Shell: die Ports, falls 8443 oder 8080 belegt sind, `SAMADCON_TARGET=test` für das Testimage, und
 die `TEST_*`-Werte der Integrationstests. **Ein Kennwort gehört nie in die Compose-Datei** — die
 liegt in der Versionskontrolle.
 
 ### Ablauf
 
-`docker-compose.yml` anpassen, mindestens `SAMCON_PUBLIC_HOST`. Dann:
+`docker-compose.yml` anpassen, mindestens `SAMADCON_PUBLIC_HOST`. Dann:
 
 ```bash
 docker compose up -d --build
@@ -132,7 +132,7 @@ docker compose up -d --build
 
 Für ein echtes Zertifikat `server.crt` und `server.key` nach `docker/tls/` legen. Eine Sache
 dabei: der Container läuft als uid 1000, ein Bind-Mount vom Host gehört root. Ist `docker/tls/`
-nicht beschreibbar, weicht der Entrypoint mit einer Warnung ins Volume `samcon-data` aus — das
+nicht beschreibbar, weicht der Entrypoint mit einer Warnung ins Volume `samadcon-data` aus — das
 Zertifikat liegt dann nicht dort, wo man es sucht. Deshalb einmalig:
 
 ```bash
@@ -146,15 +146,15 @@ docker compose ps
 ```
 
 Der Container hat einen Healthcheck auf `/api/v1/health` und meldet sich nach etwa zwanzig
-Sekunden als `healthy`. Wenn nicht, sagt `docker compose logs samcon` warum. Die Verbindung zum
+Sekunden als `healthy`. Wenn nicht, sagt `docker compose logs samadcon` warum. Die Verbindung zum
 DC lässt sich ohne Zugangsdaten prüfen:
 
 ```bash
-docker compose exec samcon samconctl probe dc1.example.lan
+docker compose exec samadcon samadconctl probe dc1.example.lan
 ```
 
-Aktualisieren ist derselbe Befehl wie das Aufsetzen. Die Volumes `samcon-cache`, `samcon-data`
-und `samcon-logs` — dort liegt der Audit-Verlauf — überleben das:
+Aktualisieren ist derselbe Befehl wie das Aufsetzen. Die Volumes `samadcon-cache`, `samadcon-data`
+und `samadcon-logs` — dort liegt der Audit-Verlauf — überleben das:
 
 ```bash
 docker compose up -d --build
@@ -168,32 +168,32 @@ hat in keiner Datei etwas verloren, die versehentlich mitgesichert werden kann.
 Die Tests liegen im Image, nicht im Mount — dafür braucht es das Build-Ziel `test`:
 
 ```bash
-SAMCON_TARGET=test docker compose up -d --build
+SAMADCON_TARGET=test docker compose up -d --build
 ```
 
 Integrationstests gegen diese Domäne, mit den Zugangsdaten aus der Shell statt aus einer Datei:
 
 ```bash
-TEST_DC_HOST=dc1.example.lan TEST_ADMIN_PASSWORD=... docker compose exec samcon python -m pytest tests/integration -q
+TEST_DC_HOST=dc1.example.lan TEST_ADMIN_PASSWORD=... docker compose exec samadcon python -m pytest tests/integration -q
 ```
 
 > Ein geänderter Test wird beim Bauen ins Image kopiert. Nach jeder Änderung an den Tests also
 > erst `up -d --build`, dann `exec`.
 
 > Die Tests legen Objekte an und löschen sie wieder — jeweils in einer eigenen OU
-> `samcon-test-<zufall>`. Nur gegen eine Testdomäne laufen lassen.
+> `samadcon-test-<zufall>`. Nur gegen eine Testdomäne laufen lassen.
 
 Wenn die Verbindung nicht zustande kommt, beantwortet das CLI im Container die Frage, woran es
 liegt — ohne Zugangsdaten:
 
 ```bash
-docker compose exec samcon samconctl probe 192.168.1.10
+docker compose exec samadcon samadconctl probe 192.168.1.10
 ```
 
 Und mit Anmeldung, den ganzen Weg bis zum rootDSE:
 
 ```bash
-docker compose exec samcon samconctl check --server 192.168.1.10 --insecure
+docker compose exec samadcon samadconctl check --server 192.168.1.10 --insecure
 ```
 
 ## Meilensteine
@@ -215,7 +215,7 @@ Der DNS-Teil aus Meilenstein 2 arbeitet über LDAP statt über die DCE/RPC-Schni
 (`samba-tool dns`): Zonen aus allen drei Partitionen — Domäne, Forest und der alten Ablage
 unter `CN=System` —, Einträge der Typen A, AAAA, CNAME, NS, PTR, MX, SRV und TXT anlegen,
 ändern und löschen, dazu Zonen anlegen und löschen. Ein Name ist in AD **ein** Objekt mit
-allen seinen Einträgen in einem mehrwertigen Attribut; SAMCON zeigt trotzdem eine Zeile je
+allen seinen Einträgen in einem mehrwertigen Attribut; SAMADCON zeigt trotzdem eine Zeile je
 Eintrag und findet den zu ändernden über seine bisherigen Werte wieder. Passt der Eintrag
 nicht mehr, hat ihn jemand anders geändert — dann bricht die Änderung ab, statt zu raten.
 Jede Änderung zieht die SOA-Seriennummer der Zone hoch und stempelt den geschriebenen
@@ -233,7 +233,7 @@ Subnetz darauf zeigt.
 
 **Gruppenrichtlinien** sind der erste Teil, der nicht mehr allein über LDAP läuft: Eine GPO
 besteht aus einem Verzeichnisobjekt und einem Verzeichnisbaum auf der SYSVOL-Freigabe, und
-nichts erzwingt, dass die beiden übereinstimmen. SAMCON legt sie in der Reihenfolge an, die
+nichts erzwingt, dass die beiden übereinstimmen. SAMADCON legt sie in der Reihenfolge an, die
 `samba-tool gpo create` verwendet — Objekt, Dateien, dann die aus dem Objekt abgeleiteten
 SYSVOL-Rechte — und rollt bei einem Fehler die früheren Schritte zurück. Dazu Verknüpfungen
 mit Reihenfolge, Erzwingung und Vererbungssperre, die Sicherheitsfilterung, und ein
@@ -245,7 +245,7 @@ Anlegen, Kopieren, Sichern, Wiederherstellen und Löschen stehen in der Oberflä
 fragt nach und wird abgelehnt, solange noch Verknüpfungen auf die Richtlinie zeigen — die liegen
 auf den Containern und müssen dort entfernt werden, was jede Konsole so hält.
 
-Ist der Container mit `SAMCON_DC_HOSTS` auf eine **IP-Adresse** gesetzt, fragt SAMCON den DC
+Ist der Container mit `SAMADCON_DC_HOSTS` auf eine **IP-Adresse** gesetzt, fragt SAMADCON den DC
 vor der Anmeldung nach seinem eigenen Namen und verbindet sich vorrangig darüber. Das ist keine
 Kosmetik: Kerberos stellt Tickets für `ldap/<Hostname>@REALM` aus, und für eine nackte Adresse
 gibt es keinen solchen Prinzipal. Ohne diesen Schritt scheitert die Anmeldung erst beim Bind,
@@ -256,7 +256,7 @@ mit BOM und CRLF**. Als UTF-8 gespeichert liest der Client Buchstabensalat und f
 aus — ohne Meldung. Innerhalb eines Abschnitts sind die Einträge nummerierte Paare, und die
 Nummern *sind* die Ausführungsreihenfolge: sie müssen lückenlos bei null beginnen, weil Windows
 beim ersten fehlenden Index aufhört. Umsortieren, Löschen und Hinzufügen sind deshalb dieselbe
-Operation — SAMCON schreibt immer die ganze Liste eines Ereignisses.
+Operation — SAMADCON schreibt immer die ganze Liste eines Ereignisses.
 
 Zwei Details stammen aus einer von GPMC erzeugten Datei statt aus der Spezifikation, und beide
 sähen sonst in jedem Diff wie eine Änderung aus, die niemand vorgenommen hat: zwischen BOM und
@@ -264,7 +264,7 @@ erstem Abschnitt steht eine **Leerzeile**, und ein Ereignis ohne Skripte bekommt
 Abschnitt**, nicht etwa einen leeren. Der Unit-Test dazu vergleicht unsere Ausgabe Byte für Byte
 mit dieser Datei.
 
-Wird das letzte Skript einer Hälfte entfernt, trägt SAMCON die Client-Erweiterung wieder aus.
+Wird das letzte Skript einer Hälfte entfernt, trägt SAMADCON die Client-Erweiterung wieder aus.
 Bliebe sie stehen, holte jeder Client die Richtlinie bei jeder Aktualisierung und fände nichts
 darin.
 
@@ -282,12 +282,12 @@ beide nicht wie das aussehen, was sie sind:
 
 Eine Verzeichnisauflistung muss **ausdrücklich nach versteckten und System-Einträgen fragen** —
 sonst fehlen genau diese Dateien, ohne dass etwas fehlschlägt. Der Einstellungsreport zeigte
-dann eine Richtlinie als leerer, als sie ist. SAMCON übergibt dieselbe Maske wie Sambas eigene
+dann eine Richtlinie als leerer, als sie ist. SAMADCON übergibt dieselbe Maske wie Sambas eigene
 `ntacls`- und `gpo`-Werkzeuge.
 
 Und `savefile()` öffnet zum Überschreiben mit normalen Attributen, was SMB bei einer versteckten
 Datei **mit `ACCESS_DENIED` ablehnt** — eine Meldung, die zum Prüfen von ACLs verleitet, die
-völlig in Ordnung sind. SAMCON öffnet stattdessen mit `FILE_OVERWRITE_IF` und nennt dabei die
+völlig in Ordnung sind. SAMADCON öffnet stattdessen mit `FILE_OVERWRITE_IF` und nennt dabei die
 Attribute, die die Datei bereits hat; die Disposition kürzt selbst. Kein `truncate`: das ist in
 den Python-Bindungen ein SMB1-Aufruf und scheitert gegen eine SMB3-Verbindung mit
 `NT_STATUS_REVISION_MISMATCH`. Klappt auch das nicht, wird die Datei ersetzt — das kostet die
@@ -295,13 +295,13 @@ Attribute und steht als Warnung im Protokoll, denn ein Editor, der eine von GPMC
 Richtlinie gar nicht bearbeiten kann, ist das schlechtere Ergebnis.
 
 Gefunden wurde beides erst an einer echten, von GPMC erzeugten Richtlinie. Die Integrationstests
-legen ihre GPOs selbst an, und deren Dateien haben normale Attribute — sie prüfen SAMCON gegen
-SAMCON. Die Schreibpfade sind deshalb zusätzlich als Unit-Tests abgesichert, mit einer Attrappe
+legen ihre GPOs selbst an, und deren Dateien haben normale Attribute — sie prüfen SAMADCON gegen
+SAMADCON. Die Schreibpfade sind deshalb zusätzlich als Unit-Tests abgesichert, mit einer Attrappe
 statt eines Domänencontrollers.
 
 Die SMB-Verbindung braucht eine **s3-LoadParm** (`samba.samba3.param`), nicht die aus
 `samba.param`, die SamDB nimmt. Mit der falschen antwortet `libsmb` mit
-`NT_STATUS_INVALID_PARAMETER_MIX`, ohne den Parameter zu nennen. `samconctl sysvol` prüft
+`NT_STATUS_INVALID_PARAMETER_MIX`, ohne den Parameter zu nennen. `samadconctl sysvol` prüft
 diesen Pfad einzeln.
 
 Die **Sicherung** ist ein ZIP mit dem SYSVOL-Baum und den beiden `.SAMBAEXT`-Dateien unter
@@ -310,10 +310,10 @@ nicht angenommen. Eine leere `.SAMBAEXT`-Datei wird dabei nicht geschrieben: LDB
 Attribut ohne Wert ab, und ein Archiv mit einer solchen Datei ließe sich mit `samba-tool`
 überhaupt nicht einspielen.
 
-**Administrative Vorlagen** (Meilenstein 4a) liest SAMCON aus dem Central Store auf SYSVOL —
+**Administrative Vorlagen** (Meilenstein 4a) liest SAMADCON aus dem Central Store auf SYSVOL —
 `.admx` samt sprachpassender `.adml`, einmal je Domäne geparst und gecacht — und erzeugt daraus
 die Eingabemasken. Beim Schreiben übernimmt Sambas `RegistryGroupPolicies` die `Registry.pol`,
-die `GPT.INI` und `versionNumber`; SAMCON steuert zwei Dinge bei, die es nicht tut: die
+die `GPT.INI` und `versionNumber`; SAMADCON steuert zwei Dinge bei, die es nicht tut: die
 Registrierung der Client-Erweiterung in `gPCMachineExtensionNames` und deren vorgeschriebene
 Sortierung. Eine Richtlinie, deren Werte geschrieben, deren CSE aber nicht eingetragen ist,
 wird von keinem Client gelesen — sichtbar in jeder Konsole, wirkungslos, ohne Fehlermeldung.
@@ -338,7 +338,7 @@ Spezifikation abgeleitet: Ein „Aus", das ADMX als `<delete/>` ausdrückt, schr
 Wert wegzuwerfen, den er vielleicht schon hat. Und in `versionNumber` steht die
 **Computerversion im niedrigen Halbwort**, die Benutzerversion im hohen.
 
-Der Richtlinienbaum folgt der **Sprache der Oberfläche**: auf Deutsch liest SAMCON die Texte
+Der Richtlinienbaum folgt der **Sprache der Oberfläche**: auf Deutsch liest SAMADCON die Texte
 aus `de-DE`, auf Englisch aus `en-US`. Die Definitionen selbst enthalten keinen einzigen
 sichtbaren Text — jeder Name im Baum kommt aus einem Sprachverzeichnis, weshalb das die ganze
 Übersetzung ist. Fehlt das gewünschte Verzeichnis, nimmt der Server dieselbe Sprache aus einer
@@ -386,7 +386,7 @@ Rollen zu übernehmen oder Replikation zu erzwingen gehört bewusst nicht dazu �
 ## Aufbau
 
 ```
-backend/samcon/     FastAPI-Anwendung
+backend/samadcon/     FastAPI-Anwendung
   core/             Executor (ein Worker-Thread je Sitzung), Audit, Fehlerübersetzung, Ratelimit
   auth/             Kerberos-TGT, krb5.conf für mehrere Realms, Sessions, CSRF
   ad/               LDAP-Zugriff: Verbindungsziele, Server-Probe, Verzeichnis, ACLs
@@ -399,7 +399,7 @@ docker/             Dockerfile, Entrypoint, nginx, supervisord
 ```
 
 Die Samba-Python-Bibliotheken sind blockierend und nicht threadsicher. Alle Samba-Aufrufe laufen
-deshalb ausschließlich über `samcon/core/executor.py` (Threadpool mit Sperre je Sitzung) — nie
+deshalb ausschließlich über `samadcon/core/executor.py` (Threadpool mit Sperre je Sitzung) — nie
 direkt aus einem Router.
 
 ## Technische Grundlage

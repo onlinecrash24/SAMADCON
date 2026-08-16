@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import pytest
 
-from samcon.core.errors import InvalidRequest
-from samcon.gpo import registry_pol
-from samcon.gpo.admx.model import Element, EnumItem, Policy, Value, ValueItem
-from samcon.gpo.admx.resolver import Entry, claims, entries_for, plan, state_of
+from samadcon.core.errors import InvalidRequest
+from samadcon.gpo import registry_pol
+from samadcon.gpo.admx.model import Element, EnumItem, Policy, Value, ValueItem
+from samadcon.gpo.admx.resolver import Entry, claims, entries_for, plan, state_of
 
 KEY = "Software\\Policies\\Example"
 
@@ -622,7 +622,7 @@ def test_a_checkbox_switched_off_by_a_marker_reads_back_as_unticked():
 
 def test_a_marker_belongs_to_whoever_owns_the_value():
     """So that setting the policy back to not configured takes it away too."""
-    from samcon.gpo.admx.resolver import claims
+    from samadcon.gpo.admx.resolver import claims
 
     assert claims(make_policy(), KEY, "**del.Enabled") is True
     assert claims(make_policy(), KEY, "**del.SomethingElse") is False

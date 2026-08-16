@@ -12,8 +12,8 @@ from typing import Any
 
 import pytest
 
-from samcon.ad.directory import get_attributes
-from samcon.core.errors import NotFound
+from samadcon.ad.directory import get_attributes
+from samadcon.core.errors import NotFound
 
 
 class FakeDn:

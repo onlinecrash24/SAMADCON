@@ -8,7 +8,7 @@ listing instead of relying on it.
 
 from __future__ import annotations
 
-from samcon.gpo import report
+from samadcon.gpo import report
 
 
 def entry(path: str, *, directory: bool = False) -> dict:

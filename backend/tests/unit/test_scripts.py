@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import pytest
 
-from samcon.core.errors import InvalidRequest
-from samcon.gpo import scripts
-from samcon.gpo.scripts import EVENTS, Script
+from samadcon.core.errors import InvalidRequest
+from samadcon.gpo import scripts
+from samadcon.gpo.scripts import EVENTS, Script
 
 EVENTS_MACHINE = EVENTS["Machine"]
 

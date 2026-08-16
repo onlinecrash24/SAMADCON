@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from samcon.ad import dns
+from samadcon.ad import dns
 
 ZONE = "example.lan"
 

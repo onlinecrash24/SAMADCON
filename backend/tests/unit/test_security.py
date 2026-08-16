@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from samcon.core.errors import InvalidRequest
-from samcon.gpo import security
+from samadcon.core.errors import InvalidRequest
+from samadcon.gpo import security
 
 DOMAIN_ADMINS = "*S-1-5-21-1004336348-1177238915-682003330-512"
 ADMINISTRATORS = "*S-1-5-32-544"

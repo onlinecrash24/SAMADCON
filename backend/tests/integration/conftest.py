@@ -7,17 +7,17 @@ Point them at your own test domain:
     TEST_ADMIN_PASSWORD=…
     TEST_INSECURE=1          # self-signed certificate
 
-    SAMCON_TARGET=test       # the suite lives in the image, not in a mount
+    SAMADCON_TARGET=test       # the suite lives in the image, not in a mount
 
     docker compose up -d --build
-    docker compose exec samcon python -m pytest tests/integration -q
+    docker compose exec samadcon python -m pytest tests/integration -q
 
 Everything goes through the HTTP API rather than the internal modules: that is
 what an administrator actually exercises, and it covers the session, CSRF and
 error-translation layers at the same time.
 
 WARNING: these tests create and delete objects. Each run works inside its own
-throwaway OU named ``samcon-test-<random>`` and removes it afterwards, but the
+throwaway OU named ``samadcon-test-<random>`` and removes it afterwards, but the
 domain still has to be one you are willing to write to.
 """
 
@@ -36,9 +36,9 @@ pytestmark = pytest.mark.integration
 TEST_SERVER = (
     os.environ.get("TEST_SERVER")
     or os.environ.get("TEST_DC_HOST")
-    or os.environ.get("SAMCON_DC_HOSTS", "").split(",")[0]
+    or os.environ.get("SAMADCON_DC_HOSTS", "").split(",")[0]
 ).strip()
-TEST_REALM = os.environ.get("TEST_REALM") or os.environ.get("SAMCON_REALM", "")
+TEST_REALM = os.environ.get("TEST_REALM") or os.environ.get("SAMADCON_REALM", "")
 TEST_ADMIN = os.environ.get("TEST_ADMIN_USER", "Administrator")
 TEST_PASSWORD = os.environ.get("TEST_ADMIN_PASSWORD", "")
 TEST_INSECURE = os.environ.get("TEST_INSECURE", "0").lower() in ("1", "true", "yes")
@@ -66,7 +66,7 @@ def reachable_server() -> str:
     if not TEST_SERVER:
         pytest.skip("TEST_DC_HOST is not set — no domain to test against")
 
-    from samcon.ad.discovery import LDAP_PORT, LDAPS_PORT, check_port, normalise_host
+    from samadcon.ad.discovery import LDAP_PORT, LDAPS_PORT, check_port, normalise_host
 
     host = normalise_host(TEST_SERVER)
     if not check_port(host, LDAP_PORT) and not check_port(host, LDAPS_PORT):
@@ -88,7 +88,7 @@ def running_app(reachable_server: str):
     """
     from fastapi.testclient import TestClient
 
-    from samcon.main import app
+    from samadcon.main import app
 
     with TestClient(app):
         yield app
@@ -149,13 +149,13 @@ def base_dn(domain: dict[str, Any]) -> str:
 @pytest.fixture
 def test_ou(api, base_dn: str):
     """A throwaway OU, removed afterwards even if the test failed."""
-    name = f"samcon-test-{uuid.uuid4().hex[:8]}"
+    name = f"samadcon-test-{uuid.uuid4().hex[:8]}"
     response = api.post(
         "/api/v1/ous",
         json={
             "parent_dn": base_dn,
             "name": name,
-            "description": "SAMCON integration test — safe to delete",
+            "description": "SAMADCON integration test — safe to delete",
             # Protection would only get in the way of the cleanup below.
             "protect_from_deletion": False,
         },

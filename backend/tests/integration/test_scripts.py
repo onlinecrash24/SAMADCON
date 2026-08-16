@@ -29,7 +29,7 @@ def quoted(value: str) -> str:
 @pytest.fixture
 def gpo(api):
     response = api.post(
-        "/api/v1/gpos", json={"display_name": f"SAMCON scripts {uuid.uuid4().hex[:8]}"}
+        "/api/v1/gpos", json={"display_name": f"SAMADCON scripts {uuid.uuid4().hex[:8]}"}
     )
     if response.status_code != 200:
         pytest.skip(f"cannot create a group policy: {response.text}")

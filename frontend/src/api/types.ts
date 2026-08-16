@@ -1,5 +1,5 @@
 /**
- * Shapes returned by the SAMCON API.
+ * Shapes returned by the SAMADCON API.
  *
  * Directory objects carry whatever the domain's schema defines, so these types
  * describe the envelope and the fields the UI relies on — not every attribute

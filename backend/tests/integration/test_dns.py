@@ -27,7 +27,7 @@ def quoted(value: str) -> str:
 def zone_name() -> str:
     # .invalid is reserved for exactly this (RFC 2606), so the name cannot
     # collide with anything real even if a cleanup is missed.
-    return f"samcon-test-{uuid.uuid4().hex[:8]}.invalid"
+    return f"samadcon-test-{uuid.uuid4().hex[:8]}.invalid"
 
 
 @pytest.fixture

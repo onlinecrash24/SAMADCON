@@ -20,13 +20,13 @@ def quoted(value: str) -> str:
 
 
 def site_name() -> str:
-    return f"samcon-test-{uuid.uuid4().hex[:8]}"
+    return f"samadcon-test-{uuid.uuid4().hex[:8]}"
 
 
 @pytest.fixture
 def test_site(api):
     """A throwaway site, removed afterwards."""
-    response = api.post("/api/v1/sites", json={"name": site_name(), "description": "SAMCON test"})
+    response = api.post("/api/v1/sites", json={"name": site_name(), "description": "SAMADCON test"})
     if response.status_code != 200:
         pytest.skip(f"cannot create a site: {response.text}")
 
@@ -71,7 +71,7 @@ def test_a_new_site_gets_the_children_it_needs(api, test_site):
 
     assert site["settings"]["present"] is True
     assert site["servers"] == []
-    assert site["description"] == "SAMCON test"
+    assert site["description"] == "SAMADCON test"
 
     # The Servers container has to be there for a move to work at all.
     servers = api.get(f"/api/v1/sites/servers?dn={quoted(test_site['dn'])}")
@@ -91,7 +91,7 @@ def test_a_duplicate_site_is_refused(api, test_site):
 
 def test_a_site_name_dns_cannot_carry_is_refused(api):
     """Site names become labels in the _sites records clients look up."""
-    response = api.post("/api/v1/sites", json={"name": "samcon test site"})
+    response = api.post("/api/v1/sites", json={"name": "samadcon test site"})
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "invalid_site_name"
 

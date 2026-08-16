@@ -11,12 +11,12 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from fastapi.testclient import TestClient
 
-from samcon.ad.target import ConnectionTarget
-from samcon.auth.kerberos import Principal
-from samcon.auth.session import get_store, reset_auth_state
-from samcon.main import app
+from samadcon.ad.target import ConnectionTarget
+from samadcon.auth.kerberos import Principal
+from samadcon.auth.session import get_store, reset_auth_state
+from samadcon.main import app
 
-TARGET = ConnectionTarget(realm="SAMCON.TEST", hosts=("dc1.samcon.test",))
+TARGET = ConnectionTarget(realm="SAMADCON.TEST", hosts=("dc1.samadcon.test",))
 
 
 @pytest.fixture
@@ -34,7 +34,7 @@ def test_health_needs_no_authentication(client: TestClient):
 
 def test_info_reports_the_realm(client: TestClient):
     payload = client.get("/api/v1/info").json()
-    assert payload["realm"] == "SAMCON.TEST"
+    assert payload["realm"] == "SAMADCON.TEST"
     assert "sessions" in payload
 
 
@@ -93,7 +93,7 @@ def _open_session(tmp_path) -> tuple[str, str]:
     session_id = store.new_id()
     session = store.create(
         session_id=session_id,
-        principal=Principal("admin", "SAMCON.TEST"),
+        principal=Principal("admin", "SAMADCON.TEST"),
         target=TARGET,
         ccache=ccache,
         ticket_expires_at=datetime.now(UTC) + timedelta(hours=1),
@@ -103,11 +103,11 @@ def _open_session(tmp_path) -> tuple[str, str]:
 
 def test_write_without_csrf_token_is_refused(client: TestClient, tmp_path):
     session_id, _ = _open_session(tmp_path)
-    client.cookies.set("samcon_session", session_id)
+    client.cookies.set("samadcon_session", session_id)
 
     response = client.post(
         "/api/v1/users",
-        json={"parent_dn": "OU=Users,DC=samcon,DC=test", "sam_account_name": "test"},
+        json={"parent_dn": "OU=Users,DC=samadcon,DC=test", "sam_account_name": "test"},
     )
     assert response.status_code == 403
     assert response.json()["error"]["code"] == "csrf_failed"
@@ -115,11 +115,11 @@ def test_write_without_csrf_token_is_refused(client: TestClient, tmp_path):
 
 def test_write_with_a_wrong_csrf_token_is_refused(client: TestClient, tmp_path):
     session_id, _ = _open_session(tmp_path)
-    client.cookies.set("samcon_session", session_id)
+    client.cookies.set("samadcon_session", session_id)
 
     response = client.post(
         "/api/v1/users",
-        json={"parent_dn": "OU=Users,DC=samcon,DC=test", "sam_account_name": "test"},
+        json={"parent_dn": "OU=Users,DC=samadcon,DC=test", "sam_account_name": "test"},
         headers={"X-CSRF-Token": "wrong"},
     )
     assert response.status_code == 403
@@ -132,12 +132,12 @@ def test_expired_session_is_rejected(client: TestClient, tmp_path):
     session_id = store.new_id()
     store.create(
         session_id=session_id,
-        principal=Principal("admin", "SAMCON.TEST"),
+        principal=Principal("admin", "SAMADCON.TEST"),
         target=TARGET,
         ccache=ccache,
         ticket_expires_at=datetime.now(UTC) - timedelta(seconds=1),
     )
-    client.cookies.set("samcon_session", session_id)
+    client.cookies.set("samadcon_session", session_id)
 
     response = client.get("/api/v1/directory/roots")
     assert response.status_code == 401
@@ -146,7 +146,7 @@ def test_expired_session_is_rejected(client: TestClient, tmp_path):
 
 def test_logout_clears_the_cookie(client: TestClient, tmp_path):
     session_id, _ = _open_session(tmp_path)
-    client.cookies.set("samcon_session", session_id)
+    client.cookies.set("samadcon_session", session_id)
 
     response = client.post("/api/v1/auth/logout")
     assert response.status_code == 200
@@ -161,5 +161,5 @@ def test_logout_without_a_session_is_harmless(client: TestClient):
 def test_openapi_document_builds(client: TestClient):
     """A broken type annotation in a router would surface here."""
     schema = client.get("/api/openapi.json").json()
-    assert schema["info"]["title"].startswith("SAMCON")
+    assert schema["info"]["title"].startswith("SAMADCON")
     assert "/api/v1/users" in schema["paths"]

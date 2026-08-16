@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from samcon.ad import diagnostics
+from samadcon.ad import diagnostics
 
 # ---------------------------------------------------------------------------
 # Functional levels

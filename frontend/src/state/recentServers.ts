@@ -9,7 +9,7 @@
  * belong to, and whether the certificate check had to be waived.
  */
 
-const STORAGE_KEY = 'samcon.recentServers'
+const STORAGE_KEY = 'samadcon.recentServers'
 const MAX_ENTRIES = 5
 
 export interface RecentServer {

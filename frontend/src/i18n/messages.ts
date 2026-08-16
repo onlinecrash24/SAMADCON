@@ -7,7 +7,7 @@
  */
 
 export const de = {
-  'app.title': 'SAMCON',
+  'app.title': 'SAMADCON',
   'app.subtitle': 'Samba AD Console',
 
   'login.heading': 'Anmelden',
@@ -17,7 +17,7 @@ export const de = {
   'login.pending': 'Anmeldung läuft …',
   'login.realmHint': 'Anmeldung an {realm}. Alle Änderungen erfolgen mit den Rechten dieses Kontos.',
   'login.insecureWarning':
-    'LDAPS-Zertifikate werden nicht geprüft (SAMCON_LDAP_INSECURE=1). Nicht für den Produktivbetrieb.',
+    'LDAPS-Zertifikate werden nicht geprüft (SAMADCON_LDAP_INSECURE=1). Nicht für den Produktivbetrieb.',
 
   'login.domain': 'Domäne',
   'login.configured': 'vorkonfiguriert',
@@ -33,7 +33,7 @@ export const de = {
   'login.certificateUntrusted': 'Zertifikat nicht überprüfbar',
   'login.ldapsUnreachable': 'Port 636 nicht erreichbar',
   'login.certificateHint':
-    'Das Zertifikat lässt sich nicht überprüfen — typisch für ein selbstsigniertes Samba-Zertifikat. Für die Anmeldung ist das meist unerheblich: SAMCON verbindet vorrangig über LDAP mit Kerberos-Verschlüsselung, ganz ohne Zertifikat. Die Option unten greift nur, falls auf LDAPS ausgewichen werden muss.',
+    'Das Zertifikat lässt sich nicht überprüfen — typisch für ein selbstsigniertes Samba-Zertifikat. Für die Anmeldung ist das meist unerheblich: SAMADCON verbindet vorrangig über LDAP mit Kerberos-Verschlüsselung, ganz ohne Zertifikat. Die Option unten greift nur, falls auf LDAPS ausgewichen werden muss.',
   'login.notADomainController':
     'Der Server antwortet auf LDAP, wirkt aber nicht wie ein Domänencontroller.',
   'login.hostnameUnresolved': 'Name nicht auflösbar',
@@ -301,7 +301,7 @@ export const de = {
   'dialog.passwordTitle': 'Kennwort zurücksetzen',
   'dialog.passwordMustChange': 'Benutzer muss Kennwort bei nächster Anmeldung ändern',
   'dialog.passwordMustChangeHint':
-    'Bis zur Änderung stellt das KDC kein Ticket aus: Anmeldungen an SAMCON oder anderen Kerberos-Diensten schlagen fehl. Die Änderung muss an einem Domänen-Client erfolgen.',
+    'Bis zur Änderung stellt das KDC kein Ticket aus: Anmeldungen an SAMADCON oder anderen Kerberos-Diensten schlagen fehl. Die Änderung muss an einem Domänen-Client erfolgen.',
   'dialog.renameTitle': 'Umbenennen',
   'dialog.moveTitle': 'Verschieben nach',
   'dialog.newUserTitle': 'Neuer Benutzer',
@@ -331,7 +331,7 @@ export const de = {
   'error.password_expired': 'Das Kennwort ist abgelaufen.',
   'error.password_must_change': 'Das Kennwort muss zuerst geändert werden.',
   'error.login_throttled':
-    'Zu viele Fehlversuche. SAMCON pausiert weitere Versuche, damit das AD-Konto nicht gesperrt wird.',
+    'Zu viele Fehlversuche. SAMADCON pausiert weitere Versuche, damit das AD-Konto nicht gesperrt wird.',
   'error.insufficient_access': 'Ihr Konto hat für diesen Vorgang keine Berechtigung.',
   'error.not_found': 'Das Objekt existiert nicht.',
   'error.already_exists': 'Ein Objekt mit diesem Namen existiert bereits.',
@@ -340,16 +340,16 @@ export const de = {
   'error.delete_protected': 'Das Objekt ist vor versehentlichem Löschen geschützt.',
   'error.password_policy_violation': 'Das Kennwort erfüllt die Kennwortrichtlinie nicht.',
   'error.password_required': 'Ein aktiviertes Konto benötigt ein Kennwort.',
-  'error.clock_skew': 'Die Uhren von SAMCON und Domänencontroller weichen zu stark voneinander ab.',
+  'error.clock_skew': 'Die Uhren von SAMADCON und Domänencontroller weichen zu stark voneinander ab.',
   'error.dc_unreachable': 'Kein Domänencontroller erreichbar.',
   'error.dc_unreachable.hint':
-    'SAMCON hat LDAP mit Kerberos-Verschlüsselung (Port 389) und LDAPS (Port 636) versucht. Prüfen Sie, ob einer davon erreichbar ist, ob die Uhren weniger als fünf Minuten auseinanderliegen und ob das Konto in dieser Domäne existiert.',
+    'SAMADCON hat LDAP mit Kerberos-Verschlüsselung (Port 389) und LDAPS (Port 636) versucht. Prüfen Sie, ob einer davon erreichbar ist, ob die Uhren weniger als fünf Minuten auseinanderliegen und ob das Konto in dieser Domäne existiert.',
   'error.dc_name_unknown': 'Kein Domänencontroller erreichbar.',
   'error.dc_name_unknown.hint':
-    'Es lag nur die Adresse vor, und Kerberos stellt Tickets für ldap/<Hostname> aus — für eine nackte Adresse gibt es keinen solchen Prinzipal. SAMCON liest den Namen vom DC selbst; meist heißt das, dass diese Abfrage fehlgeschlagen ist. Prüfen Sie, ob der Container den Namen des DC auflösen und ihn über Port 389 oder 636 erreichen kann.',
+    'Es lag nur die Adresse vor, und Kerberos stellt Tickets für ldap/<Hostname> aus — für eine nackte Adresse gibt es keinen solchen Prinzipal. SAMADCON liest den Namen vom DC selbst; meist heißt das, dass diese Abfrage fehlgeschlagen ist. Prüfen Sie, ob der Container den Namen des DC auflösen und ihn über Port 389 oder 636 erreichen kann.',
   'error.no_dc_candidates': 'Für diese Domäne wurde kein Domänencontroller gefunden.',
   'error.no_dc_candidates.hint':
-    'Für diese Domäne ist keine Serveradresse hinterlegt, und die DNS-Suche nach ihren _ldap._tcp-SRV-Einträgen hat keine gefunden. Hinterlegen Sie eine DC-Adresse (SAMCON_DC_HOSTS) oder geben Sie dem Container einen Resolver, der die Domäne kennt.',
+    'Für diese Domäne ist keine Serveradresse hinterlegt, und die DNS-Suche nach ihren _ldap._tcp-SRV-Einträgen hat keine gefunden. Hinterlegen Sie eine DC-Adresse (SAMADCON_DC_HOSTS) oder geben Sie dem Container einen Resolver, der die Domäne kennt.',
   'error.kdc_unreachable': 'Kein Key Distribution Center erreichbar.',
   'error.tls_verification_failed': 'Das Zertifikat des Domänencontrollers konnte nicht geprüft werden.',
   'error.timeout': 'Der Vorgang hat zu lange gedauert.',
@@ -711,7 +711,7 @@ export const de = {
   'pref.kind.immediate_v2': 'Sofortige Aufgabe',
   'pref.kind.task': 'Geplante Aufgabe (Windows XP)',
   'pref.kind.immediate': 'Sofortige Aufgabe (Windows XP)',
-  'pref.notCreatable': 'Neue Einträge dieser Art legt SAMCON nicht an. Eine geplante Aufgabe trägt eine vollständige Aufgabendefinition — Registrierungsinfo, Prinzipale, Trigger, Aktionen und achtzehn Einstellungen —, und die aus dem Nichts zu schreiben wäre geraten statt belegt. In GPMC anlegen; danach ist sie hier bearbeitbar.',
+  'pref.notCreatable': 'Neue Einträge dieser Art legt SAMADCON nicht an. Eine geplante Aufgabe trägt eine vollständige Aufgabendefinition — Registrierungsinfo, Prinzipale, Trigger, Aktionen und achtzehn Einstellungen —, und die aus dem Nichts zu schreiben wäre geraten statt belegt. In GPMC anlegen; danach ist sie hier bearbeitbar.',
   'pref.members': 'Mitglieder',
   'pref.member.add': 'Hinzufügen',
   'pref.member.remove': 'Entfernen',
@@ -793,7 +793,7 @@ export const de = {
   'pref.unchanged': 'Nichts zu ändern — die Einträge standen bereits so.',
   'pref.changed': 'Zuletzt geändert',
   'pref.filters': 'Zielgruppenadressierung auf Elementebene — hier nur angezeigt. Sie bleibt beim Speichern unverändert erhalten.',
-  'pref.password': 'Dieser Eintrag enthält ein gespeichertes Kennwort. Der Schlüssel dafür ist seit 2014 öffentlich bekannt — jeder, der die Richtlinie lesen darf, kann es entschlüsseln. SAMCON reicht es unverändert durch und legt selbst keines an.',
+  'pref.password': 'Dieser Eintrag enthält ein gespeichertes Kennwort. Der Schlüssel dafür ist seit 2014 öffentlich bekannt — jeder, der die Richtlinie lesen darf, kann es entschlüsseln. SAMADCON reicht es unverändert durch und legt selbst keines an.',
   'pref.multiline': 'Eine Zeile je Wert',
   'pref.field.thisDrive': 'Dieses Laufwerk',
   'pref.field.allDrives': 'Alle Laufwerke',
@@ -1040,7 +1040,7 @@ export const de = {
 export type MessageKey = keyof typeof de
 
 export const en: Record<MessageKey, string> = {
-  'app.title': 'SAMCON',
+  'app.title': 'SAMADCON',
   'app.subtitle': 'Samba AD Console',
 
   'login.heading': 'Sign in',
@@ -1050,7 +1050,7 @@ export const en: Record<MessageKey, string> = {
   'login.pending': 'Signing in …',
   'login.realmHint': 'Signing in to {realm}. Every change runs with this account’s rights.',
   'login.insecureWarning':
-    'LDAPS certificates are not being validated (SAMCON_LDAP_INSECURE=1). Not for production.',
+    'LDAPS certificates are not being validated (SAMADCON_LDAP_INSECURE=1). Not for production.',
 
   'login.domain': 'Domain',
   'login.configured': 'configured',
@@ -1066,7 +1066,7 @@ export const en: Record<MessageKey, string> = {
   'login.certificateUntrusted': 'Certificate cannot be verified',
   'login.ldapsUnreachable': 'Port 636 unreachable',
   'login.certificateHint':
-    'The certificate cannot be verified — typical for a self-signed Samba certificate. It rarely matters for signing in: SAMCON connects over LDAP with Kerberos encryption first, which involves no certificate at all. The option below only applies if it has to fall back to LDAPS.',
+    'The certificate cannot be verified — typical for a self-signed Samba certificate. It rarely matters for signing in: SAMADCON connects over LDAP with Kerberos encryption first, which involves no certificate at all. The option below only applies if it has to fall back to LDAPS.',
   'login.notADomainController':
     'The server answers LDAP but does not look like a domain controller.',
   'login.hostnameUnresolved': 'Name does not resolve',
@@ -1332,7 +1332,7 @@ export const en: Record<MessageKey, string> = {
   'dialog.passwordTitle': 'Reset password',
   'dialog.passwordMustChange': 'User must change password at next logon',
   'dialog.passwordMustChangeHint':
-    'Until it is changed the KDC issues no ticket: signing in to SAMCON or any other Kerberos service will fail. The change has to happen on a domain-joined client.',
+    'Until it is changed the KDC issues no ticket: signing in to SAMADCON or any other Kerberos service will fail. The change has to happen on a domain-joined client.',
   'dialog.renameTitle': 'Rename',
   'dialog.moveTitle': 'Move to',
   'dialog.newUserTitle': 'New user',
@@ -1362,7 +1362,7 @@ export const en: Record<MessageKey, string> = {
   'error.password_expired': 'The password has expired.',
   'error.password_must_change': 'The password must be changed first.',
   'error.login_throttled':
-    'Too many failed attempts. SAMCON pauses further tries so the AD account is not locked out.',
+    'Too many failed attempts. SAMADCON pauses further tries so the AD account is not locked out.',
   'error.insufficient_access': 'Your account is not allowed to perform this operation.',
   'error.not_found': 'The object does not exist.',
   'error.already_exists': 'An object with this name already exists.',
@@ -1371,16 +1371,16 @@ export const en: Record<MessageKey, string> = {
   'error.delete_protected': 'The object is protected from accidental deletion.',
   'error.password_policy_violation': 'The password does not satisfy the password policy.',
   'error.password_required': 'An enabled account needs a password.',
-  'error.clock_skew': 'The clocks of SAMCON and the domain controller differ too much.',
+  'error.clock_skew': 'The clocks of SAMADCON and the domain controller differ too much.',
   'error.dc_unreachable': 'No domain controller could be reached.',
   'error.dc_unreachable.hint':
-    'SAMCON tried LDAP with Kerberos encryption (port 389) and LDAPS (port 636). Check that one of them is reachable, that the clock difference to the DC is under five minutes, and that the account exists in this domain.',
+    'SAMADCON tried LDAP with Kerberos encryption (port 389) and LDAPS (port 636). Check that one of them is reachable, that the clock difference to the DC is under five minutes, and that the account exists in this domain.',
   'error.dc_name_unknown': 'No domain controller could be reached.',
   'error.dc_name_unknown.hint':
-    'Only the address was available, and Kerberos issues tickets for ldap/<hostname> — no such principal exists for a bare address. SAMCON reads the name from the DC itself, so this usually means that probe failed: check that the container can resolve the DC’s name and reach it on port 389 or 636.',
+    'Only the address was available, and Kerberos issues tickets for ldap/<hostname> — no such principal exists for a bare address. SAMADCON reads the name from the DC itself, so this usually means that probe failed: check that the container can resolve the DC’s name and reach it on port 389 or 636.',
   'error.no_dc_candidates': 'No domain controller could be found for this domain.',
   'error.no_dc_candidates.hint':
-    'No server address is configured for this domain and the DNS lookup for its _ldap._tcp SRV records found none. Configure a DC address (SAMCON_DC_HOSTS), or give the container a resolver that serves the domain.',
+    'No server address is configured for this domain and the DNS lookup for its _ldap._tcp SRV records found none. Configure a DC address (SAMADCON_DC_HOSTS), or give the container a resolver that serves the domain.',
   'error.kdc_unreachable': 'No key distribution centre could be reached.',
   'error.tls_verification_failed': 'The domain controller’s certificate could not be verified.',
   'error.timeout': 'The operation took too long.',
@@ -1739,7 +1739,7 @@ export const en: Record<MessageKey, string> = {
   'pref.kind.immediate_v2': 'Immediate task',
   'pref.kind.task': 'Scheduled task (Windows XP)',
   'pref.kind.immediate': 'Immediate task (Windows XP)',
-  'pref.notCreatable': 'SAMCON does not create new items of this kind. A scheduled task carries a complete task definition - registration info, principals, triggers, actions and eighteen settings - and writing one from scratch would be guesswork rather than evidence. Create it in GPMC; it stays editable here afterwards.',
+  'pref.notCreatable': 'SAMADCON does not create new items of this kind. A scheduled task carries a complete task definition - registration info, principals, triggers, actions and eighteen settings - and writing one from scratch would be guesswork rather than evidence. Create it in GPMC; it stays editable here afterwards.',
   'pref.members': 'Members',
   'pref.member.add': 'Add',
   'pref.member.remove': 'Remove',
@@ -1821,7 +1821,7 @@ export const en: Record<MessageKey, string> = {
   'pref.unchanged': 'Nothing to change — the items already read that way.',
   'pref.changed': 'Last changed',
   'pref.filters': 'Item-level targeting — shown here only. Saving leaves it exactly as it is.',
-  'pref.password': 'This item holds a stored password. The key for it has been public since 2014 — anyone allowed to read the policy can decrypt it. SAMCON passes it through unchanged and never creates one.',
+  'pref.password': 'This item holds a stored password. The key for it has been public since 2014 — anyone allowed to read the policy can decrypt it. SAMADCON passes it through unchanged and never creates one.',
   'pref.multiline': 'One line per value',
   'pref.field.thisDrive': 'This drive',
   'pref.field.allDrives': 'All drives',

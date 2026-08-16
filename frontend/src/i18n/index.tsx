@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 import { ApiError } from '../api/client'
 import { catalogues, de, type Language, type MessageKey } from './messages'
 
-const STORAGE_KEY = 'samcon.language'
+const STORAGE_KEY = 'samadcon.language'
 
 function detectLanguage(): Language {
   const stored = localStorage.getItem(STORAGE_KEY)

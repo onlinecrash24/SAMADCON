@@ -12,11 +12,11 @@ from pathlib import Path
 
 import pytest
 
-from samcon.ad.target import ConnectionTarget
-from samcon.auth.kerberos import Principal, parse_principal
-from samcon.auth.session import LoginThrottle, Session, SessionStore
-from samcon.core.audit import REDACTED, AuditLog, redact
-from samcon.core.errors import AuthenticationError, SessionExpired
+from samadcon.ad.target import ConnectionTarget
+from samadcon.auth.kerberos import Principal, parse_principal
+from samadcon.auth.session import LoginThrottle, Session, SessionStore
+from samadcon.core.audit import REDACTED, AuditLog, redact
+from samadcon.core.errors import AuthenticationError, SessionExpired
 
 # ---------------------------------------------------------------------------
 # Redaction

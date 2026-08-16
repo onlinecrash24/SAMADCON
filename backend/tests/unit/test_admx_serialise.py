@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from samcon.gpo.admx import parser, serialise
-from samcon.gpo.admx.model import Catalogue, Element, EnumItem, Policy, Value
+from samadcon.gpo.admx import parser, serialise
+from samadcon.gpo.admx.model import Catalogue, Element, EnumItem, Policy, Value
 from tests.unit.test_admx_parser import SAMPLE_ADML, SAMPLE_ADMX, WINDOWS_ADML, WINDOWS_ADMX
 
 

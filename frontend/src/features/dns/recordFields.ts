@@ -2,7 +2,7 @@
  * What each DNS record type needs, for building its form.
  *
  * The field names match the API's payload exactly — the server validates
- * against the same set (samcon.ad.dnsrecords.validate_data), so a type added
+ * against the same set (samadcon.ad.dnsrecords.validate_data), so a type added
  * on one side shows up as a clear error on the other rather than silently
  * doing nothing.
  */

@@ -12,9 +12,9 @@ import re
 
 import pytest
 
-from samcon.core.errors import InvalidRequest
-from samcon.gpo.admx import parser
-from samcon.gpo.admx.model import Catalogue
+from samadcon.core.errors import InvalidRequest
+from samadcon.gpo.admx import parser
+from samadcon.gpo.admx.model import Catalogue
 
 WINDOWS_ADMX = b"""<?xml version="1.0" encoding="utf-8"?>
 <policyDefinitions revision="1.0" schemaVersion="1.0"

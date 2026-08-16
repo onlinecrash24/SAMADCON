@@ -7,12 +7,12 @@
  * reports.
  */
 
-import lockupDark from '../assets/samcon-lockup-dark.svg'
-import lockupLight from '../assets/samcon-lockup-light.svg'
-import markDark from '../assets/samcon-mark-dark.svg'
-import markLight from '../assets/samcon-mark-light.svg'
+import lockupDark from '../assets/samadcon-lockup-dark.svg'
+import lockupLight from '../assets/samadcon-lockup-light.svg'
+import markDark from '../assets/samadcon-mark-dark.svg'
+import markLight from '../assets/samadcon-mark-light.svg'
 
-const ALT = 'SAMCON — Samba AD Console'
+const ALT = 'SAMADCON — Samba AD Console'
 
 /** Full lockup: mark plus wordmark. For the sign-in card. */
 export function LogoLockup({ className }: { className?: string }) {

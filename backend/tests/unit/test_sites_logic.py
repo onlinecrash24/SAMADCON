@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from samcon.ad import sites
-from samcon.core.errors import InvalidRequest
+from samadcon.ad import sites
+from samadcon.core.errors import InvalidRequest
 
 # ---------------------------------------------------------------------------
 # Subnet names

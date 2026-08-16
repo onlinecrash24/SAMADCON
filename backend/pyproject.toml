@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "samcon"
+name = "samadcon"
 version = "0.1.0"
-description = "SAMCON — Samba AD Console: RSAT replacement for Samba AD DC, including a Group Policy editor"
+description = "SAMADCON — Samba AD Console: RSAT replacement for Samba AD DC, including a Group Policy editor"
 requires-python = ">=3.11"
 license = { text = "AGPL-3.0-or-later" }
 
@@ -33,16 +33,16 @@ dev = [
 ]
 
 [project.scripts]
-samconctl = "samcon.cli:main"
+samadconctl = "samadcon.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["samcon*"]
+include = ["samadcon*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 markers = [
-    "integration: needs a live Samba AD DC (SAMCON_TARGET=test, see the README)",
+    "integration: needs a live Samba AD DC (SAMADCON_TARGET=test, see the README)",
     "gpo: touches Group Policy objects on the test domain",
 ]
 
@@ -57,15 +57,15 @@ ignore = [
     # forced into ternaries.
     "SIM108",
     # Our exception names read as sentences at the call site (raise NotFound,
-    # raise Conflict). SamconError is the one that carries the suffix.
+    # raise Conflict). SamadconError is the one that carries the suffix.
     "N818",
 ]
 
 [tool.ruff.lint.per-file-ignores]
 # FastAPI's Depends() in parameter defaults is the framework's idiom, not a
 # mutable-default bug.
-"samcon/api/*" = ["B008"]
-"samcon/auth/deps.py" = ["B008"]
+"samadcon/api/*" = ["B008"]
+"samadcon/auth/deps.py" = ["B008"]
 # Tests reach into internals on purpose and use long assertion lines.
 "tests/*" = ["E501", "SLF001"]
 

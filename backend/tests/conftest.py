@@ -13,20 +13,20 @@ from pathlib import Path
 
 import pytest
 
-# Must be set before samcon.config is imported anywhere.
-os.environ.setdefault("SAMCON_REALM", "SAMCON.TEST")
-os.environ.setdefault("SAMCON_WORKGROUP", "SAMCON")
-os.environ.setdefault("SAMCON_AUDIT_FILE", "")
+# Must be set before samadcon.config is imported anywhere.
+os.environ.setdefault("SAMADCON_REALM", "SAMADCON.TEST")
+os.environ.setdefault("SAMADCON_WORKGROUP", "SAMADCON")
+os.environ.setdefault("SAMADCON_AUDIT_FILE", "")
 
 
 @pytest.fixture
 def settings(tmp_path: Path):
-    from samcon.config import Settings
+    from samadcon.config import Settings
 
     return Settings(
-        realm="SAMCON.TEST",
-        workgroup="SAMCON",
-        dc_hosts=["dc1.samcon.test"],
+        realm="SAMADCON.TEST",
+        workgroup="SAMADCON",
+        dc_hosts=["dc1.samadcon.test"],
         ccache_dir=tmp_path / "ccache",
         audit_file=tmp_path / "audit.jsonl",
         smb_conf=tmp_path / "smb.conf",
@@ -36,7 +36,7 @@ def settings(tmp_path: Path):
 
 @pytest.fixture
 def audit_log(tmp_path: Path):
-    from samcon.core.audit import AuditLog
+    from samadcon.core.audit import AuditLog
 
     return AuditLog(tmp_path / "audit.jsonl")
 

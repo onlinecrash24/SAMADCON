@@ -13,8 +13,8 @@ import time
 
 import pytest
 
-from samcon.core.errors import NotFound, OperationTimeout, SamconError
-from samcon.core.executor import ExecutorRegistry, SessionWorker
+from samadcon.core.errors import NotFound, OperationTimeout, SamadconError
+from samadcon.core.executor import ExecutorRegistry, SessionWorker
 
 
 @pytest.fixture
@@ -84,13 +84,13 @@ async def test_exceptions_are_translated(worker: SessionWorker):
     def fail() -> None:
         raise RuntimeError("NT_STATUS_ACCESS_DENIED")
 
-    with pytest.raises(SamconError) as excinfo:
+    with pytest.raises(SamadconError) as excinfo:
         await worker.run(fail)
     assert excinfo.value.code == "insufficient_access"
     assert excinfo.value.status_code == 403
 
 
-async def test_samcon_errors_pass_through_unchanged(worker: SessionWorker):
+async def test_samadcon_errors_pass_through_unchanged(worker: SessionWorker):
     def fail() -> None:
         raise NotFound("gone", context={"dn": "CN=x"})
 
@@ -151,7 +151,7 @@ async def test_drop_closes_cached_handles():
 
 async def test_closed_worker_refuses_further_work(worker: SessionWorker):
     worker.close()
-    with pytest.raises(SamconError) as excinfo:
+    with pytest.raises(SamadconError) as excinfo:
         await worker.run(lambda: 1)
     assert excinfo.value.code == "session_closed"
 
@@ -161,7 +161,7 @@ async def test_registry_enforces_a_session_ceiling():
     try:
         registry.get("a")
         registry.get("b")
-        with pytest.raises(SamconError) as excinfo:
+        with pytest.raises(SamadconError) as excinfo:
             registry.get("c")
         assert excinfo.value.code == "too_many_sessions"
         assert excinfo.value.status_code == 503

@@ -8,7 +8,7 @@ semicolon-separated SID lists, and the per-redirection sections named
 
 from __future__ import annotations
 
-from samcon.gpo import folders
+from samadcon.gpo import folders
 
 DOCUMENTS = "{FDD39AD0-238F-46AF-ADB4-6C85480369C7}"
 DESKTOP = "{B4BFCC3A-DB2C-424C-B029-7FE99A87C641}"

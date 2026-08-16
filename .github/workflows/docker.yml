@@ -1,4 +1,4 @@
-# Build SAMCON and publish the image to the GitHub container registry.
+# Build SAMADCON and publish the image to the GitHub container registry.
 #
 # The tests run first and the image is only published if they pass. Publishing
 # an image that fails its own suite is the failure this ordering prevents —
@@ -45,14 +45,14 @@ jobs:
           file: docker/Dockerfile
           target: test
           load: true
-          tags: samcon:test
+          tags: samadcon:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       # --entrypoint skips the container's start-up — certificate generation,
       # nginx templating, krb5.conf — none of which a test run needs.
       - name: Unit tests
-        run: docker run --rm --entrypoint python samcon:test -m pytest tests/unit -q
+        run: docker run --rm --entrypoint python samadcon:test -m pytest tests/unit -q
 
   lint:
     name: Lint
@@ -71,7 +71,7 @@ jobs:
 
       - name: Check
         working-directory: backend
-        run: ruff check samcon tests
+        run: ruff check samadcon tests
 
   publish:
     name: Publish to ghcr.io

@@ -1,4 +1,4 @@
-# SAMCON — the one compose file.
+# SAMADCON — the one compose file.
 #
 #   docker compose up -d --build
 #
@@ -24,8 +24,8 @@
 # `test` adds pytest and the test suite, which is what the integration tests
 # need:
 #
-#   SAMCON_TARGET=test docker compose up -d --build
-#   docker compose exec samcon python -m pytest tests/integration -q
+#   SAMADCON_TARGET=test docker compose up -d --build
+#   docker compose exec samadcon python -m pytest tests/integration -q
 #
 # Tests are copied into the image rather than mounted, so a changed test file
 # needs `up -d --build` before `exec`.
@@ -34,16 +34,16 @@
 # Point them at a test domain, never at production.
 
 services:
-  samcon:
+  samadcon:
     build:
       context: .
       dockerfile: docker/Dockerfile
       args:
-        SAMCON_VERSION: "0.1.0"
-      target: ${SAMCON_TARGET:-runtime}
+        SAMADCON_VERSION: "0.1.0"
+      target: ${SAMADCON_TARGET:-runtime}
     # Tagged by target so a test image never overwrites a runtime one.
-    image: samcon:${SAMCON_TARGET:-runtime}
-    container_name: samcon
+    image: samadcon:${SAMADCON_TARGET:-runtime}
+    container_name: samadcon
     restart: unless-stopped
 
     environment:
@@ -52,60 +52,60 @@ services:
       # and works the domain out from it. When they are set, use names that
       # resolve — Kerberos needs the DC's own FQDN, and a bare IP address
       # fails with NT_STATUS_INVALID_PARAMETER rather than anything helpful.
-      SAMCON_REALM: ""
-      SAMCON_DC_HOSTS: ""
-      SAMCON_WORKGROUP: ""
+      SAMADCON_REALM: ""
+      SAMADCON_DC_HOSTS: ""
+      SAMADCON_WORKGROUP: ""
 
       # --- Pre-configured domains (optional) -----------------------------
       # A JSON file listing domains to offer in the sign-in form; see
       # docker/servers/servers.example.json.
-      SAMCON_SERVERS_FILE: ""
+      SAMADCON_SERVERS_FILE: ""
       # 0 allows only the configured domains — administrators can then no
       # longer type an arbitrary address.
-      SAMCON_ALLOW_CUSTOM_SERVERS: "1"
+      SAMADCON_ALLOW_CUSTOM_SERVERS: "1"
 
       # --- LDAP ----------------------------------------------------------
       # CA that signed the DCs' certificates. A Samba DC keeps its own at
       # /var/lib/samba/private/tls/ca.pem — copy it into docker/ca/.
-      SAMCON_LDAP_CA_FILE: ""
+      SAMADCON_LDAP_CA_FILE: ""
       # Turns certificate validation off for every connection. Prefer the
       # per-session checkbox in the sign-in form over this switch.
-      SAMCON_LDAP_INSECURE: "0"
+      SAMADCON_LDAP_INSECURE: "0"
 
       # --- Web front end -------------------------------------------------
       # The name the console is reached under. It becomes the CN and the SAN
       # of the self-signed certificate and the target of the HTTP-to-HTTPS
       # redirect, so a wrong value here is a certificate warning for everyone.
-      SAMCON_PUBLIC_HOST: "samcon.example.lan"
+      SAMADCON_PUBLIC_HOST: "samadcon.example.lan"
       # Must name the port the host publishes, not the one nginx listens on.
-      SAMCON_PUBLIC_HTTPS_PORT: "${SAMCON_HTTPS_PORT:-8443}"
+      SAMADCON_PUBLIC_HTTPS_PORT: "${SAMADCON_HTTPS_PORT:-8443}"
 
       # --- Sessions ------------------------------------------------------
-      SAMCON_TICKET_LIFETIME: "10h"
-      SAMCON_RENEW_LIFETIME: "7d"
-      SAMCON_SESSION_IDLE_MINUTES: "60"
-      # Failed sign-ins per account before SAMCON stops forwarding attempts to
+      SAMADCON_TICKET_LIFETIME: "10h"
+      SAMADCON_RENEW_LIFETIME: "7d"
+      SAMADCON_SESSION_IDLE_MINUTES: "60"
+      # Failed sign-ins per account before SAMADCON stops forwarding attempts to
       # the DC. Protects against triggering AD account lockout through the
       # web form.
-      SAMCON_LOGIN_MAX_ATTEMPTS: "5"
-      SAMCON_LOGIN_LOCKOUT_MINUTES: "5"
+      SAMADCON_LOGIN_MAX_ATTEMPTS: "5"
+      SAMADCON_LOGIN_LOCKOUT_MINUTES: "5"
 
       # --- Logging -------------------------------------------------------
-      SAMCON_LOG_LEVEL: "INFO"
+      SAMADCON_LOG_LEVEL: "INFO"
       # Every write operation lands here: who, what, DN, attribute diff.
-      SAMCON_AUDIT_FILE: "/var/log/samcon/audit.jsonl"
+      SAMADCON_AUDIT_FILE: "/var/log/samadcon/audit.jsonl"
       # Raise for Samba protocol traces. Noisy — 0 outside a hunt.
-      SAMCON_SAMBA_LOG_LEVEL: "0"
+      SAMADCON_SAMBA_LOG_LEVEL: "0"
       # Extra diagnostics and a more talkative error surface.
-      SAMCON_DEV_MODE: "0"
+      SAMADCON_DEV_MODE: "0"
 
       # --- Integration tests ---------------------------------------------
-      # Only read when the image is built with SAMCON_TARGET=test. They come
+      # Only read when the image is built with SAMADCON_TARGET=test. They come
       # from the shell rather than from here because one of them is a domain
       # administrator's password:
       #
       #   TEST_DC_HOST=dc1.example.lan TEST_ADMIN_PASSWORD=… \
-      #     docker compose exec samcon python -m pytest tests/integration -q
+      #     docker compose exec samadcon python -m pytest tests/integration -q
       #
       # Without TEST_DC_HOST and TEST_ADMIN_PASSWORD the tests skip themselves.
       TEST_DC_HOST: "${TEST_DC_HOST:-}"
@@ -117,11 +117,11 @@ services:
       TEST_INSECURE: "${TEST_INSECURE:-1}"
 
     ports:
-      - "${SAMCON_HTTPS_PORT:-8443}:8443"
-      - "${SAMCON_HTTP_PORT:-8080}:8080"
+      - "${SAMADCON_HTTPS_PORT:-8443}:8443"
+      - "${SAMADCON_HTTP_PORT:-8080}:8080"
 
-    # SAMCON talks to the DCs over the network and needs no DNS for the domain
-    # when SAMCON_DC_HOSTS names them directly. For SRV discovery, add the DC
+    # SAMADCON talks to the DCs over the network and needs no DNS for the domain
+    # when SAMADCON_DC_HOSTS names them directly. For SRV discovery, add the DC
     # as the resolver:
     #
     #   dns: ["192.168.1.10"]
@@ -137,15 +137,15 @@ services:
       # generates a self-signed one on first start. The container runs as uid
       # 1000 and a bind mount belongs to root, so this directory has to be
       # writable for it — see the README.
-      - ./docker/tls:/etc/samcon/tls
+      - ./docker/tls:/etc/samadcon/tls
       # CA bundles for validating the DCs' LDAPS certificates.
-      - ./docker/ca:/etc/samcon/ca:ro
+      - ./docker/ca:/etc/samadcon/ca:ro
       # Optional: pre-configured domains (see servers.example.json).
-      - ./docker/servers:/etc/samcon/servers:ro
-      - samcon-cache:/var/cache/samcon
-      - samcon-data:/var/lib/samcon
+      - ./docker/servers:/etc/samadcon/servers:ro
+      - samadcon-cache:/var/cache/samadcon
+      - samadcon-data:/var/lib/samadcon
       # The audit trail should outlive the container.
-      - samcon-logs:/var/log/samcon
+      - samadcon-logs:/var/log/samadcon
 
     # Kerberos credential caches live in /dev/shm and must never hit a disk.
     shm_size: 64m
@@ -153,7 +153,7 @@ services:
       # uid/gid are required: a tmpfs mount belongs to root by default, and
       # nginx and supervisor run as uid 1000 and write their pid and socket
       # files here.
-      - /run/samcon:mode=0700,uid=1000,gid=1000,size=8m
+      - /run/samadcon:mode=0700,uid=1000,gid=1000,size=8m
 
     security_opt:
       - no-new-privileges:true
@@ -167,6 +167,6 @@ services:
         max-file: "5"
 
 volumes:
-  samcon-cache:
-  samcon-data:
-  samcon-logs:
+  samadcon-cache:
+  samadcon-data:
+  samadcon-logs:

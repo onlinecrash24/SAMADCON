@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import pytest
 
-from samcon.core.errors import InvalidRequest
-from samcon.gpo import links
+from samadcon.core.errors import InvalidRequest
+from samadcon.gpo import links
 
 BASE = "cn=policies,cn=system,DC=example,DC=lan"
 FIRST = f"cn={{11111111-1111-1111-1111-111111111111}},{BASE}"
