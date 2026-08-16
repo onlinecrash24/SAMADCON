@@ -36,50 +36,66 @@ export function TreePane({
 }: TreePaneProps) {
   const { t } = useI18n()
 
+  // A selection inside a console only marks a row while that console is the
+  // active one. The selected DN and zone deliberately survive a switch to
+  // another console, so that coming back lands where you left off — but the
+  // highlight must not, or the tree shows a selected directory node while an
+  // entirely different console fills the pane beside it.
+  const directoryDn = activeSnapin === 'directory' ? selectedDn : null
+  const zoneDn = activeSnapin === 'dns' ? selectedZoneDn : null
+
   return (
     <nav className="tree" aria-label={t('nav.directory')}>
-      {SNAPINS.map((snapin) => (
-        <div className="tree__snapin" key={snapin.id}>
-          <div
-            className={
-              activeSnapin === snapin.id && !selectedDn
-                ? 'tree__row tree__row--selected'
-                : 'tree__row'
-            }
-          >
-            {/* No expander on a console root. It is a section heading rather
-                than a container, and the arrow claimed a state that was never
-                real: it always pointed open, while the DNS console only shows
-                its zones once that console is the active one. */}
-            <span className="tree__toggle" />
-            <button
-              type="button"
+      {SNAPINS.map((snapin) => {
+        // The console root carries the mark unless one of its own child rows
+        // does. Consoles without child rows always carry it while active.
+        const childSelected =
+          (snapin.id === 'directory' && directoryDn !== null) ||
+          (snapin.id === 'dns' && zoneDn !== null)
+
+        return (
+          <div className="tree__snapin" key={snapin.id}>
+            <div
               className={
-                snapin.available ? 'tree__label tree__label--root' : 'tree__label tree__label--muted'
+                activeSnapin === snapin.id && !childSelected
+                  ? 'tree__row tree__row--selected'
+                  : 'tree__row'
               }
-              onClick={() => onSelectSnapin(snapin.id)}
             >
-              <Icon type={snapin.icon} />
-              <span>{t(snapin.label)}</span>
-            </button>
+              {/* No expander on a console root. It is a section heading rather
+                  than a container, and the arrow claimed a state that was never
+                  real: it always pointed open, while the DNS console only shows
+                  its zones once that console is the active one. */}
+              <span className="tree__toggle" />
+              <button
+                type="button"
+                className={
+                  snapin.available ? 'tree__label tree__label--root' : 'tree__label tree__label--muted'
+                }
+                onClick={() => onSelectSnapin(snapin.id)}
+              >
+                <Icon type={snapin.icon} />
+                <span>{t(snapin.label)}</span>
+              </button>
+            </div>
+
+            {snapin.available && snapin.id === 'directory' && (
+              <TreeNodeRow
+                node={{ dn: rootDn, name: rootLabel, type: 'domain', has_children: true } as TreeNode}
+                depth={1}
+                selectedDn={directoryDn}
+                onSelect={onSelect}
+                showAdvanced={showAdvanced}
+                initiallyOpen
+              />
+            )}
+
+            {snapin.available && snapin.id === 'dns' && activeSnapin === 'dns' && (
+              <ZoneList selectedZoneDn={zoneDn} onSelectZone={onSelectZone} />
+            )}
           </div>
-
-          {snapin.available && snapin.id === 'directory' && (
-            <TreeNodeRow
-              node={{ dn: rootDn, name: rootLabel, type: 'domain', has_children: true } as TreeNode}
-              depth={1}
-              selectedDn={selectedDn}
-              onSelect={onSelect}
-              showAdvanced={showAdvanced}
-              initiallyOpen
-            />
-          )}
-
-          {snapin.available && snapin.id === 'dns' && activeSnapin === 'dns' && (
-            <ZoneList selectedZoneDn={selectedZoneDn} onSelectZone={onSelectZone} />
-          )}
-        </div>
-      ))}
+          )
+      })}
     </nav>
   )
 }
