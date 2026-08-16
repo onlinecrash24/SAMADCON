@@ -123,3 +123,45 @@ def test_every_transport_is_encrypted():
     for transport, protection in TRANSPORTS:
         assert protection, f"{transport} declares no protection"
         assert transport in ("ldap", "ldaps")
+
+
+# ---------------------------------------------------------------------------
+# Connection timeout
+# ---------------------------------------------------------------------------
+
+
+def test_the_connection_attempt_is_bounded(lp: FakeLoadParm):
+    """An address nothing answers on must be reported, not waited out.
+
+    The probe has always bounded its own attempts. The connection that follows
+    it did not, and Samba's default let a name resolving to an unreachable
+    host hang for 135 seconds — measured — while the interface showed nothing.
+    """
+    from samadcon.auth.kerberos import LDAP_CONNECT_TIMEOUT_SECONDS, _try_set
+
+    _try_set(lp, "ldap connection timeout", str(LDAP_CONNECT_TIMEOUT_SECONDS))
+
+    assert lp.values["ldap connection timeout"] == "10"
+
+
+def test_an_unknown_tuning_option_is_not_fatal():
+    """Samba builds differ in which parameters they accept, and a rejected
+    tuning knob must not take the sign-in with it."""
+    from samadcon.auth.kerberos import _try_set
+
+    class Refusing:
+        def set(self, option: str, value: str) -> None:
+            raise RuntimeError("unknown parameter")
+
+    _try_set(Refusing(), "ldap connection timeout", "10")
+
+
+def test_operation_timeouts_are_left_alone(lp: FakeLoadParm):
+    """`ldap timeout` covers whole operations. A paged search over a large
+    directory is legitimately slow; bounding that would trade one bad failure
+    for another."""
+    from samadcon.auth.kerberos import LDAP_CONNECT_TIMEOUT_SECONDS, _try_set
+
+    _try_set(lp, "ldap connection timeout", str(LDAP_CONNECT_TIMEOUT_SECONDS))
+
+    assert "ldap timeout" not in lp.values

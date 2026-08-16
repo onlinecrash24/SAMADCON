@@ -35,6 +35,11 @@ from samadcon.core.errors import AuthenticationError, SamadconError, translate
 
 logger = logging.getLogger(__name__)
 
+# How long to wait for a domain controller to accept a connection. Generous
+# enough for a DC across a slow link, short enough that an address nothing
+# answers on is reported rather than waited out.
+LDAP_CONNECT_TIMEOUT_SECONDS = 10
+
 # samba's enum credentials_obtained. Spelled out because the numeric values
 # are easy to mix up: CRED_GUESS_ENV is 3, and passing that instead leaves the
 # credential cache at guess priority — the bind then fails with a parameter
@@ -141,12 +146,32 @@ def load_loadparm(settings: Settings, target: ConnectionTarget, *, transport: st
         insecure=target.insecure or settings.ldap_insecure,
     )
 
+    # Bound the connection attempt. Samba's own default let an address that
+    # nothing answers on hang for 135 seconds — measured, against a name that
+    # resolved to an unreachable host — and the interface showed nothing at
+    # all in the meantime. The probe has always bounded this; the connection
+    # that follows it did not, which is the asymmetry that made a name
+    # resolving to the wrong address look like a frozen sign-in.
+    #
+    # Only the *connection* phase is bounded. `ldap timeout` covers whole
+    # operations, and a paged search over a large directory is legitimately
+    # slow: cutting that short would trade one bad failure for another.
+    _try_set(lp, "ldap connection timeout", str(LDAP_CONNECT_TIMEOUT_SECONDS))
+
     # Applied here rather than left to smb.conf, so raising
     # SAMADCON_SAMBA_LOG_LEVEL takes effect without rebuilding the container.
     # Samba then writes its protocol trace to stderr, i.e. into `docker logs`.
     if settings.samba_log_level:
         lp.set("log level", str(settings.samba_log_level))
     return lp
+
+
+def _try_set(lp: Any, option: str, value: str) -> None:
+    """Set a loadparm option, ignoring ones this Samba build does not know."""
+    try:
+        lp.set(option, value)
+    except Exception:  # noqa: BLE001 — an unknown tuning option is not fatal
+        logger.debug("loadparm does not accept %r", option)
 
 
 def apply_transport_settings(

@@ -100,7 +100,11 @@ USER samadcon
 # Ports above 1024 so nginx can bind without extra capabilities.
 EXPOSE 8080 8443
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+# The endpoint answers in about two milliseconds. Five seconds still ran
+# out on a host bringing thirty containers up at once — what timed out was
+# starting the process that asks, not the answer. A tighter limit measures
+# the machine's load rather than this application's health.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -fsS http://127.0.0.1:8080/api/v1/health || exit 1
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]
