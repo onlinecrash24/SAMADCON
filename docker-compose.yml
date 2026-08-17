@@ -38,8 +38,6 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile
-      args:
-        SAMADCON_VERSION: "0.1.0"
       target: ${SAMADCON_TARGET:-runtime}
     # Tagged by target so a test image never overwrites a runtime one.
     image: samadcon:${SAMADCON_TARGET:-runtime}

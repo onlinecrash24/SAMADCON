@@ -56,11 +56,9 @@ RUN apt-get update \
 # ---------------------------------------------------------------------------
 FROM debian:${DEBIAN_RELEASE}-slim AS runtime
 
-ARG SAMADCON_VERSION=0.1.0
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    SAMADCON_VERSION=${SAMADCON_VERSION}
+    PYTHONDONTWRITEBYTECODE=1
 
 # python3-samba pulls in the LDAP/SMB/NDR bindings, samba-common-bin gives us
 # samba-tool for cross-checking, krb5-user gives us klist/kinit for diagnostics.
