@@ -105,8 +105,15 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # `main` carries the releases, `DEV` carries the work in progress.
+          #
+          # The branch name is not used as a tag directly: it would publish
+          # `DEV` in capitals, and an image tag people type by hand should not
+          # depend on how a branch happens to be spelled. `dev` is set
+          # explicitly instead, and `latest` follows the default branch, which
+          # is `main`.
           tags: |
-            type=ref,event=branch
+            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/DEV' }}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha,format=short
