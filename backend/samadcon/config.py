@@ -119,7 +119,7 @@ class Settings(BaseSettings):
     worker_threads: int = 8
     operation_timeout_seconds: int = 120
     dev_mode: bool = False
-    version: str = "0.1.0"
+    version: str = "0.5.0"
 
     @field_validator("realm", mode="after")
     @classmethod
