@@ -641,6 +641,14 @@ export const de = {
   'gpo.problem.gpt_ini_missing': 'GPT.INI fehlt. Clients können die Version nicht bestimmen.',
   'gpo.problem.machine_folder_missing': 'Der Ordner Machine fehlt.',
   'gpo.problem.user_folder_missing': 'Der Ordner User fehlt.',
+  'gpo.problem.machine_content_without_extension':
+    'Computerkonfiguration: Es liegen Einstellungen auf SYSVOL, aber keine passende Erweiterung ist registriert. Kein Client wendet sie an.',
+  'gpo.problem.user_content_without_extension':
+    'Benutzerkonfiguration: Es liegen Einstellungen auf SYSVOL, aber keine passende Erweiterung ist registriert. Kein Client wendet sie an.',
+  'gpo.problem.machine_extension_without_content':
+    'Computerkonfiguration: Eine Erweiterung ist registriert, aber es gibt nichts anzuwenden. Jeder Client holt die Richtlinie bei jeder Aktualisierung und findet sie leer.',
+  'gpo.problem.user_extension_without_content':
+    'Benutzerkonfiguration: Eine Erweiterung ist registriert, aber es gibt nichts anzuwenden. Jeder Client holt die Richtlinie bei jeder Aktualisierung und findet sie leer.',
   'gpo.problem.no_path': 'Das Objekt nennt keinen SYSVOL-Pfad.',
   'gpo.problem.invalid_path': 'Der SYSVOL-Pfad im Objekt ist unbrauchbar.',
 
@@ -1702,6 +1710,14 @@ export const en: Record<MessageKey, string> = {
   'gpo.problem.gpt_ini_missing': 'GPT.INI is missing. Clients cannot tell which version they have.',
   'gpo.problem.machine_folder_missing': 'The Machine folder is missing.',
   'gpo.problem.user_folder_missing': 'The User folder is missing.',
+  'gpo.problem.machine_content_without_extension':
+    'Computer configuration: settings are on SYSVOL but no matching extension is registered. No client applies them.',
+  'gpo.problem.user_content_without_extension':
+    'User configuration: settings are on SYSVOL but no matching extension is registered. No client applies them.',
+  'gpo.problem.machine_extension_without_content':
+    'Computer configuration: an extension is registered but there is nothing to apply. Every client fetches the policy on each refresh and finds it empty.',
+  'gpo.problem.user_extension_without_content':
+    'User configuration: an extension is registered but there is nothing to apply. Every client fetches the policy on each refresh and finds it empty.',
   'gpo.problem.no_path': 'The object names no SYSVOL path.',
   'gpo.problem.invalid_path': 'The SYSVOL path on the object is unusable.',
 

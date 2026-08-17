@@ -51,7 +51,16 @@ async def gpo_status(worker: Worker, session: CurrentSession, dn: DnQuery) -> di
     """
 
     def _run(conn: Any) -> dict[str, Any]:
-        return container.status(conn, container.get_gpo(conn, dn))
+        gpo = container.get_gpo(conn, dn)
+        status = container.status(conn, gpo)
+        # Whether content and registration agree is a question about what the
+        # files hold, so it needs the report rather than a listing. Only asked
+        # once SYSVOL is known to be readable — with the folder missing there
+        # is nothing to compare and the walk would only produce noise.
+        if status["sysvol_present"]:
+            status["problems"] += report.registration_problems(gpo, report.build_report(conn, dn))
+            status["consistent"] = not status["problems"]
+        return status
 
     return await ad_read(worker, session, _run, label="gpo.status")
 

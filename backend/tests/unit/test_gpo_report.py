@@ -320,3 +320,77 @@ def test_a_template_with_only_headers_leaves_the_half_empty():
     half = report._empty_half()
     half["security"] = sections(BARE_TEMPLATE)
     assert report._applies_anything(half) is False
+
+
+# ---------------------------------------------------------------------------
+# Content against registration
+#
+# Two silent failure modes, opposite directions. Neither shows up anywhere in
+# the directory, which is why cse.py opens by saying a policy written without
+# its extension "applies nowhere, and nothing reports it".
+# ---------------------------------------------------------------------------
+
+
+def gpo(*, machine: str = "", user: str = "") -> dict:
+    return {"machine_extensions": machine or None, "user_extensions": user or None}
+
+
+def built(*, machine=None, user=None) -> dict:
+    report_ = {"machine": report._empty_half(), "user": report._empty_half()}
+    if machine:
+        report_["machine"].update(machine)
+    if user:
+        report_["user"].update(user)
+    return report_
+
+
+def test_settings_without_a_registration_are_reported():
+    problems = report.registration_problems(
+        gpo(), built(machine={"registry": [{"key": "K", "value_name": "V"}]})
+    )
+    assert problems == ["machine_content_without_extension"]
+
+
+def test_a_registration_without_settings_is_reported():
+    problems = report.registration_problems(gpo(machine="[{35378EAC-...}]"), built())
+    assert problems == ["machine_extension_without_content"]
+
+
+def test_the_two_halves_are_judged_separately():
+    problems = report.registration_problems(
+        gpo(user="[{25537BA6-...}]"),
+        built(machine={"registry": [{"key": "K", "value_name": "V"}]}),
+    )
+    assert problems == [
+        "machine_content_without_extension",
+        "user_extension_without_content",
+    ]
+
+
+def test_agreement_raises_nothing():
+    assert (
+        report.registration_problems(
+            gpo(machine="[{35378EAC-...}]"),
+            built(machine={"registry": [{"key": "K", "value_name": "V"}]}),
+        )
+        == []
+    )
+
+
+def test_an_empty_policy_with_no_registration_is_fine():
+    """The ordinary state of a GPO nobody has filled in yet."""
+    assert report.registration_problems(gpo(), built()) == []
+
+
+def test_an_unrecognised_file_does_not_claim_a_client_would_apply_it():
+    """It was not parsed, so there is no ground to say it reaches anyone —
+    and the finding would name a fault nobody can act on."""
+    other = {"other_files": [{"path": "p\\odd.dat", "name": "odd.dat"}]}
+    assert report.registration_problems(gpo(), built(machine=other)) == []
+
+
+def test_an_emptied_samba_manifest_does_not_hold_a_registration_open():
+    """The residue samba-tool leaves behind is not content."""
+    manifest = {"vgp": [{"path": "p", "name": "Symlink Policy", "description": "", "entries": []}]}
+    problems = report.registration_problems(gpo(machine="[{35378EAC-...}]"), built(machine=manifest))
+    assert problems == ["machine_extension_without_content"]

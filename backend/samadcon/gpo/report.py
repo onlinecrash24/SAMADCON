@@ -130,14 +130,14 @@ def _has_content(half: dict[str, Any]) -> bool:
     )
 
 
-def _applies_anything(half: dict[str, Any]) -> bool:
-    """Whether this half changes anything on a client.
+def _understood_content(half: dict[str, Any]) -> bool:
+    """Content this module parsed and can vouch for.
 
-    Deliberately stricter than having something to show. An empty Samba
-    manifest is a real file and belongs in the report — samba-tool leaves one
-    behind when the last entry is removed, so it is the normal residue of
-    clearing a policy — but it reaches no client, and calling such a policy
-    non-empty sends someone hunting for a setting that is not there.
+    Stricter than having something to show. An empty Samba manifest is a real
+    file and belongs in the report — samba-tool leaves one behind when the
+    last entry is removed, so it is the normal residue of clearing a policy —
+    but it reaches no client, and calling such a policy non-empty sends
+    someone hunting for a setting that is not there.
     """
     return bool(
         half["registry"]
@@ -146,9 +146,49 @@ def _applies_anything(half: dict[str, Any]) -> bool:
         or half["redirection"]
         or half["preferences"]
         or any(group["entries"] for group in half["vgp"])
-        # Not understood, so not assumed harmless.
-        or half["other_files"]
     )
+
+
+def _applies_anything(half: dict[str, Any]) -> bool:
+    """Whether this half changes anything on a client.
+
+    An unrecognised file counts. It was not understood, so it is not assumed
+    harmless — the one conclusion a report must never invite by accident is
+    "this policy is empty".
+    """
+    return _understood_content(half) or bool(half["other_files"])
+
+
+REGISTRATION_ATTRIBUTE = {"Machine": "machine_extensions", "User": "user_extensions"}
+
+
+def registration_problems(gpo: dict[str, Any], report: dict[str, Any]) -> list[str]:
+    """Where a policy's content and its extension registration disagree.
+
+    Two failure modes, opposite directions, both silent in the directory:
+
+    * **Content with no extension registered.** The settings are on SYSVOL and
+      reach nobody. This is the failure :mod:`samadcon.gpo.cse` warns about in
+      its opening lines — "applies nowhere, and nothing reports it" — and this
+      is that report.
+    * **An extension registered with nothing to apply.** Every client in scope
+      fetches the policy on each refresh and finds it empty. Windows clears
+      the registration itself when the last setting goes, so a GPO left in
+      this state was usually emptied by something that did not.
+
+    Judged on understood content only. An unrecognised file is not evidence
+    that a client would apply something, so it must not raise a finding that
+    says so.
+    """
+    problems: list[str] = []
+    for half, attribute in REGISTRATION_ATTRIBUTE.items():
+        has_content = _understood_content(report[half.lower()])
+        registered = bool(gpo.get(attribute))
+        if has_content and not registered:
+            problems.append(f"{half.lower()}_content_without_extension")
+        elif registered and not has_content:
+            problems.append(f"{half.lower()}_extension_without_content")
+    return problems
 
 
 def _note(unreadable: list[dict[str, Any]], path: str, exc: Exception) -> None:
