@@ -146,8 +146,17 @@ def apply_state(
     plan = resolver.plan(policy, current, desired)
 
     if plan.empty:
-        # Nothing to write. Saying so beats advancing the version and making
-        # every client in the domain re-read a policy that did not change.
+        # Nothing to write into Registry.pol. Saying so beats advancing the
+        # version and making every client in the domain re-read a policy that
+        # did not change.
+        #
+        # The registration is still reconciled, and that is not belt and
+        # braces: a half emptied before this code existed — or by a tool that
+        # does not unregister — keeps an extension registered with nothing to
+        # apply, and returning here first left no way back. `current` is
+        # already in hand, so this costs no extra read, and the attribute is
+        # written only when it actually disagrees.
+        register_extension(conn, dn, half, present=bool(current))
         return {"dn": dn, "changed": False, "version": gpo["version"]}
 
     policies = _registry_group_policies(conn, gpo)
