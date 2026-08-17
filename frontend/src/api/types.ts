@@ -780,6 +780,8 @@ export interface AdmxPolicy extends AdmxPolicySummary {
   key: string
   value_name: string | null
   supported_on: string | null
+  /** Set only when the reference could not be resolved — never an answer. */
+  supported_on_ref?: string | null
   elements: AdmxElement[]
   presentation: AdmxControl[]
 }

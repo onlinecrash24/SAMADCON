@@ -178,6 +178,18 @@ export function PolicyDialog({ gpo, policy, half, onClose, onSaved }: PolicyDial
                 <dd className="small">{definition.data.supported_on}</dd>
               </>
             )}
+            {/* The reference names a definition that is not installed. Shown
+                as the open question it is: printing it as the answer had a
+                Linux-only smb.conf setting claiming to need Windows 7. */}
+            {!definition.data.supported_on && definition.data.supported_on_ref && (
+              <>
+                <dt>{t('admx.supportedOn')}</dt>
+                <dd className="small muted">
+                  {t('admx.supportedOnUnknown')}{' '}
+                  <span className="mono">{definition.data.supported_on_ref}</span>
+                </dd>
+              </>
+            )}
           </dl>
         </div>
       )}

@@ -1028,6 +1028,7 @@ export const de = {
   'admx.explain': 'Erklärung',
   'admx.registryKey': 'Registrierungsschlüssel',
   'admx.supportedOn': 'Unterstützt auf',
+  'admx.supportedOnUnknown': 'Unbekannt — die Vorlage nennt eine Definition, die nicht installiert ist:',
   'admx.saved': 'Einstellung gespeichert.',
   'admx.unchanged': 'Nichts zu ändern — die Einstellung stand bereits so.',
   'admx.noStore':
@@ -2078,6 +2079,7 @@ export const en: Record<MessageKey, string> = {
   'admx.explain': 'Explanation',
   'admx.registryKey': 'Registry key',
   'admx.supportedOn': 'Supported on',
+  'admx.supportedOnUnknown': 'Unknown — the template names a definition that is not installed:',
   'admx.saved': 'Setting saved.',
   'admx.unchanged': 'Nothing to change — the setting already read that way.',
   'admx.noStore': 'This domain has no central store of administrative templates.',
