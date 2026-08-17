@@ -21,6 +21,7 @@ import type {
 import { Badge, ErrorMessage, Spinner, useDateFormat } from '../../components/primitives'
 import { useI18n } from '../../i18n'
 import type { MessageKey } from '../../i18n/messages'
+import { useSession } from '../../state/session'
 
 type Tab = 'overview' | 'replication' | 'policy' | 'accounts'
 
@@ -56,6 +57,7 @@ export function DiagnosticsView() {
       {tab === 'overview' && (
         <div className="stack">
           <DomainCard domain={data.domain} />
+          <ConnectionCard />
           <RolesCard roles={data.roles} />
           <ControllersCard controllers={data.controllers} />
         </div>
@@ -90,6 +92,61 @@ function DomainCard({ domain }: { domain: DomainSummary }) {
         <Fact label={t('diag.baseDn')} value={<code className="mono small">{domain.base_dn}</code>} />
         <Fact label={t('diag.domainSid')} value={<code className="mono small">{domain.domain_sid}</code>} />
       </dl>
+    </section>
+  )
+}
+
+/**
+ * How this session's own connection to the DC is protected.
+ *
+ * It reads from the session rather than from the diagnostics endpoint on
+ * purpose: this is not a property of the domain but of the connection the
+ * person looking at the screen is using, and a second administrator signed in
+ * over a different transport should see their own answer, not this one.
+ */
+function ConnectionCard() {
+  const { t } = useI18n()
+  const { session } = useSession()
+  const state = session?.connection
+  if (!state) return null
+
+  const yes = <Badge tone="ok">{t('common.yes')}</Badge>
+
+  return (
+    <section className="card">
+      <h3>{t('diag.connection')}</h3>
+      <dl className="facts">
+        <Fact
+          label={t('diag.transport')}
+          value={t(state.transport === 'ldaps' ? 'diag.transport.ldaps' : 'diag.transport.ldap')}
+        />
+        <Fact label={t('diag.protection')} value={state.protection} />
+        <Fact label={t('diag.encrypted')} value={state.encrypted ? yes : null} />
+        <Fact
+          label={t('diag.identityVerified')}
+          value={
+            state.identity_verified ? yes : <Badge tone="warn">{t('common.no')}</Badge>
+          }
+        />
+        <Fact
+          label={t('diag.certificate')}
+          // null is not "unverified": under Kerberos there is no certificate
+          // to have checked, and a red badge there would report a weakness
+          // that does not exist.
+          value={
+            state.certificate_verified === null ? (
+              <span className="muted">{t('diag.certNotInvolved')}</span>
+            ) : state.certificate_verified ? (
+              <Badge tone="ok">{t('diag.certTrusted')}</Badge>
+            ) : (
+              <Badge tone="warn">{t('diag.certUntrusted')}</Badge>
+            )
+          }
+        />
+      </dl>
+      <p className="muted small">
+        {t(state.transport === 'ldaps' ? 'diag.identityByTls' : 'diag.identityByKerberos')}
+      </p>
     </section>
   )
 }
