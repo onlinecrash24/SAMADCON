@@ -50,6 +50,11 @@ VGP_MANIFEST = "manifest.xml"
 # Structure rather than settings; listing them as unrecognised content is noise.
 IGNORED_FILES = frozenset({"gpt.ini", "desktop.ini"})
 
+# The header sections every GptTmpl.inf carries. They say the file is UTF-16
+# and which format revision it is — nothing an administrator set, and nothing
+# a client applies.
+INF_BOILERPLATE = frozenset({"unicode", "version"})
+
 # How deep a policy tree is walked. Preferences sit three levels down and VGP
 # four; the bound is here because this walks a network share, and a tree that
 # is somehow deeper must not turn a report into an unbounded number of round
@@ -300,6 +305,11 @@ def _read_ini_sections(
     section names are the ones an administrator sees in the security editor,
     so they are passed through rather than translated into a vocabulary of
     our own.
+
+    ``[Unicode]`` and ``[Version]`` are dropped. Every tool that writes this
+    file writes them — ``Unicode=yes``, ``signature="$CHICAGO$"``,
+    ``Revision=1`` — and they configure nothing. Reported as settings, they
+    made a template holding no policy at all look like one holding two.
     """
     try:
         text = share.read_text(path)
@@ -322,7 +332,11 @@ def _read_ini_sections(
         name, _, value = stripped.partition("=")
         sections[current].append({"name": name.strip(), "value": value.strip()})
 
-    return {name: values for name, values in sections.items() if values}
+    return {
+        name: values
+        for name, values in sections.items()
+        if values and name.lower() not in INF_BOILERPLATE
+    }
 
 
 def _read_scripts(

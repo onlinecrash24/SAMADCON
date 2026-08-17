@@ -271,3 +271,52 @@ def test_a_manifest_with_entries_counts_as_configured():
         {"path": "p", "name": "Symlink Policy", "description": "", "entries": [{"element": "x"}]}
     ]
     assert report._applies_anything(half) is True
+
+
+# ---------------------------------------------------------------------------
+# GptTmpl.inf
+# ---------------------------------------------------------------------------
+
+
+class OneText:
+    """A share holding a single text file."""
+
+    def __init__(self, text: str):
+        self.text = text
+
+    def read_text(self, path: str) -> str:
+        return self.text
+
+
+BARE_TEMPLATE = """[Unicode]
+Unicode=yes
+[Version]
+signature="$CHICAGO$"
+Revision=1
+"""
+
+WITH_POLICY = BARE_TEMPLATE + """[System Access]
+MinimumPasswordLength=14
+"""
+
+
+def sections(text: str):
+    return report._read_ini_sections(OneText(text), "GptTmpl.inf", [])
+
+
+def test_the_header_sections_are_not_settings():
+    """Every tool writes them, and they configure nothing. Reported as
+    settings, a template holding no policy looked like one holding two."""
+    assert sections(BARE_TEMPLATE) == {}
+
+
+def test_real_sections_survive_the_filter():
+    assert sections(WITH_POLICY) == {
+        "System Access": [{"name": "MinimumPasswordLength", "value": "14"}]
+    }
+
+
+def test_a_template_with_only_headers_leaves_the_half_empty():
+    half = report._empty_half()
+    half["security"] = sections(BARE_TEMPLATE)
+    assert report._applies_anything(half) is False
