@@ -13,6 +13,7 @@ import { api } from '../../../api/endpoints'
 import type { AdmxStore } from '../../../api/types'
 import { ErrorMessage } from '../../../components/primitives'
 import { useI18n } from '../../../i18n'
+import { BundledTemplates } from './BundledTemplates'
 
 export function TemplateUpload({
   store,
@@ -60,6 +61,9 @@ export function TemplateUpload({
           {t('admx.upload')}
         </button>
       </div>
+
+      <hr className="rule" />
+      <BundledTemplates onDone={onDone} />
     </div>
   )
 }

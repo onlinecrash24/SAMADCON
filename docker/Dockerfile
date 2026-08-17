@@ -29,7 +29,30 @@ COPY frontend/public ./public
 RUN npm run build
 
 # ---------------------------------------------------------------------------
-# Stage 2 — runtime
+# Stage 2 — Samba's own administrative templates
+#
+# samba.admx describes the policies samba-gpupdate applies on Linux members:
+# over 150 smb.conf options, the Unix cron scripts and sudo rights, all as
+# ordinary registry policy. That means the ADMX editor can already edit them —
+# it only needs the definitions.
+#
+# They ship in the `samba` package, which is the *server*. Installing it would
+# drag smbd, nmbd and the provisioning stack into a client container for the
+# sake of a handful of XML files, so the package is unpacked rather than
+# installed and only the admx tree is kept.
+# ---------------------------------------------------------------------------
+FROM debian:${DEBIAN_RELEASE}-slim AS admx
+
+RUN apt-get update \
+    && apt-get download samba \
+    && dpkg-deb -x samba_*.deb /unpacked \
+    # Fail here rather than shipping an image whose templates are silently
+    # missing: if Debian ever moves the files, this is where it should stop.
+    && test -f /unpacked/usr/share/samba/admx/samba.admx \
+    && rm -rf /var/lib/apt/lists/* samba_*.deb
+
+# ---------------------------------------------------------------------------
+# Stage 3 — runtime
 # ---------------------------------------------------------------------------
 FROM debian:${DEBIAN_RELEASE}-slim AS runtime
 
@@ -74,6 +97,8 @@ COPY backend/samadcon ./samadcon
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir .
 
+COPY --from=admx /unpacked/usr/share/samba/admx /usr/share/samba/admx
+
 COPY --from=frontend /build/dist /srv/samadcon/www
 COPY docker/nginx.conf.template /etc/samadcon/nginx.conf.template
 COPY docker/supervisord.conf /etc/samadcon/supervisord.conf
@@ -111,7 +136,7 @@ ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]
 CMD ["supervisor"]
 
 # ---------------------------------------------------------------------------
-# Stage 3 — test image
+# Stage 4 — test image
 #
 # Adds the test suite and pytest on top of the runtime image, so integration
 # tests exercise exactly the image that ships. Selected with SAMADCON_TARGET=test

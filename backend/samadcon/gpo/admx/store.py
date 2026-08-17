@@ -25,6 +25,7 @@ import logging
 import threading
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from samadcon.ad.connection import DirectoryConnection
@@ -390,6 +391,57 @@ def upload(
         conn.info.dns_domain,
     )
     return {"path": base, "added": accepted}
+
+
+# ---------------------------------------------------------------------------
+# Templates that ship inside the image
+# ---------------------------------------------------------------------------
+
+
+def _bundled_entries(directory: Path) -> list[tuple[str, Path]]:
+    """Template files under *directory*, named the way the store wants them.
+
+    Samba's package lays them out exactly as a central store does — the
+    ``.admx`` files at the top, one directory per language beside them — so
+    the tree is handed over unchanged rather than rearranged. Every candidate
+    still goes through :func:`_safe_name`, which is what decides the shape:
+    this walks a directory that came from a package, and the store is a share
+    every domain member reads.
+    """
+    if not directory.is_dir():
+        return []
+
+    found: list[tuple[str, Path]] = []
+    for path in sorted(directory.rglob("*")):
+        if not path.is_file():
+            continue
+        relative = _safe_name(path.relative_to(directory).as_posix())
+        if relative is None:
+            continue
+        found.append((relative, path))
+        if len(found) >= MAX_TEMPLATES:
+            break
+    return found
+
+
+def bundled_describe(directory: Path) -> dict[str, Any]:
+    """What the image ships, without reading any of it."""
+    entries = _bundled_entries(directory)
+    return {
+        "present": bool(entries),
+        "path": str(directory),
+        "templates": sorted(
+            name for name, _ in entries if name.lower().endswith(ADMX_SUFFIX)
+        ),
+        "languages": sorted(
+            {name.split("\\", 1)[0] for name, _ in entries if "\\" in name}
+        ),
+    }
+
+
+def bundled_files(directory: Path) -> dict[str, bytes]:
+    """The shipped templates, keyed the way :func:`upload` expects."""
+    return {name: path.read_bytes() for name, path in _bundled_entries(directory)}
 
 
 def _safe_name(name: str) -> str | None:

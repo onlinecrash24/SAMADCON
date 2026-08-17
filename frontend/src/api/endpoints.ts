@@ -8,6 +8,7 @@ import type {
   AdmxPolicy,
   AdmxPolicySummary,
   AdmxState,
+  AdmxBundled,
   AdmxStore,
   AdmxTree,
   AttributeListing,
@@ -387,6 +388,9 @@ export const api = {
       'files',
       file,
     ),
+  bundledTemplates: () => http.get<AdmxBundled>('/admx/bundled'),
+  installBundledTemplates: (overwrite = false) =>
+    http.post<{ path: string; added: string[] }>(`/admx/bundled?overwrite=${overwrite}`),
   refreshTemplates: () => http.post<{ policies: number }>('/admx/refresh'),
   // `dn` is what makes the listing carry each setting's state in this GPO —
   // the status column. Without it the tree is just the store.

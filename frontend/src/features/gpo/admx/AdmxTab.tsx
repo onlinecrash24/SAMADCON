@@ -17,6 +17,7 @@ import { ErrorMessage, Spinner } from '../../../components/primitives'
 import { useI18n } from '../../../i18n'
 import type { MessageKey } from '../../../i18n/messages'
 import { PolicyDialog } from './PolicyDialog'
+import { BundledTemplates, useBundledMissing } from './BundledTemplates'
 import { TemplateUpload } from './TemplateUpload'
 import { admlLanguage } from './language'
 
@@ -49,6 +50,10 @@ export function AdmxTab({ gpo, onChanged }: { gpo: Gpo; onChanged: (message: str
     enabled: active !== '',
   })
 
+  // Called here rather than beside its banner: hooks may not sit after the
+  // early returns below.
+  const bundledMissing = useBundledMissing(store.data?.templates.map((item) => item.name))
+
   if (store.isLoading) return <Spinner label={t('status.loading')} />
   if (store.error) return <ErrorMessage error={store.error} />
 
@@ -66,7 +71,13 @@ export function AdmxTab({ gpo, onChanged }: { gpo: Gpo; onChanged: (message: str
   const categories = active ? [] : (tree.data?.categories ?? [])
 
   return (
-    <div className="gpedit">
+    <>
+      {bundledMissing && (
+        <div className="alert alert--info">
+          <BundledTemplates onDone={() => void store.refetch()} />
+        </div>
+      )}
+      <div className="gpedit">
       <div className="gpedit__bar">
         <div className="tabs">
           {(['Machine', 'User'] as Half[]).map((id) => (
@@ -209,7 +220,8 @@ export function AdmxTab({ gpo, onChanged }: { gpo: Gpo; onChanged: (message: str
           }}
         />
       )}
-    </div>
+      </div>
+    </>
   )
 }
 

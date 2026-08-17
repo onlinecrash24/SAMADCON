@@ -16,6 +16,7 @@ from fastapi import APIRouter, File, Query, UploadFile
 from samadcon.ad.access import ad_read, ad_write
 from samadcon.api.common import Audit, DnQuery, OptionalDnQuery
 from samadcon.auth.deps import CurrentSession, VerifiedSession, VerifiedWorker, Worker
+from samadcon.config import get_settings
 from samadcon.core.errors import InvalidRequest, NotFound
 from samadcon.gpo.admx import serialise, store, writer
 from samadcon.gpo.admx.model import Catalogue, Policy
@@ -111,6 +112,47 @@ def _unpack(data: bytes) -> dict[str, bytes]:
             continue
         unpacked[info.filename] = archive.read(info)
     return unpacked
+
+
+@router.get("/bundled")
+async def describe_bundled(session: CurrentSession) -> dict[str, Any]:
+    """Samba's own templates, as shipped inside this image.
+
+    Read from local disk, so no worker and no directory connection: this says
+    what is available to install, not what is installed.
+    """
+    return store.bundled_describe(get_settings().bundled_admx_dir)
+
+
+@router.post("/bundled")
+async def install_bundled(
+    worker: VerifiedWorker,
+    session: VerifiedSession,
+    audit: Audit,
+    overwrite: Annotated[bool, Query(description="Replace templates already there")] = False,
+) -> dict[str, Any]:
+    """Copy the shipped templates into the domain's central store.
+
+    Without these, the ADMX editor shows only what Microsoft's templates
+    define, and the settings that govern Linux members — smb.conf, the Unix
+    cron scripts, sudo rights — have no definitions to render, even though the
+    write path for them has existed since the registry editor did.
+    """
+    payload = store.bundled_files(get_settings().bundled_admx_dir)
+    if not payload:
+        raise NotFound(
+            "This image ships no administrative templates.",
+            code="no_bundled_templates",
+            hint="Upload them instead, or use an image that includes them.",
+        )
+
+    with audit.operation("admx.install_bundled") as record:
+        result = await ad_write(
+            worker, session, store.upload, payload, overwrite=overwrite, label="admx.bundled"
+        )
+        record["target"] = result["path"]
+        record["changes"] = {"templates": {"new": ", ".join(result["added"])}}
+    return result
 
 
 @router.post("/refresh")

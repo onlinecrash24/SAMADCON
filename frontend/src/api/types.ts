@@ -718,6 +718,15 @@ export interface AdmxStore {
   language: string | null
 }
 
+/** Templates shipped inside the image, ready to be copied into the store. */
+export interface AdmxBundled {
+  present: boolean
+  path: string
+  /** File names, e.g. "samba.admx" — no sizes: nothing has been read yet. */
+  templates: string[]
+  languages: string[]
+}
+
 export interface AdmxCategory {
   id: string
   name: string

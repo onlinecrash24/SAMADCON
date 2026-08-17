@@ -596,6 +596,10 @@ button:focus-visible {
 .stack { display: flex; flex-direction: column; gap: 14px; padding: 0 12px 16px; }
 .stack-tight { display: flex; flex-direction: column; gap: 2px; }
 
+/* A separator that follows the theme. The browser default draws a bevelled
+   grey line that reads as a rendering fault against a dark surface. */
+.rule { border: 0; border-top: 1px solid var(--border); width: 100%; margin: 16px 0 12px; }
+
 .card {
   border: 1px solid var(--border);
   border-radius: var(--radius);

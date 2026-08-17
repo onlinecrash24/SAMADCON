@@ -98,6 +98,15 @@ class Settings(BaseSettings):
         description="Lab only: skip LDAPS certificate validation",
     )
     ldap_timeout_seconds: int = 30
+
+    # Samba's own administrative templates, unpacked into the image from the
+    # `samba` package. They describe the policies samba-gpupdate applies on
+    # Linux members — smb.conf, the Unix cron scripts, sudo rights — which is
+    # the half of group policy no Microsoft template covers.
+    bundled_admx_dir: Path = Field(
+        default=Path("/usr/share/samba/admx"),
+        description="Administrative templates shipped inside the image",
+    )
     ldap_page_size: int = 500
 
     # --- Sessions ---------------------------------------------------------

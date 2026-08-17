@@ -1034,6 +1034,9 @@ export const de = {
   'admx.uploadHint':
     'Ein ZIP mit .admx-Dateien und den Sprachordnern, oder eine einzelne Datei. Windows liefert die Pakete in genau dieser Form.',
   'admx.upload': 'Hochladen',
+  'admx.bundledHint':
+    'Dieses Abbild bringt Sambas eigene Vorlagen mit ({names}). Sie beschreiben, was samba-gpupdate auf Linux-Mitgliedern anwendet — smb.conf-Optionen, die Unix-Cron-Skripte und Sudo-Rechte. Ohne sie kann der Editor diese Einstellungen zwar schreiben, aber nicht anzeigen.',
+  'admx.installBundled': 'Samba-Vorlagen übernehmen',
 
   'error.no_central_store': 'Diese Domäne hat keinen zentralen Vorlagenspeicher.',
   'error.policy_not_found': 'Diese Einstellung ist in den installierten Vorlagen nicht enthalten.',
@@ -2074,6 +2077,9 @@ export const en: Record<MessageKey, string> = {
   'admx.uploadHint':
     'A ZIP with .admx files and the language directories, or a single file. Windows ships the packages in exactly that shape.',
   'admx.upload': 'Upload',
+  'admx.bundledHint':
+    'This image ships Samba’s own templates ({names}). They describe what samba-gpupdate applies on Linux members — smb.conf options, the Unix cron scripts and sudo rights. Without them the editor can write those settings but not show them.',
+  'admx.installBundled': 'Install Samba templates',
 
   'error.no_central_store': 'This domain has no central template store.',
   'error.policy_not_found': 'This setting is not in the installed templates.',
