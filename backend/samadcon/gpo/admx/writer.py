@@ -173,7 +173,10 @@ def apply_state(
             ]
         )
 
-    register_extension(conn, dn, half)
+    # Re-read rather than subtract the plan from what was there: the file has
+    # just been rewritten by Samba's own writer, and it is the authority on
+    # what is left. One extra read on save, for an answer that cannot drift.
+    register_extension(conn, dn, half, present=bool(registry_entries(conn, gpo, half)))
 
     updated = container.get_gpo(conn, dn)
     logger.info(
@@ -214,11 +217,20 @@ def _registry_group_policies(conn: DirectoryConnection, gpo: dict[str, Any]) -> 
 # ---------------------------------------------------------------------------
 
 
-def register_extension(conn: DirectoryConnection, dn: str, half: str) -> str | None:
-    """Make sure this GPO's registry extension is listed for *half*.
+def register_extension(
+    conn: DirectoryConnection, dn: str, half: str, *, present: bool = True
+) -> str | None:
+    """List or unlist this GPO's registry extension for *half*.
 
     The list itself lives in ``samadcon.gpo.cse``: scripts and folder
     redirection register in the same attribute, and the sorting it requires
     has to take their entries into account too.
+
+    An emptied half is unlisted, which was read off GPMC rather than reasoned
+    about — and the reasoning would have got it wrong. It looked as though the
+    registration had to stay, since a client clears a value it applied earlier
+    by running the extension and finding the value gone. GPMC does not agree:
+    setting a GPO's only administrative template back to "not configured"
+    leaves ``gPCMachineExtensionNames`` holding a single space.
     """
-    return cse.register(conn, dn, half, cse.REGISTRY_CSE, cse.REGISTRY_TOOL)
+    return cse.register(conn, dn, half, cse.REGISTRY_CSE, cse.REGISTRY_TOOL, present=present)

@@ -198,16 +198,13 @@ function RestoreDialog({ onClose, onDone }: { onClose: () => void; onDone: () =>
 }
 
 /**
- * Which halves of a policy have a client-side extension registered, and which
- * are switched off.
+ * Which halves of a policy carry anything, and which are switched off.
  *
- * Registered is not the same as configured, and the badge used to claim it
- * was: a half stays green after its last setting is removed, because the
- * extension registration survives. That is deliberate — a client learns to
- * remove a value it applied earlier by running the extension and finding the
- * value gone, so unregistering would strand it. The colour therefore answers
- * "does anything run for this half", and the tooltip says so; whether it finds
- * anything to do is what the settings report answers.
+ * A half whose last setting is removed is unregistered again, so grey here
+ * really does mean empty. That took a GPMC reference to settle: the reasoning
+ * said the registration had to stay, because a client clears a value it
+ * applied earlier by running the extension and finding the value gone. GPMC
+ * disagrees, and GPMC is the specification.
  */
 function GpoHalves({ gpo }: { gpo: Gpo }) {
   const { t } = useI18n()

@@ -194,6 +194,23 @@ def braced(guid: str) -> str:
     return "{" + guid.strip("{}").upper() + "}"
 
 
+# What GPMC leaves behind when the last extension of a half goes.
+#
+# Not an empty value, and not a deleted attribute: a single space. Read off a
+# GPO whose only administrative template had just been set back to "not
+# configured" — ldbsearch reported ``gPCMachineExtensionNames:: IA==``, and
+# IA== is base64 for 0x20. Nothing in the format suggests this. It is simply
+# what Windows writes, so it is what we write.
+EMPTY = " "
+
+
+def _current(conn: DirectoryConnection, dn: str, attribute: str) -> str:
+    """The attribute as groups, with GPMC's empty marker read as empty."""
+    entry: Any = conn.get(dn, attrs=[attribute])
+    value = ad_values.as_str(entry, attribute) if entry is not None else None
+    return (value or "").strip()
+
+
 def register(
     conn: DirectoryConnection,
     dn: str,
@@ -206,14 +223,13 @@ def register(
     """Add or remove one extension on a GPO. Returns the new value, or None
     when it already read that way."""
     attribute = HALF_ATTRIBUTE[half]
-    entry: Any = conn.get(dn, attrs=[attribute])
-    current = ad_values.as_str(entry, attribute) if entry is not None else None
+    current = _current(conn, dn, attribute)
 
     updated = add(current, cse, [tool]) if present else remove(current, cse)
-    if updated == (current or ""):
+    if updated == current:
         return None
 
-    conn.modify_attributes(dn, {attribute: updated})
+    conn.modify_attributes(dn, {attribute: updated or EMPTY})
     logger.info(
         "%s extension %s on %s (%s)",
         "registered" if present else "unregistered",
@@ -238,17 +254,16 @@ def register_pairs(
     would leave the attribute half registered if the second write failed.
     """
     attribute = HALF_ATTRIBUTE[half]
-    entry: Any = conn.get(dn, attrs=[attribute])
-    current = ad_values.as_str(entry, attribute) if entry is not None else None
+    current = _current(conn, dn, attribute)
 
-    updated = current or ""
+    updated = current
     for cse, tool in pairs:
         updated = add(updated, cse, [tool]) if present else remove_tool(updated, cse, tool)
 
-    if updated == (current or ""):
+    if updated == current:
         return None
 
-    conn.modify_attributes(dn, {attribute: updated})
+    conn.modify_attributes(dn, {attribute: updated or EMPTY})
     logger.info(
         "%s %d extension pairs on %s (%s)",
         "registered" if present else "unregistered",

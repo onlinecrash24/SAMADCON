@@ -586,8 +586,9 @@ export const de = {
   'gpo.user': 'Benutzer',
   'gpo.off': 'aus',
   'gpo.halfRegistered':
-    'Für diese Hälfte ist eine clientseitige Erweiterung registriert. Das heißt, dass Clients sie verarbeiten — nicht, dass gerade etwas konfiguriert ist. Die Registrierung bleibt nach dem Entfernen der letzten Einstellung absichtlich stehen, sonst räumen Clients einen früher gesetzten Wert nie wieder ab. Was tatsächlich drinsteht, sagt der Bericht.',
-  'gpo.halfNothing': 'Für diese Hälfte ist keine Erweiterung registriert — Clients verarbeiten sie nicht.',
+    'Diese Hälfte enthält etwas, das Clients anwenden. Was genau, sagt der Bericht.',
+  'gpo.halfNothing':
+    'Diese Hälfte ist leer — es ist keine clientseitige Erweiterung registriert, Clients verarbeiten sie nicht.',
   'gpo.halfOff': 'Diese Hälfte ist abgeschaltet und wird unabhängig vom Inhalt nicht angewendet.',
   'gpo.newGpo': 'Neue Richtlinie',
   'gpo.newHint':
@@ -1644,9 +1645,9 @@ export const en: Record<MessageKey, string> = {
   'gpo.machine': 'Computer',
   'gpo.user': 'User',
   'gpo.off': 'off',
-  'gpo.halfRegistered':
-    'A client-side extension is registered for this half, which means clients process it — not that anything is configured right now. The registration deliberately survives the removal of the last setting, or clients would never clear a value they applied earlier. What is actually in it is what the settings report answers.',
-  'gpo.halfNothing': 'No extension is registered for this half — clients do not process it.',
+  'gpo.halfRegistered': 'This half contains something clients apply. What exactly is what the settings report answers.',
+  'gpo.halfNothing':
+    'This half is empty — no client-side extension is registered, so clients do not process it.',
   'gpo.halfOff': 'This half is switched off and is not applied whatever it contains.',
   'gpo.newGpo': 'New policy',
   'gpo.newHint':

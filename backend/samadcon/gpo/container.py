@@ -93,6 +93,18 @@ def list_gpos(conn: DirectoryConnection) -> list[dict[str, Any]]:
     return gpos
 
 
+def _extensions(entry: Any, attribute: str) -> str | None:
+    """One extension-names attribute, with GPMC's empty marker read as empty.
+
+    Windows does not delete the attribute when the last extension goes, nor
+    does it write an empty value — it writes a single space. Verified against
+    a GPO whose only administrative template had been set back to "not
+    configured": ``gPCMachineExtensionNames:: IA==``.
+    """
+    value = values.as_str(entry, attribute)
+    return (value or "").strip() or None
+
+
 def _summary(entry: Any) -> dict[str, Any]:
     dn = values.as_str(entry, "distinguishedName") or str(entry.dn)
     name = values.as_str(entry, "name") or values.name_from_dn(dn)
@@ -114,8 +126,12 @@ def _summary(entry: Any) -> dict[str, Any]:
         "flags": flags,
         # The client-side extensions that have written something into this GPO.
         # Empty means the policy contains nothing a client would apply.
-        "machine_extensions": values.as_str(entry, "gPCMachineExtensionNames"),
-        "user_extensions": values.as_str(entry, "gPCUserExtensionNames"),
+        #
+        # Stripped, because an emptied half is not an absent attribute: GPMC
+        # leaves a single space behind, and an unstripped " " reads as
+        # "something is registered" everywhere this value is tested.
+        "machine_extensions": _extensions(entry, "gPCMachineExtensionNames"),
+        "user_extensions": _extensions(entry, "gPCUserExtensionNames"),
         "wmi_filter": values.as_str(entry, "gPCWQLFilter"),
         "created": values.as_generalized_time(entry, "whenCreated"),
         "changed": values.as_generalized_time(entry, "whenChanged"),

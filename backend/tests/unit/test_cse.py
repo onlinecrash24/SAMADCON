@@ -169,3 +169,30 @@ def test_unregistering_ignores_case_and_braces():
 def test_each_half_has_its_own_attribute():
     assert cse.HALF_ATTRIBUTE["Machine"] == "gPCMachineExtensionNames"
     assert cse.HALF_ATTRIBUTE["User"] == "gPCUserExtensionNames"
+
+
+# ---------------------------------------------------------------------------
+# What an emptied half looks like on the wire
+#
+# Read off GPMC, not reasoned about — and the reasoning had it backwards. It
+# said the registration must stay, because a client clears a value it applied
+# earlier by running the extension and finding the value gone. GPMC unregisters
+# anyway, and it does not delete the attribute or write an empty value: a GPO
+# whose only administrative template had been set back to "not configured"
+# reported `gPCMachineExtensionNames:: IA==`, base64 for a single space.
+# ---------------------------------------------------------------------------
+
+
+def test_the_empty_marker_is_one_space():
+    assert cse.EMPTY == " "
+
+
+def test_the_empty_marker_parses_as_no_groups():
+    """Otherwise the next registration would append to a phantom group."""
+    assert cse.parse(cse.EMPTY) == []
+
+
+def test_registering_into_an_emptied_attribute_starts_clean():
+    assert cse.add(cse.EMPTY, cse.REGISTRY_CSE, [cse.REGISTRY_TOOL]) == (
+        f"[{cse.braced(cse.REGISTRY_CSE)}{cse.braced(cse.REGISTRY_TOOL)}]"
+    )
