@@ -156,3 +156,88 @@ def test_the_suffix_is_matched_regardless_of_case():
 
 def test_the_store_sits_under_the_realm():
     assert store.store_path("example.lan") == "example.lan\\Policies\\PolicyDefinitions"
+
+
+# ---------------------------------------------------------------------------
+# Which language a template's text comes from
+#
+# The store settles on one language, but a template may not ship it. Samba's
+# own templates exist in en-US and ru-RU only, so a German store — the normal
+# state once Microsoft's German templates are installed — resolved every
+# Microsoft label and none of Samba's, and the tree showed raw CAT_… ids.
+# ---------------------------------------------------------------------------
+
+
+def test_the_chosen_language_comes_first():
+    assert store.language_order(["en-US", "de-DE", "ru-RU"], "de-DE")[0] == "de-DE"
+
+
+def test_english_follows_the_chosen_one():
+    """Not because it is English, but because every template ships it."""
+    assert store.language_order(["ru-RU", "en-US", "de-DE"], "de-DE")[:2] == ["de-DE", "en-US"]
+
+
+def test_every_installed_language_is_tried_before_giving_up():
+    """A label in the wrong language beats a raw identifier."""
+    assert set(store.language_order(["ru-RU", "fr-FR"], "de-DE")) == {"ru-RU", "fr-FR"}
+
+
+def test_the_order_keeps_the_spelling_from_the_share():
+    """Directory names are written however the installer felt."""
+    assert store.language_order(["EN-us", "DE-de"], "de-DE") == ["DE-de", "EN-us"]
+
+
+def test_no_language_is_named_twice():
+    order = store.language_order(["en-US", "de-DE"], "en-US")
+    assert order == ["en-US", "de-DE"]
+
+
+class FakeShare:
+    """Just enough of a SYSVOL connection for the text lookup."""
+
+    def __init__(self, tree: dict[str, list[str]]):
+        # language directory -> file names in it
+        self.tree = tree
+        self.listed: list[str] = []
+
+    def listdir(self, path: str):
+        self.listed.append(path)
+        language = path.rsplit("\\", 1)[-1]
+        return [
+            {"name": name, "path": f"{path}\\{name}", "size": 1, "is_directory": False}
+            for name in self.tree.get(language, [])
+        ]
+
+
+def test_a_template_without_the_chosen_language_falls_back():
+    share = FakeShare({"de-DE": ["windows.adml"], "en-US": ["windows.adml", "samba.adml"]})
+    texts = store._Texts(share, "base", ["de-DE", "en-US"], "de-DE")
+
+    assert texts.find("windows.admx") == ("de-DE", "base\\de-DE\\windows.adml")
+    assert texts.find("samba.admx") == ("en-US", "base\\en-US\\samba.adml")
+
+
+def test_the_fallback_is_reported_as_such():
+    share = FakeShare({"de-DE": [], "en-US": ["samba.adml"]})
+    texts = store._Texts(share, "base", ["de-DE", "en-US"], "de-DE")
+
+    language, _ = texts.find("samba.admx")
+    assert texts.is_preferred(language) is False
+
+
+def test_no_other_language_is_read_when_the_chosen_one_has_it():
+    """Listing every language directory per template would cost a round trip
+    each, for the case that almost never happens."""
+    share = FakeShare({"de-DE": ["windows.adml"], "en-US": ["windows.adml"]})
+    texts = store._Texts(share, "base", ["de-DE", "en-US"], "de-DE")
+
+    texts.find("windows.admx")
+
+    assert share.listed == ["base\\de-DE"]
+
+
+def test_a_template_no_language_has_is_not_found():
+    share = FakeShare({"en-US": ["windows.adml"]})
+    texts = store._Texts(share, "base", ["en-US"], "en-US")
+
+    assert texts.find("nothing.admx") is None

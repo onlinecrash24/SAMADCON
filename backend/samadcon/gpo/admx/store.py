@@ -220,7 +220,12 @@ def _load(
         )
         admx_files = admx_files[:MAX_TEMPLATES]
 
-    text_files = _language_files(share, base, language)
+    texts = _Texts(
+        share,
+        base,
+        [entry["name"] for entry in entries if entry["is_directory"]],
+        language,
+    )
 
     for entry in sorted(admx_files, key=lambda item: item["name"].lower()):
         name = entry["name"]
@@ -230,7 +235,7 @@ def _load(
             catalogue.note(name, f"could not be read: {exc}")
             continue
 
-        strings = _strings_for(share, text_files, name, catalogue)
+        strings = _strings_for(share, texts, name, catalogue)
         try:
             parser.parse_admx(raw, strings, catalogue, source=name)
         except Exception as exc:  # noqa: BLE001 — one bad template, not all
@@ -258,9 +263,70 @@ def _language_files(
     }
 
 
+def language_order(languages: list[str], preferred: str | None) -> list[str]:
+    """Which language directories to try for one template, best first.
+
+    The store settles on a single language, but a template is free not to
+    ship it, and then that one template alone has no text.
+    """
+    order: list[str] = []
+    for candidate in [preferred, FALLBACK_LANGUAGE, *sorted(languages)]:
+        if not candidate:
+            continue
+        # Match the directory as it is actually spelled on the share.
+        for name in languages:
+            if name.lower() == candidate.lower() and name not in order:
+                order.append(name)
+    return order
+
+
+class _Texts:
+    """Where each template's text comes from.
+
+    Resolved per template rather than per store, which is the difference
+    between a readable tree and a tree of raw ``CAT_…`` identifiers. Samba's
+    own templates ship in en-US and ru-RU only, so a German store — the normal
+    case once Microsoft's German templates are installed — resolved every
+    Microsoft label and none of Samba's.
+
+    Directories are listed lazily: with the chosen language present, which is
+    the usual case, no other is ever read.
+    """
+
+    def __init__(
+        self,
+        share: sysvol.SysvolConnection,
+        base: str,
+        languages: list[str],
+        preferred: str | None,
+    ) -> None:
+        self._share = share
+        self._base = base
+        self._order = language_order(languages, preferred)
+        self._preferred = preferred
+        self._listings: dict[str, dict[str, str]] = {}
+
+    def _files(self, language: str) -> dict[str, str]:
+        if language not in self._listings:
+            self._listings[language] = _language_files(self._share, self._base, language)
+        return self._listings[language]
+
+    def find(self, admx_name: str) -> tuple[str, str] | None:
+        """The language and path of this template's text, or nothing."""
+        adml = admx_name[: -len(ADMX_SUFFIX)].lower() + ADML_SUFFIX
+        for language in self._order:
+            path = self._files(language).get(adml)
+            if path is not None:
+                return language, path
+        return None
+
+    def is_preferred(self, language: str) -> bool:
+        return bool(self._preferred) and language.lower() == (self._preferred or "").lower()
+
+
 def _strings_for(
     share: sysvol.SysvolConnection,
-    text_files: dict[str, str],
+    texts: _Texts,
     admx_name: str,
     catalogue: Catalogue,
 ) -> parser.Strings:
@@ -270,16 +336,19 @@ def _strings_for(
     values, only the labels are missing. Refusing it would turn a language
     problem into missing settings.
     """
-    adml_name = admx_name[: -len(ADMX_SUFFIX)].lower() + ADML_SUFFIX
-    path = text_files.get(adml_name)
-    if path is None:
-        catalogue.note(admx_name, "no text file for the chosen language")
+    found = texts.find(admx_name)
+    if found is None:
+        catalogue.note(admx_name, "no text file in any installed language")
         return parser.Strings()
+
+    language, path = found
+    if not texts.is_preferred(language):
+        catalogue.note(admx_name, f"no text for the chosen language; using {language}")
 
     try:
         return parser.parse_adml(share.read(path))
     except Exception as exc:  # noqa: BLE001
-        catalogue.note(adml_name, f"could not be parsed: {exc}")
+        catalogue.note(path, f"could not be parsed: {exc}")
         return parser.Strings()
 
 
