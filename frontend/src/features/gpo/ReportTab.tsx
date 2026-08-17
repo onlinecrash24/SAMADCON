@@ -203,13 +203,31 @@ function HalfReport({ title, half }: { title: string; half: GpoHalfReport }) {
 
       {half.vgp.map((group) => (
         <div key={group.path}>
-          <h4>{t('gpo.sambaPolicy')}</h4>
+          {/* The manifest names itself — "Symlink Policy" and the like. Better
+              than the generic heading, which used to sit above the single word
+              "policysetting": the reader walked the wrapper element, so every
+              Samba policy looked identical and an empty one looked configured. */}
+          <h4>{group.name || t('gpo.sambaPolicy')}</h4>
           <code className="mono small muted">{group.path}</code>
-          <ul className="plain-list">
-            {group.items.map((item, index) => (
-              <li key={`${group.path}-${index}`}>{item.element}</li>
-            ))}
-          </ul>
+          {group.entries.length === 0 ? (
+            <p className="muted small">{t('gpo.vgpNoEntries')}</p>
+          ) : (
+            <ul className="plain-list">
+              {group.entries.map((entry, index) => (
+                <li key={`${group.path}-${index}`}>
+                  {entry.element}
+                  {(entry.fields.length > 0 || entry.text) && (
+                    <span className="muted small">
+                      {' — '}
+                      {entry.fields.length > 0
+                        ? entry.fields.map((field) => `${field.name}=${field.value}`).join(', ')
+                        : entry.text}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       ))}
 

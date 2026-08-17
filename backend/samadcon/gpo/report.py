@@ -94,7 +94,7 @@ def build_report(conn: DirectoryConnection, dn: str) -> dict[str, Any]:
             continue
         report[half.lower()] = _read_half(share, directory, report["unreadable"], name=half)
 
-    report["empty"] = not any(_has_content(report[half.lower()]) for half in HALVES)
+    report["empty"] = not any(_applies_anything(report[half.lower()]) for half in HALVES)
     return report
 
 
@@ -113,6 +113,7 @@ def _empty_half() -> dict[str, Any]:
 
 
 def _has_content(half: dict[str, Any]) -> bool:
+    """Whether there is anything to show for this half."""
     return bool(
         half["registry"]
         or half["security"]
@@ -120,6 +121,27 @@ def _has_content(half: dict[str, Any]) -> bool:
         or half["redirection"]
         or half["preferences"]
         or half["vgp"]
+        or half["other_files"]
+    )
+
+
+def _applies_anything(half: dict[str, Any]) -> bool:
+    """Whether this half changes anything on a client.
+
+    Deliberately stricter than having something to show. An empty Samba
+    manifest is a real file and belongs in the report — samba-tool leaves one
+    behind when the last entry is removed, so it is the normal residue of
+    clearing a policy — but it reaches no client, and calling such a policy
+    non-empty sends someone hunting for a setting that is not there.
+    """
+    return bool(
+        half["registry"]
+        or half["security"]
+        or half["scripts"]
+        or half["redirection"]
+        or half["preferences"]
+        or any(group["entries"] for group in half["vgp"])
+        # Not understood, so not assumed harmless.
         or half["other_files"]
     )
 
@@ -242,9 +264,9 @@ def _read_half(
         claimed.add(path.lower())
         if path.rsplit("\\", 1)[-1].lower() != VGP_MANIFEST:
             continue
-        items = _read_xml_items(share, path, unreadable)
-        if items is not None:
-            half["vgp"].append({"path": path, "items": items})
+        manifest = _read_vgp_manifest(share, path, unreadable)
+        if manifest is not None:
+            half["vgp"].append({"path": path, **manifest})
 
     half["other_files"] = [
         {"path": path, "name": path.rsplit("\\", 1)[-1]}
@@ -407,6 +429,79 @@ def _read_xml_items(
     return items
 
 
+def _read_vgp_manifest(
+    share: sysvol.SysvolConnection, path: str, unreadable: list[dict[str, Any]]
+) -> dict[str, Any] | None:
+    """One Samba policy manifest: its name, and the entries it holds.
+
+    Not read with :func:`_read_xml_items` the way preferences are. That walks
+    the root's children, which for a manifest is exactly one element —
+    ``policysetting`` — so every Samba policy reported itself as the single
+    line "policysetting", identically whether it held ten entries or none.
+
+    The shape is fixed and worth descending into::
+
+        vgppolicy
+          policysetting
+            name, description, apply_mode
+            data
+              <one element per entry>
+
+    Entries carry their content as child text rather than as attributes, which
+    is the other half of why the generic reader showed nothing useful.
+    """
+    try:
+        raw = share.read(path)
+    except Exception as exc:  # noqa: BLE001
+        _note(unreadable, path, exc)
+        return None
+
+    try:
+        root = ElementTree.fromstring(raw)
+    except ElementTree.ParseError as exc:
+        _note(unreadable, path, exc)
+        return None
+
+    setting = _child(root, "policysetting")
+    if setting is None:
+        # Present, parseable, and not shaped like a manifest. Reporting it as
+        # unreadable beats reporting it as empty.
+        _note(unreadable, path, ValueError("no policysetting element"))
+        return None
+
+    data = _child(setting, "data")
+    entries = []
+    for element in data if data is not None else []:
+        entries.append(
+            {
+                "element": _tag(element),
+                "fields": [
+                    {"name": _tag(child), "value": (child.text or "").strip()}
+                    for child in element
+                ],
+                "text": (element.text or "").strip() if len(element) == 0 else "",
+            }
+        )
+
+    return {
+        "name": _text_of(setting, "name"),
+        "description": _text_of(setting, "description"),
+        "entries": entries,
+    }
+
+
+def _child(element: Any, name: str) -> Any | None:
+    for child in element:
+        if _tag(child) == name:
+            return child
+    return None
+
+
+def _text_of(element: Any, name: str) -> str:
+    child = _child(element, name)
+    return (child.text or "").strip() if child is not None else ""
+
+
 def _tag(element: Any) -> str:
     """The element name without its namespace."""
     return str(element.tag).rsplit("}", 1)[-1]
@@ -531,11 +626,22 @@ def _half_html(name: str, half: dict[str, Any]) -> list[str]:
         parts.append("</table>")
 
     for group in half["vgp"]:
-        parts.append(f"<h3>Samba policy — <code>{_esc(group['path'])}</code></h3><table>")
-        for item in group["items"]:
+        heading = group["name"] or "Samba policy"
+        parts.append(f"<h3>{_esc(heading)}</h3>")
+        parts.append(f"<p><code>{_esc(group['path'])}</code></p>")
+        if not group["entries"]:
+            # Said outright. An empty manifest is what samba-tool leaves behind
+            # when the last entry is removed, so it is a normal state rather
+            # than a fault — but a heading with nothing under it reads as a
+            # report that gave up.
+            parts.append("<p>No entries.</p>")
+            continue
+        parts.append("<table>")
+        for entry in group["entries"]:
+            fields = ", ".join(f"{field['name']}={field['value']}" for field in entry["fields"])
             parts.append(
-                f"<tr><td>{_esc(item['element'])}</td>"
-                f"<td>{_esc(_attributes(item['attributes']))}</td></tr>"
+                f"<tr><td>{_esc(entry['element'])}</td>"
+                f"<td>{_esc(fields or entry['text'])}</td></tr>"
             )
         parts.append("</table>")
 

@@ -166,3 +166,108 @@ def test_the_html_says_when_a_policy_is_empty():
         }
     )
     assert "holds no settings" in html
+
+
+# ---------------------------------------------------------------------------
+# Samba policy manifests
+#
+# Read with their own reader rather than the generic one used for preferences.
+# That walks the root's children, and a manifest has exactly one — the
+# `policysetting` wrapper — so every Samba policy in a report showed the single
+# line "policysetting", identically whether it held ten entries or none.
+# ---------------------------------------------------------------------------
+
+SYMLINK_MANIFEST = b"""<?xml version='1.0' encoding='UTF-8'?>
+<vgppolicy>
+  <policysetting>
+    <version>1</version>
+    <name>Symlink Policy</name>
+    <description>Specifies symbolic link data</description>
+    <data>
+      <file_properties>
+        <source>/tmp/source</source>
+        <target>/tmp/target</target>
+      </file_properties>
+    </data>
+  </policysetting>
+</vgppolicy>"""
+
+EMPTY_MANIFEST = b"""<?xml version='1.0' encoding='UTF-8'?>
+<vgppolicy>
+  <policysetting>
+    <version>1</version>
+    <name>Symlink Policy</name>
+    <description>Specifies symbolic link data</description>
+    <data />
+  </policysetting>
+</vgppolicy>"""
+
+
+class OneFile:
+    """A share holding a single file."""
+
+    def __init__(self, raw: bytes):
+        self.raw = raw
+
+    def read(self, path: str) -> bytes:
+        return self.raw
+
+
+def read(raw: bytes):
+    unreadable: list = []
+    return report._read_vgp_manifest(OneFile(raw), "p\\manifest.xml", unreadable), unreadable
+
+
+def test_the_policy_name_comes_from_the_manifest():
+    manifest, _ = read(SYMLINK_MANIFEST)
+    assert manifest["name"] == "Symlink Policy"
+
+
+def test_entries_are_read_from_below_data():
+    manifest, _ = read(SYMLINK_MANIFEST)
+    assert [entry["element"] for entry in manifest["entries"]] == ["file_properties"]
+
+
+def test_an_entry_carries_its_fields_as_text():
+    """Manifests put the content in child text, not in attributes — which is
+    the other half of why the generic reader showed nothing useful."""
+    manifest, _ = read(SYMLINK_MANIFEST)
+    assert manifest["entries"][0]["fields"] == [
+        {"name": "source", "value": "/tmp/source"},
+        {"name": "target", "value": "/tmp/target"},
+    ]
+
+
+def test_an_emptied_manifest_holds_no_entries():
+    """What samba-tool leaves behind: cmd_remove_symlink drops the element and
+    writes the file back, it never deletes it."""
+    manifest, unreadable = read(EMPTY_MANIFEST)
+    assert manifest["entries"] == []
+    assert manifest["name"] == "Symlink Policy"
+    assert unreadable == []
+
+
+def test_xml_that_is_not_a_manifest_is_reported_unreadable():
+    """Rather than as empty: the file is there and says something we did not
+    understand, which is not the same as saying nothing."""
+    manifest, unreadable = read(b"<vgppolicy><something-else /></vgppolicy>")
+    assert manifest is None
+    assert len(unreadable) == 1
+
+
+def test_an_emptied_manifest_does_not_make_a_policy_look_configured():
+    half = report._empty_half()
+    half["vgp"] = [{"path": "p", "name": "Symlink Policy", "description": "", "entries": []}]
+
+    # Still shown — the file exists and hiding it would lose a fact.
+    assert report._has_content(half) is True
+    # But it reaches no client, so the report must not call the policy filled.
+    assert report._applies_anything(half) is False
+
+
+def test_a_manifest_with_entries_counts_as_configured():
+    half = report._empty_half()
+    half["vgp"] = [
+        {"path": "p", "name": "Symlink Policy", "description": "", "entries": [{"element": "x"}]}
+    ]
+    assert report._applies_anything(half) is True

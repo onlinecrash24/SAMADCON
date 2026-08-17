@@ -675,6 +675,8 @@ export const de = {
   'gpo.redirectionTarget': 'Ziel',
   'gpo.preferences': 'Einstellungen (Preferences)',
   'gpo.sambaPolicy': 'Samba-Richtlinie',
+  'gpo.vgpNoEntries':
+    'Keine Einträge. Die Datei bleibt liegen, wenn der letzte Eintrag entfernt wird — samba-tool macht es genauso.',
   'gpo.otherFiles': 'Weitere Dateien',
   'gpo.copy': 'Kopieren',
   'gpo.copied': 'Richtlinie kopiert.',
@@ -1731,6 +1733,8 @@ export const en: Record<MessageKey, string> = {
   'gpo.redirectionTarget': 'Target',
   'gpo.preferences': 'Preferences',
   'gpo.sambaPolicy': 'Samba policy',
+  'gpo.vgpNoEntries':
+    'No entries. The file stays behind when the last one is removed — samba-tool does the same.',
   'gpo.otherFiles': 'Other files',
   'gpo.copy': 'Copy',
   'gpo.copied': 'Policy copied.',

@@ -679,7 +679,17 @@ export interface GpoHalfReport {
       properties?: { element: string; attributes: Record<string, string> }[]
     }[]
   }[]
-  vgp: { path: string; items: { element: string; attributes: Record<string, string> }[] }[]
+  /**
+   * Samba policy manifests. `entries` is what the policy holds — empty is a
+   * normal state, since samba-tool leaves the file behind when the last entry
+   * is removed rather than deleting it.
+   */
+  vgp: {
+    path: string
+    name: string
+    description: string
+    entries: { element: string; fields: { name: string; value: string }[]; text: string }[]
+  }[]
   other_files: { path: string; name: string }[]
 }
 
