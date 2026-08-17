@@ -844,6 +844,10 @@ export const de = {
   'pref.choice.HIDE': 'Ausblenden',
   'vgp.policies': 'Richtlinien',
   'vgp.linuxOnly': 'Diese Richtlinien wendet samba-gpupdate auf Linux-Domänenmitgliedern an. Windows-Clients ignorieren sie — im gpresult-Bericht erscheinen sie nicht. Der Nachweis läuft über samba-gpupdate --rsop auf einem Mitglied.',
+  'vgp.alsoUnderAdmx':
+    'Das ist nicht alles für Linux: smb.conf, die Unix-Cron-Skripte und registry-basierte Sudo-Rechte stehen unter „Administrative Vorlagen" → Samba, weil sie Registry-Richtlinien sind.',
+  'vgp.sudoersDuplicated':
+    'Samba hat zwei Wege für Sudo-Rechte: diesen hier über das Manifest, und einen über Administrative Vorlagen → Samba → Unix Settings → Sudo Rights. Ein Mitglied, auf dem beide gesetzt sind, erhält die Regeln aus beiden. Entscheiden Sie sich für einen Weg.',
   'vgp.kind.sudoers': 'Sudo-Rechte',
   'vgp.kind.symlink': 'Symbolische Links',
   'vgp.kind.motd': 'Nachricht des Tages',
@@ -1037,6 +1041,8 @@ export const de = {
   'admx.bundledHint':
     'Dieses Abbild bringt Sambas eigene Vorlagen mit ({names}). Sie beschreiben, was samba-gpupdate auf Linux-Mitgliedern anwendet — smb.conf-Optionen, die Unix-Cron-Skripte und Sudo-Rechte. Ohne sie kann der Editor diese Einstellungen zwar schreiben, aber nicht anzeigen.',
   'admx.installBundled': 'Samba-Vorlagen übernehmen',
+  'admx.sambaBranch':
+    'Diese Einstellungen wirken nur auf Linux-Domänenmitglieder — Windows ignoriert sie. Der Nachweis läuft über samba-gpupdate --rsop, nicht über gpresult. Die manifest-basierten Linux-Richtlinien stehen im Reiter „Samba (Linux)".',
 
   'error.no_central_store': 'Diese Domäne hat keinen zentralen Vorlagenspeicher.',
   'error.policy_not_found': 'Diese Einstellung ist in den installierten Vorlagen nicht enthalten.',
@@ -1890,6 +1896,10 @@ export const en: Record<MessageKey, string> = {
   'pref.choice.HIDE': 'Hide',
   'vgp.policies': 'Policies',
   'vgp.linuxOnly': 'These policies are applied by samba-gpupdate on Linux domain members. Windows clients ignore them — they do not appear in a gpresult report. The proof for them runs through samba-gpupdate --rsop on a member.',
+  'vgp.alsoUnderAdmx':
+    'This is not all of Linux: smb.conf, the Unix cron scripts and registry-based sudo rights sit under “Administrative templates” → Samba, because that is what they are.',
+  'vgp.sudoersDuplicated':
+    'Samba has two routes for sudo rights: this one through the manifest, and one under Administrative Templates → Samba → Unix Settings → Sudo Rights. A member with both set gets the rules from both. Pick one route.',
   'vgp.kind.sudoers': 'Sudo rights',
   'vgp.kind.symlink': 'Symbolic links',
   'vgp.kind.motd': 'Message of the day',
@@ -2080,6 +2090,8 @@ export const en: Record<MessageKey, string> = {
   'admx.bundledHint':
     'This image ships Samba’s own templates ({names}). They describe what samba-gpupdate applies on Linux members — smb.conf options, the Unix cron scripts and sudo rights. Without them the editor can write those settings but not show them.',
   'admx.installBundled': 'Install Samba templates',
+  'admx.sambaBranch':
+    'These settings reach Linux domain members only — Windows ignores them. The proof runs through samba-gpupdate --rsop, not gpresult. The manifest-based Linux policies live on the “Samba (Linux)” tab.',
 
   'error.no_central_store': 'This domain has no central template store.',
   'error.policy_not_found': 'This setting is not in the installed templates.',

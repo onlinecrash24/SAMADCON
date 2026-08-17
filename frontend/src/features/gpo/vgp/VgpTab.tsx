@@ -65,7 +65,14 @@ export function VgpTab({ gpo, onChanged }: { gpo: Gpo; onChanged: (message: stri
 
   return (
     <div className="gpedit">
-      <div className="alert alert--info">{t('vgp.linuxOnly')}</div>
+      {/* The Linux surface is split by mechanism, not by intent: these come
+          from manifests, while Samba's registry-based policies — smb.conf, the
+          Unix cron scripts, sudo rights — sit under administrative templates,
+          because that is what they are. Pointing at the other half beats
+          letting someone conclude the tool only does this one. */}
+      <div className="alert alert--info">
+        {t('vgp.linuxOnly')} {t('vgp.alsoUnderAdmx')}
+      </div>
 
       <div className="gpedit__panes">
         <nav className="gpedit__tree" aria-label={t('vgp.policies')}>
@@ -89,6 +96,14 @@ export function VgpTab({ gpo, onChanged }: { gpo: Gpo; onChanged: (message: stri
           <ErrorMessage error={error} onDismiss={() => setError(null)} />
 
           {kind && <PolicyHeading kind={kind} />}
+
+          {/* Samba ships two sudoers appliers — vgp_sudoers_ext reads this
+              manifest, gp_sudoers_ext reads registry policy — and a member
+              running both gets rules from both. Nothing warns about that
+              anywhere else, so this does. */}
+          {policy === 'sudoers' && (
+            <div className="alert alert--warning">{t('vgp.sudoersDuplicated')}</div>
+          )}
 
           {TEXT_KINDS.includes(policy) ? (
             <TextEditor

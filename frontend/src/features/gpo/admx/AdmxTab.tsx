@@ -19,6 +19,9 @@ import type { MessageKey } from '../../../i18n/messages'
 import { PolicyDialog } from './PolicyDialog'
 import { BundledTemplates, useBundledMissing } from './BundledTemplates'
 import { TemplateUpload } from './TemplateUpload'
+
+/** The template whose settings apply to Linux members and nothing else. */
+const SAMBA_TEMPLATE = 'samba.admx'
 import { admlLanguage } from './language'
 
 type Half = 'Machine' | 'User'
@@ -159,6 +162,15 @@ export function AdmxTab({ gpo, onChanged }: { gpo: Gpo; onChanged: (message: str
           {listing.isLoading && <Spinner label={t('status.loading')} />}
 
           {active && <p className="muted small">{t('admx.searchHint', { query: active })}</p>}
+
+          {/* Samba's own templates sit in this tree because they are registry
+              policy, which is what this tree is. But Windows ignores every one
+              of them, and that is not visible from a setting's name — so it is
+              said here, keyed off the template a setting came from rather than
+              off a category GUID that a future release may renumber. */}
+          {policies.some((policy) => policy.source === SAMBA_TEMPLATE) && (
+            <div className="alert alert--info">{t('admx.sambaBranch')}</div>
+          )}
 
           <div className="table-wrap">
             <table className="table table--compact">
