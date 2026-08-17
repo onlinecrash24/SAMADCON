@@ -197,7 +197,18 @@ async def logout(request: Request, response: Response) -> dict[str, Any]:
 async def session_info(session: CurrentSession) -> dict[str, Any]:
     """Current session, for restoring state after a page reload."""
     worker = get_registry().get(session.id)
-    domain = await ad_read(worker, session, lambda conn: asdict(conn.info), label="ldap.info")
+    # Both in one hop: the connection state lives on the same object as the
+    # domain facts, and a second round trip through the worker to read an
+    # attribute already in hand would be waste.
+    facts = await ad_read(
+        worker,
+        session,
+        lambda conn: {
+            "domain": asdict(conn.info),
+            "connection": conn.transport.describe() if conn.transport else None,
+        },
+        label="ldap.info",
+    )
     return {
         "principal": session.principal.full,
         "username": session.principal.username,
@@ -206,7 +217,8 @@ async def session_info(session: CurrentSession) -> dict[str, Any]:
         "expires_at": session.expires_at,
         "ticket_expires_at": session.ticket_expires_at,
         "created_at": session.created_at,
-        "domain": domain,
+        "domain": facts["domain"],
+        "connection": facts["connection"],
         "target": session.target.describe(),
     }
 

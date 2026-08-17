@@ -76,6 +76,18 @@ export interface ConnectionTargetInfo {
   ca_file: string | null
 }
 
+/** How the directory connection is protected, as established at connect time. */
+export interface ConnectionState {
+  /** "ldap" (Kerberos-encrypted, port 389) or "ldaps" (TLS, port 636). */
+  transport: string
+  protection: string
+  url: string
+  encrypted: boolean
+  /** null where no certificate is involved — that is not the same as unverified. */
+  certificate_verified: boolean | null
+  identity_verified: boolean
+}
+
 export interface SessionInfo {
   principal: string
   username: string
@@ -85,6 +97,7 @@ export interface SessionInfo {
   ticket_expires_at?: string
   created_at?: string
   domain: DomainInfo
+  connection?: ConnectionState | null
   target?: ConnectionTargetInfo
 }
 

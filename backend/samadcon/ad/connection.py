@@ -59,6 +59,54 @@ class DomainInfo:
         return f"\\\\{self.dns_domain}\\SYSVOL"
 
 
+@dataclass(frozen=True)
+class TransportState:
+    """How this connection is protected, as established at connect time.
+
+    Recorded rather than derived. Which transport wins is decided by trying
+    them in order until one binds, and the attempt leaves no trace on the
+    handle afterwards — so an administrator asking "is my traffic encrypted,
+    and was the certificate checked?" had no answer but the container log.
+
+    Both transports encrypt. ``ldap`` does it with the Kerberos session key
+    (``seal`` is required, not requested, so a server that cannot do it fails
+    rather than downgrading), ``ldaps`` with TLS. The difference that matters
+    is ``certificate_verified``: only LDAPS involves a certificate at all, and
+    only there can it be left unchecked.
+    """
+
+    transport: str
+    protection: str
+    url: str
+    # None where no certificate is involved — not "unverified", which would
+    # read as a finding against a connection that never had one to verify.
+    certificate_verified: bool | None
+
+    @property
+    def encrypted(self) -> bool:
+        return True
+
+    @property
+    def identity_verified(self) -> bool:
+        """Whether the DC proved who it is.
+
+        Kerberos does this by construction: a ticket for ``ldap/<host>`` is
+        only decryptable by that host. TLS does it only when the certificate
+        was actually validated.
+        """
+        return self.transport == "ldap" or self.certificate_verified is True
+
+    def describe(self) -> dict[str, Any]:
+        return {
+            "transport": self.transport,
+            "protection": self.protection,
+            "url": self.url,
+            "encrypted": self.encrypted,
+            "certificate_verified": self.certificate_verified,
+            "identity_verified": self.identity_verified,
+        }
+
+
 @dataclass
 class SearchResult:
     entries: list[Any]
@@ -84,6 +132,7 @@ class DirectoryConnection:
         creds: Any = None,
         target: ConnectionTarget | None = None,
         ccache: Path | None = None,
+        transport: TransportState | None = None,
     ) -> None:
         self.samdb = samdb
         self.host = host
@@ -91,6 +140,9 @@ class DirectoryConnection:
         self.settings = settings
         self.lp = lp
         self.creds = creds
+        # How this connection is protected. Optional because the test helpers
+        # build a connection without going through connect().
+        self.transport = transport
         # Kept for SYSVOL: group policy lives half in the directory and half on
         # an SMB share, and the share is opened as the same person — from the
         # ticket, not from the credentials object above. That one is configured
@@ -434,7 +486,8 @@ def connect(target: ConnectionTarget, settings: Settings, ccache: Path) -> Direc
             hint="The container image must provide python3-samba.",
         ) from exc
 
-    if target.insecure or settings.ldap_insecure:
+    insecure = target.insecure or settings.ldap_insecure
+    if insecure:
         logger.warning(
             "LDAPS certificate validation is disabled for %s — an LDAPS fallback "
             "would be encrypted but the server's identity unverified",
@@ -493,8 +546,25 @@ def connect(target: ConnectionTarget, settings: Settings, ccache: Path) -> Direc
                 protection,
                 info.base_dn,
             )
+            state = TransportState(
+                transport=transport,
+                protection=protection,
+                url=url,
+                # Only LDAPS involves a certificate. Under GSSAPI the DC proves
+                # itself by decrypting the ticket, so there is nothing here to
+                # have validated or skipped.
+                certificate_verified=(not insecure) if transport == "ldaps" else None,
+            )
             return DirectoryConnection(
-                samdb, host, info, settings, lp=lp, creds=creds, target=target, ccache=ccache
+                samdb,
+                host,
+                info,
+                settings,
+                lp=lp,
+                creds=creds,
+                target=target,
+                ccache=ccache,
+                transport=state,
             )
 
     if all(_is_address(host) for host in candidates):
