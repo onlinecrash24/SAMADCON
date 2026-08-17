@@ -80,9 +80,6 @@ def policy_json(
             "key": policy.key,
             "value_name": policy.value_name,
             "supported_on": catalogue.supported_text(policy) if catalogue else None,
-            # Only set when the reference did not resolve. The interface shows
-            # it as an unanswered question rather than as an answer.
-            "supported_on_ref": catalogue.supported_ref(policy) if catalogue else None,
             "enabled_value": value_json(policy.enabled_value),
             "disabled_value": value_json(policy.disabled_value),
             "elements": [element_json(element) for element in policy.elements],

@@ -585,6 +585,10 @@ export const de = {
   'gpo.machine': 'Computer',
   'gpo.user': 'Benutzer',
   'gpo.off': 'aus',
+  'gpo.halfRegistered':
+    'Für diese Hälfte ist eine clientseitige Erweiterung registriert. Das heißt, dass Clients sie verarbeiten — nicht, dass gerade etwas konfiguriert ist. Die Registrierung bleibt nach dem Entfernen der letzten Einstellung absichtlich stehen, sonst räumen Clients einen früher gesetzten Wert nie wieder ab. Was tatsächlich drinsteht, sagt der Bericht.',
+  'gpo.halfNothing': 'Für diese Hälfte ist keine Erweiterung registriert — Clients verarbeiten sie nicht.',
+  'gpo.halfOff': 'Diese Hälfte ist abgeschaltet und wird unabhängig vom Inhalt nicht angewendet.',
   'gpo.newGpo': 'Neue Richtlinie',
   'gpo.newHint':
     'Legt das Verzeichnisobjekt und den SYSVOL-Ordner an und leitet die Dateiberechtigungen aus dem Objekt ab.',
@@ -1028,7 +1032,6 @@ export const de = {
   'admx.explain': 'Erklärung',
   'admx.registryKey': 'Registrierungsschlüssel',
   'admx.supportedOn': 'Unterstützt auf',
-  'admx.supportedOnUnknown': 'Unbekannt — die Vorlage nennt eine Definition, die nicht installiert ist:',
   'admx.saved': 'Einstellung gespeichert.',
   'admx.unchanged': 'Nichts zu ändern — die Einstellung stand bereits so.',
   'admx.noStore':
@@ -1641,6 +1644,10 @@ export const en: Record<MessageKey, string> = {
   'gpo.machine': 'Computer',
   'gpo.user': 'User',
   'gpo.off': 'off',
+  'gpo.halfRegistered':
+    'A client-side extension is registered for this half, which means clients process it — not that anything is configured right now. The registration deliberately survives the removal of the last setting, or clients would never clear a value they applied earlier. What is actually in it is what the settings report answers.',
+  'gpo.halfNothing': 'No extension is registered for this half — clients do not process it.',
+  'gpo.halfOff': 'This half is switched off and is not applied whatever it contains.',
   'gpo.newGpo': 'New policy',
   'gpo.newHint':
     'Creates the directory object and the SYSVOL folder, and derives the file permissions from the object.',
@@ -2079,7 +2086,6 @@ export const en: Record<MessageKey, string> = {
   'admx.explain': 'Explanation',
   'admx.registryKey': 'Registry key',
   'admx.supportedOn': 'Supported on',
-  'admx.supportedOnUnknown': 'Unknown — the template names a definition that is not installed:',
   'admx.saved': 'Setting saved.',
   'admx.unchanged': 'Nothing to change — the setting already read that way.',
   'admx.noStore': 'This domain has no central store of administrative templates.',

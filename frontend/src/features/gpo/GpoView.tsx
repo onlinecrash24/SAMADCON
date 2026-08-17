@@ -198,27 +198,44 @@ function RestoreDialog({ onClose, onDone }: { onClose: () => void; onDone: () =>
 }
 
 /**
- * Which halves of a policy carry anything, and which are switched off.
+ * Which halves of a policy have a client-side extension registered, and which
+ * are switched off.
  *
- * A policy whose extensions are empty applies nothing at all — worth seeing in
- * the list, because it is usually a policy someone created and never filled.
+ * Registered is not the same as configured, and the badge used to claim it
+ * was: a half stays green after its last setting is removed, because the
+ * extension registration survives. That is deliberate — a client learns to
+ * remove a value it applied earlier by running the extension and finding the
+ * value gone, so unregistering would strand it. The colour therefore answers
+ * "does anything run for this half", and the tooltip says so; whether it finds
+ * anything to do is what the settings report answers.
  */
 function GpoHalves({ gpo }: { gpo: Gpo }) {
   const { t } = useI18n()
 
-  const machine = gpo.machine_extensions ? 'ok' : 'muted'
-  const user = gpo.user_extensions ? 'ok' : 'muted'
+  const tone = (registered: boolean, enabled: boolean) =>
+    !enabled ? 'warn' : registered ? 'ok' : 'muted'
+
+  const title = (registered: boolean, enabled: boolean) =>
+    !enabled
+      ? t('gpo.halfOff')
+      : registered
+        ? t('gpo.halfRegistered')
+        : t('gpo.halfNothing')
 
   return (
     <div className="badge-row">
-      <Badge tone={gpo.machine_enabled ? machine : 'warn'}>
-        {t('gpo.machine')}
-        {!gpo.machine_enabled && ` (${t('gpo.off')})`}
-      </Badge>
-      <Badge tone={gpo.user_enabled ? user : 'warn'}>
-        {t('gpo.user')}
-        {!gpo.user_enabled && ` (${t('gpo.off')})`}
-      </Badge>
+      <span title={title(Boolean(gpo.machine_extensions), gpo.machine_enabled)}>
+        <Badge tone={tone(Boolean(gpo.machine_extensions), gpo.machine_enabled)}>
+          {t('gpo.machine')}
+          {!gpo.machine_enabled && ` (${t('gpo.off')})`}
+        </Badge>
+      </span>
+      <span title={title(Boolean(gpo.user_extensions), gpo.user_enabled)}>
+        <Badge tone={tone(Boolean(gpo.user_extensions), gpo.user_enabled)}>
+          {t('gpo.user')}
+          {!gpo.user_enabled && ` (${t('gpo.off')})`}
+        </Badge>
+      </span>
     </div>
   )
 }

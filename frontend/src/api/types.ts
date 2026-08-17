@@ -779,9 +779,8 @@ export interface AdmxPolicy extends AdmxPolicySummary {
   explain: string
   key: string
   value_name: string | null
+  /** Null when the template names no requirement, or names one we cannot resolve. */
   supported_on: string | null
-  /** Set only when the reference could not be resolved — never an answer. */
-  supported_on_ref?: string | null
   elements: AdmxElement[]
   presentation: AdmxControl[]
 }
