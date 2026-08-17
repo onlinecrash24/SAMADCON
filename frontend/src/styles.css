@@ -147,10 +147,12 @@ button:focus-visible {
 
 /* Brand -------------------------------------------------------------- */
 
+/* No width cap: the lockup spans the content box of whatever card holds it,
+   so it lines up with the form fields below instead of sitting short of them.
+   That also keeps it right when the card's width or padding changes. */
 .logo-lockup {
   display: block;
   width: 100%;
-  max-width: 260px;
   height: auto;
 }
 .logo-mark { display: block; flex: 0 0 auto; }
