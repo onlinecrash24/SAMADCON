@@ -20,6 +20,7 @@ import { api } from '../../../api/endpoints'
 import type { Gpo, VgpEntry, VgpKind, VgpPolicy } from '../../../api/types'
 import { ErrorMessage, Spinner } from '../../../components/primitives'
 import { useI18n } from '../../../i18n'
+import { FilesEditor } from './FilesEditor'
 import type { MessageKey } from '../../../i18n/messages'
 
 /** One block of text rather than a list. */
@@ -105,7 +106,11 @@ export function VgpTab({ gpo, onChanged }: { gpo: Gpo; onChanged: (message: stri
             <div className="alert alert--warning">{t('vgp.sudoersDuplicated')}</div>
           )}
 
-          {TEXT_KINDS.includes(policy) ? (
+          {policy === 'files' ? (
+            // Its own editor: five fields plus a mode, and a file that has to
+            // be on the share before an entry can name it.
+            <FilesEditor gpo={gpo} entries={draft} onChange={setDraft} />
+          ) : TEXT_KINDS.includes(policy) ? (
             <TextEditor
               value={String(draft[0]?.text ?? '')}
               onChange={(text) => setDraft(text ? [{ text }] : [])}

@@ -843,11 +843,18 @@ export interface ScriptEntry {
 export type VgpPolicy =
   | 'sudoers'
   | 'symlink'
+  | 'files'
   | 'motd'
   | 'issue'
   | 'openssh'
   | 'access_allow'
   | 'access_deny'
+
+/** A file sitting beside a policy's manifest, ready for an entry to name it. */
+export interface VgpPayload {
+  name: string
+  size: number
+}
 
 /** Each kind has its own entry shape; the tab picks an editor per kind. */
 export type VgpEntry = Record<string, unknown>

@@ -62,6 +62,7 @@ import type {
   UserDetail,
   VgpEntry,
   VgpKind,
+  VgpPayload,
   VgpPolicy,
   WmiFilter,
 } from './types'
@@ -459,6 +460,16 @@ export const api = {
   // Windows clients ignore these; samba-gpupdate applies them on Linux
   // members. No client-side extension is registered, deliberately.
   vgpKinds: () => http.get<{ kinds: VgpKind[] }>('/gpos/vgp/kinds'),
+  vgpPayloads: (dn: string, policy: string) =>
+    http.get<{ payloads: VgpPayload[] }>(
+      `/gpos/vgp/payloads?dn=${dnParam(dn)}&policy=${policy}`,
+    ),
+  uploadVgpPayload: (dn: string, policy: string, file: File) =>
+    http.upload<{ name: string; size: number }>(
+      `/gpos/vgp/payloads?dn=${dnParam(dn)}&policy=${policy}`,
+      'file',
+      file,
+    ),
   gpoVgp: (dn: string) => http.get<GpoVgp>(`/gpos/vgp?dn=${dnParam(dn)}`),
   // The complete list for one policy: a manifest holds the whole list, so
   // reordering and removing are the same operation as adding.
