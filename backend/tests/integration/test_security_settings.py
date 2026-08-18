@@ -177,10 +177,21 @@ def test_a_user_right_can_hold_several_accounts(api, gpo):
 # ---------------------------------------------------------------------------
 
 
-def test_clearing_the_last_setting_unregisters_the_extension(api, gpo):
-    """A file holding only its two header sections configures nothing, and a
-    registered extension for it makes every client fetch the policy on each
-    refresh and find nothing there."""
+def test_clearing_the_last_setting_keeps_the_extension_registered(api, gpo):
+    """This used to assert the opposite, on the reasoning that a registered
+    extension with nothing to apply makes every client fetch the policy on
+    each refresh and find nothing there.
+
+    GPMC disagrees, and GPMC is the specification. A throwaway GPO had a
+    password policy set in the security editor and then cleared: GptTmpl.inf
+    came back holding [Unicode], [Version] and an empty [Registry Values],
+    while gPCMachineExtensionNames still carried the security pair.
+
+    It is also the safer behaviour, for the reason that did not hold for
+    administrative templates: a security setting a client has already applied
+    is reverted by the extension running and finding it gone. Unregister, and
+    it stays on every machine that got it.
+    """
     write(api, gpo, value="14")
     assert read(api, gpo)["registered"] is True
 
@@ -188,8 +199,8 @@ def test_clearing_the_last_setting_unregisters_the_extension(api, gpo):
 
     listed = read(api, gpo)
     assert listed["sections"].get("System Access") in ({}, None)
-    assert listed["registered"] is False
-    assert SECURITY_CSE not in machine_extensions(api, gpo)
+    assert listed["registered"] is True
+    assert SECURITY_CSE in machine_extensions(api, gpo)
 
 
 def test_the_extension_stays_while_another_setting_is_there(api, gpo):
