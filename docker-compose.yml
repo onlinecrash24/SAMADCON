@@ -97,6 +97,22 @@ services:
       # Extra diagnostics and a more talkative error surface.
       SAMADCON_DEV_MODE: "0"
 
+      # --- Model service (optional) --------------------------------------
+      # Empty means off: nothing is sent anywhere, and the security report
+      # shows only the findings the rules produced.
+      #
+      # The address belongs here rather than in the interface. The container
+      # makes the call, so an address a user could type would let any
+      # signed-in account — a delegated one included — reach hosts their own
+      # browser cannot. The model is chosen in the interface; a name is not
+      # an address.
+      #
+      # From this container, localhost is this container. An Ollama on the
+      # docker host is http://host.docker.internal:11434 with an
+      # extra_hosts entry, or simply its LAN address.
+      SAMADCON_OLLAMA_URL: "${SAMADCON_OLLAMA_URL:-}"
+      SAMADCON_OLLAMA_TIMEOUT_SECONDS: "120"
+
       # --- Integration tests ---------------------------------------------
       # Only read when the image is built with SAMADCON_TARGET=test. They come
       # from the shell rather than from here because one of them is a domain
