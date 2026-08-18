@@ -347,14 +347,17 @@ def write_many(
     share.makedirs(target.rsplit("\\", 1)[0])
     share.write(target, updated)
 
-    cse.register(
-        conn,
-        dn,
-        "Machine",
-        cse.SECURITY_CSE,
-        cse.SECURITY_TOOL,
-        present=_has_settings(updated),
-    )
+    # Registered, never unregistered — the opposite of what administrative
+    # templates and scripts do, and read off GPMC rather than reasoned about.
+    #
+    # A throwaway GPO had a password policy set and then removed. GptTmpl.inf
+    # came back holding nothing but [Unicode], [Version] and an empty
+    # [Registry Values], and gPCMachineExtensionNames still carried the
+    # security pair. Windows keeps it, so we keep it: a security setting a
+    # client has already applied is reverted by the extension running and
+    # finding it gone, and that is the case where dropping the registration
+    # would leave the setting behind for good.
+    cse.register(conn, dn, "Machine", cse.SECURITY_CSE, cse.SECURITY_TOOL)
 
     after = container.bump_version(conn, dn, machine_changed=True, user_changed=False)
     logger.info(
@@ -394,16 +397,6 @@ def set_restricted_group(
         changes,
         expected_version=expected_version,
     )
-
-
-def _has_settings(raw: bytes) -> bool:
-    """Whether anything beyond the two header sections is set.
-
-    A file holding only ``[Unicode]`` and ``[Version]`` configures nothing, and
-    an extension registered for it makes every client fetch the policy on each
-    refresh and find nothing there.
-    """
-    return any(entries for entries in describe(parse(raw.decode("utf-16"))).values())
 
 
 def _read_file(conn: DirectoryConnection, gpo: dict[str, Any]) -> str | None:
