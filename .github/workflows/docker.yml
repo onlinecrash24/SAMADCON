@@ -11,9 +11,15 @@
 
 name: Docker
 
+# Two builds per release, not three. A version reaches main and is tagged in
+# the same breath, so a `main` trigger beside the tag one built the same
+# commit twice — and the two builds produced different digests, leaving
+# `latest` and `0.5.1` pointing at images that were identical in content and
+# not the same object. Releasing means tagging; the tag build carries
+# `latest`, because metadata-action counts a tag as the default branch.
 on:
   push:
-    branches: [DEV, main]
+    branches: [DEV]
     tags: ["v*"]
   pull_request:
     branches: [DEV, main]
