@@ -134,18 +134,37 @@ def test_an_empty_reply_is_reported_rather_than_shown_as_an_empty_report():
     assert raised.value.code == "ollama_empty_response"
 
 
-def test_prose_instead_of_json_is_refused():
-    with pytest.raises(UpstreamUnavailable) as raised:
-        ollama.parse_answer("Sure! Here is my analysis:", FINDINGS, model="m")
-    assert raised.value.code == "ollama_unusable_response"
+def test_prose_is_shown_rather_than_thrown_away():
+    """Asking for a schema was about not *parsing* free text; showing it
+    infers nothing. Verified against a real instance: a cloud model proxied
+    through Ollama ignored the schema and wrote a sound explanation, and
+    refusing it helped nobody."""
+    parsed = ollama.parse_answer(
+        "## Erklärung -- die Sperrschwelle steht auf 0.", FINDINGS, model="glm"
+    )
+
+    assert parsed["structured"] is False
+    assert "Sperrschwelle" in parsed["summary"]
+    assert parsed["order"] == []
 
 
-def test_json_that_is_not_an_object_is_refused():
-    with pytest.raises(UpstreamUnavailable):
-        ollama.parse_answer('["a", "b"]', FINDINGS, model="m")
+def test_json_that_is_not_an_object_is_also_shown_as_text():
+    parsed = ollama.parse_answer('["a", "b"]', FINDINGS, model="m")
+    assert parsed["structured"] is False
+
+
+def test_a_schema_answer_is_marked_as_structured():
+    parsed = ollama.parse_answer(answer(), FINDINGS, model="m")
+    assert parsed["structured"] is True
 
 
 def test_missing_fields_come_back_empty_rather_than_absent():
     """The interface renders them unconditionally; None would show as 'null'."""
     parsed = ollama.parse_answer("{}", FINDINGS, model="m")
-    assert parsed == {"summary": "", "order": [], "suggestions": [], "model": "m"}
+    assert parsed == {
+        "summary": "",
+        "order": [],
+        "suggestions": [],
+        "structured": True,
+        "model": "m",
+    }

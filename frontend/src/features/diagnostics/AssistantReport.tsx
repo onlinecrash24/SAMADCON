@@ -133,7 +133,20 @@ function Answer({ answer }: { answer: AssistantAnswer }) {
     <div className="assistant">
       <p className="assistant__label">{t('assistant.unverified', { model: answer.model })}</p>
 
-      {answer.summary && <p>{answer.summary}</p>}
+      {/* A model that ignored the schema still wrote something worth
+          reading. Shown as it came, in a block that preserves its own line
+          breaks — rendering its markdown would mean interpreting text the
+          model chose, which is the one thing this half must not do. */}
+      {!answer.structured && (
+        <p className="muted small">{t('assistant.unstructured')}</p>
+      )}
+
+      {answer.summary &&
+        (answer.structured ? (
+          <p>{answer.summary}</p>
+        ) : (
+          <p className="assistant__text">{answer.summary}</p>
+        ))}
 
       {answer.order.length > 0 && (
         <>

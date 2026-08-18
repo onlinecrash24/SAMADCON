@@ -10,7 +10,7 @@
 
 import type { MessageKey } from '../../i18n/messages'
 
-export type SnapinId = 'directory' | 'dns' | 'sites' | 'diagnostics' | 'gpo'
+export type SnapinId = 'directory' | 'dns' | 'sites' | 'diagnostics' | 'gpo' | 'assistant'
 
 export interface Snapin {
   id: SnapinId
@@ -50,6 +50,16 @@ export const SNAPINS: Snapin[] = [
   {
     id: 'gpo',
     label: 'snapin.gpo',
+    icon: 'gpo',
+    available: true,
+  },
+
+  {
+    // A console of its own rather than a tab under diagnosis: it is the one
+    // place that reaches outside the domain, and burying that two levels
+    // down would understate it.
+    id: 'assistant',
+    label: 'snapin.assistant',
     icon: 'gpo',
     available: true,
   },

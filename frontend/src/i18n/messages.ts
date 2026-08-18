@@ -48,6 +48,7 @@ export const de = {
   'snapin.directory': 'Benutzer und Computer',
   'snapin.dns': 'DNS-Verwaltung',
   'snapin.gpo': 'Gruppenrichtlinienverwaltung',
+  'snapin.assistant': 'KI-Manager',
   'snapin.sites': 'Standorte und Dienste',
   'snapin.diagnostics': 'Diagnose',
 
@@ -475,7 +476,6 @@ export const de = {
   'diag.tab.replication': 'Replikation',
   'diag.tab.policy': 'Kennwortrichtlinie',
   'diag.tab.accounts': 'Konten',
-  'diag.tab.findings': 'Sicherheit',
 
   'findings.intro':
     'Jede Zeile hier stammt aus einer Regel über Werte, die dieses Werkzeug selbst liest, und trägt die Werte mit, aus denen sie entschieden wurde. Kein Sprachmodell ist daran beteiligt.',
@@ -500,6 +500,7 @@ export const de = {
   'assistant.showPayload': 'Zeigen, was gesendet wird',
   'assistant.unverified':
     'Ab hier: Ausgabe von {model}. Ungeprüft — nichts davon wurde nachgerechnet.',
+  'assistant.unstructured': 'Das Modell hat das angeforderte Format nicht eingehalten. Sein Text steht unverändert unten; eine Reihenfolge und getrennte Hinweise gibt es dadurch nicht.',
   'assistant.order': 'Vorgeschlagene Reihenfolge',
   'assistant.suggestions': 'Zusätzliche Hinweise',
   'assistant.suggestionsHint':
@@ -1185,6 +1186,7 @@ export const en: Record<MessageKey, string> = {
   'snapin.directory': 'Users and Computers',
   'snapin.dns': 'DNS Management',
   'snapin.gpo': 'Group Policy Management',
+  'snapin.assistant': 'AI manager',
   'snapin.sites': 'Sites and Services',
   'snapin.diagnostics': 'Diagnostics',
 
@@ -1610,7 +1612,6 @@ export const en: Record<MessageKey, string> = {
   'diag.tab.replication': 'Replication',
   'diag.tab.policy': 'Password policy',
   'diag.tab.accounts': 'Accounts',
-  'diag.tab.findings': 'Security',
 
   'findings.intro':
     'Every line here comes from a rule over values this tool reads itself, and carries the values it was decided from. No language model is involved.',
@@ -1635,6 +1636,7 @@ export const en: Record<MessageKey, string> = {
   'assistant.showPayload': 'Show what gets sent',
   'assistant.unverified':
     'From here on: output of {model}. Unverified — none of it was checked.',
+  'assistant.unstructured': 'The model did not keep to the requested format. Its text is below unchanged; there is no ordering and no separate hints as a result.',
   'assistant.order': 'Suggested order',
   'assistant.suggestions': 'Additional hints',
   'assistant.suggestionsHint':

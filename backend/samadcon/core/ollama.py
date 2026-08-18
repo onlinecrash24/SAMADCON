@@ -158,30 +158,30 @@ def parse_answer(content: str, findings: list[dict[str, Any]], *, model: str) ->
     Separate from the call so the part that catches a model's mistakes can be
     tested without a network — which is where those mistakes will actually be
     caught.
+
+    A model that ignores the schema and writes prose is **not** refused. The
+    reason for asking for a schema was that parsing free text back into
+    structure is where a model's mistakes become the tool's — and that is an
+    argument against *interpreting* prose, not against *showing* it. Verified
+    on a real instance: a cloud model proxied through Ollama produced a sound
+    explanation in plain text, and throwing it away helped nobody. It comes
+    back with ``structured`` false, goes into the same unverified frame, and
+    nothing is inferred from it.
     """
     if not content:
         raise UpstreamUnavailable(
             "The model returned nothing.",
             code="ollama_empty_response",
-            hint="A model that does not support structured output often answers empty.",
+            hint="Check that the model is loaded and answering.",
         )
 
     try:
         answer = json.loads(content)
-    except ValueError as exc:
-        raise UpstreamUnavailable(
-            "The model did not answer in the requested shape.",
-            code="ollama_unusable_response",
-            hint="Try a model that supports structured output.",
-            detail=content[:500],
-        ) from exc
+    except ValueError:
+        return _unstructured(content, model)
 
     if not isinstance(answer, dict):
-        raise UpstreamUnavailable(
-            "The model did not answer in the requested shape.",
-            code="ollama_unusable_response",
-            detail=content[:500],
-        )
+        return _unstructured(content, model)
 
     known = {finding.get("id") for finding in findings}
     order = [
@@ -197,6 +197,19 @@ def parse_answer(content: str, findings: list[dict[str, Any]], *, model: str) ->
         "summary": str(answer.get("summary") or ""),
         "order": order,
         "suggestions": [str(item) for item in (answer.get("suggestions") or [])],
+        "structured": True,
+        "model": model,
+    }
+
+
+def _unstructured(content: str, model: str) -> dict[str, Any]:
+    """What is left when the schema was ignored: the text, and nothing read
+    out of it. The interface says which of the two it is showing."""
+    return {
+        "summary": content,
+        "order": [],
+        "suggestions": [],
+        "structured": False,
         "model": model,
     }
 

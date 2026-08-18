@@ -270,9 +270,12 @@ export interface AssistantPayload {
 
 /** The model's part. Never binding — the findings above it are. */
 export interface AssistantAnswer {
+  /** The explanation. When `structured` is false this is the model's whole reply. */
   summary: string
   order: { id: string; reason: string }[]
   suggestions: string[]
+  /** False when the model ignored the schema: text only, nothing read out of it. */
+  structured: boolean
   model: string
 }
 

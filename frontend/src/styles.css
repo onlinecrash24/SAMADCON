@@ -738,6 +738,10 @@ button:focus-visible {
   color: var(--text-muted);
 }
 .assistant h4 { margin: 12px 0 4px; font-size: 0.95em; }
+/* A reply that ignored the schema. Its own line breaks are all the
+   structure there is, so they are kept; interpreting its markdown would
+   mean this half deciding what the model meant. */
+.assistant__text { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* The prompt, shown before it is sent. Scrolls rather than stretching the
    page, and wraps rather than cutting a line off at the edge. */

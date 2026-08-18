@@ -19,6 +19,7 @@ import { ErrorMessage, Icon, Spinner } from './components/primitives'
 import type { DnsZone } from './api/types'
 import { SNAPINS, type SnapinId } from './features/console/snapins'
 import { DiagnosticsView } from './features/diagnostics/DiagnosticsView'
+import { SecurityFindings } from './features/diagnostics/SecurityFindings'
 import { DnsView } from './features/dns/DnsView'
 import { GpoView } from './features/gpo/GpoView'
 import { SitesView } from './features/sites/SitesView'
@@ -225,6 +226,10 @@ function Console() {
         ) : snapin === 'gpo' ? (
           <div className="pane pane--list">
             <GpoView onChanged={onChanged} />
+          </div>
+        ) : snapin === 'assistant' ? (
+          <div className="pane pane--list">
+            <SecurityFindings />
           </div>
         ) : snapin !== 'directory' ? (
           <div className="pane pane--list">
