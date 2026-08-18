@@ -76,7 +76,20 @@ SYSTEM_PROMPT = (
     "- `order` may only contain ids that appear in the findings.\n"
     "- If the findings are empty, say so plainly and leave `order` empty. Do "
     "not manufacture concerns to fill the space.\n"
-    "- Answer in the language named below."
+    "\n"
+    "Two things this tool leaves out on purpose. Do not suggest them:\n"
+    "- Forcing passwords to expire. That was standard advice for decades and "
+    "NIST withdrew it, because scheduled changes push people towards "
+    "predictable variations of one password.\n"
+    "- Listing locked, disabled or expired accounts. The console shows those "
+    "elsewhere, and repeating them buries the findings that need a decision.\n"
+    "\n"
+    "Answer with a single JSON object and nothing else: no explanation "
+    "around it, no code fence. Its shape:\n"
+    '{"summary": string, "order": [{"id": string, "reason": string}], '
+    '"suggestions": [string]}\n'
+    "\n"
+    "Answer in the language named below."
 )
 
 
@@ -176,7 +189,7 @@ def parse_answer(content: str, findings: list[dict[str, Any]], *, model: str) ->
         )
 
     try:
-        answer = json.loads(content)
+        answer = json.loads(_unfenced(content))
     except ValueError:
         return _unstructured(content, model)
 
@@ -200,6 +213,22 @@ def parse_answer(content: str, findings: list[dict[str, Any]], *, model: str) ->
         "structured": True,
         "model": model,
     }
+
+
+def _unfenced(content: str) -> str:
+    """The reply with a surrounding code fence taken off.
+
+    Not interpretation: when the whole reply is one fenced block, the inside
+    is the reply. Models told to answer with JSON and nothing else wrap it
+    anyway, and refusing over the wrapper would be pedantry.
+    """
+    text = content.strip()
+    if not text.startswith("```"):
+        return text
+    lines = text.splitlines()
+    if len(lines) < 3 or not lines[-1].strip().startswith("```"):
+        return text
+    return "\n".join(lines[1:-1]).strip()
 
 
 def _unstructured(content: str, model: str) -> dict[str, Any]:

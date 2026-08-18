@@ -168,3 +168,35 @@ def test_missing_fields_come_back_empty_rather_than_absent():
         "structured": True,
         "model": "m",
     }
+
+def test_the_schema_is_in_the_prompt_as_well_as_the_format_field():
+    """Verified against a real instance: a cloud model proxied through Ollama
+    produced exactly the requested shape as markdown, which says the
+    instruction lands while the format field does not reach it. A model that
+    ignores the field can still be asked in words."""
+    assert '"summary": string' in ollama.SYSTEM_PROMPT
+    assert "single JSON object" in ollama.SYSTEM_PROMPT
+
+
+def test_the_model_is_told_which_advice_this_tool_rejects():
+    """The same run suggested checking password expiry — precisely what the
+    findings layer leaves out because NIST withdrew it. The model had no way
+    to know, so now it is told."""
+    assert "NIST withdrew it" in ollama.SYSTEM_PROMPT
+
+
+def test_json_inside_a_code_fence_is_unwrapped():
+    """Told to answer with JSON and nothing else, models wrap it anyway.
+    Taking the fence off is unwrapping, not interpreting: when the whole
+    reply is one fenced block, the inside is the reply."""
+    fenced = "```json\n" + answer(summary="ok") + "\n```"
+
+    parsed = ollama.parse_answer(fenced, FINDINGS, model="m")
+
+    assert parsed["structured"] is True
+    assert parsed["summary"] == "ok"
+
+
+def test_a_fence_around_prose_is_still_prose():
+    fenced = "```\nNot JSON at all.\n```"
+    assert ollama.parse_answer(fenced, FINDINGS, model="m")["structured"] is False
