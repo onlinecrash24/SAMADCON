@@ -394,3 +394,48 @@ def test_an_emptied_samba_manifest_does_not_hold_a_registration_open():
     manifest = {"vgp": [{"path": "p", "name": "Symlink Policy", "description": "", "entries": []}]}
     problems = report.registration_problems(gpo(machine="[{35378EAC-...}]"), built(machine=manifest))
     assert problems == ["machine_extension_without_content"]
+
+
+def test_an_extension_windows_keeps_is_not_reported_as_stale():
+    """GPMC leaves the security pair registered when the last setting goes,
+    together with an empty [Registry Values] section. Verified on a throwaway
+    GPO: password policy set, then removed, and the pair stayed. Flagging that
+    would report a state GPMC produces on purpose."""
+    problems = report.registration_problems(
+        gpo(machine="[{827D319E-6EAC-11D2-A4EA-00C04F79F83A}"
+                    "{803E14A0-B4FB-11D0-A0D0-00A0C90F574B}]"),
+        built(),
+    )
+    assert problems == []
+
+
+def test_folder_redirection_is_treated_as_kept_until_established():
+    """Nothing has shown Windows clears it. Treating an unverified extension as
+    kept costs a finding we might have raised; the other way round would flag a
+    healthy policy."""
+    problems = report.registration_problems(
+        gpo(user="[{25537BA6-77A8-11D2-9B6C-0000F8080861}"
+                 "{88E729D6-BDC1-11D1-BD2A-00C04FB9603F}]"),
+        built(),
+    )
+    assert problems == []
+
+
+def test_a_kept_extension_does_not_mask_a_stale_one_beside_it():
+    machine = (
+        "[{35378EAC-683F-11D2-A89A-00C04FBBCFA2}{D02B1F72-3407-48AE-BA88-E8213C6761F1}]"
+        "[{827D319E-6EAC-11D2-A4EA-00C04F79F83A}{803E14A0-B4FB-11D0-A0D0-00A0C90F574B}]"
+    )
+    problems = report.registration_problems(gpo(machine=machine), built())
+    assert problems == ["machine_extension_without_content"]
+
+
+def test_scripts_are_reported_because_windows_clears_them():
+    """Verified the same way: startup script set, then removed, and
+    gPCMachineExtensionNames came back as a single space."""
+    problems = report.registration_problems(
+        gpo(machine="[{42B5FAAE-6536-11D2-AE5A-0000F87571E3}"
+                    "{40B6664F-4972-11D1-A7CA-0000F87571E3}]"),
+        built(),
+    )
+    assert problems == ["machine_extension_without_content"]

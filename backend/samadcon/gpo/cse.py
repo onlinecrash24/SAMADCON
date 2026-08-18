@@ -204,6 +204,31 @@ def braced(guid: str) -> str:
 EMPTY = " "
 
 
+# Extensions Windows leaves registered even when their content is gone.
+#
+# Verified per extension against GPMC, because it does not behave the same for
+# all of them. Setting a password policy and removing it again left
+# `gPCMachineExtensionNames` holding the security pair and a GptTmpl.inf with
+# an empty `[Registry Values]` section — whereas the same exercise with a
+# startup script, and with an administrative template, cleared the attribute to
+# a single space.
+#
+# Folder redirection is in this set because nothing has established otherwise.
+# Treating an unverified extension as "keeps" only costs a finding we might
+# have raised; treating it as "clears" would flag a healthy policy.
+KEEPS_REGISTRATION = frozenset(
+    {
+        braced(SECURITY_CSE),
+        braced(REDIRECTION_CSE),
+    }
+)
+
+
+def registered_extensions(value: str | None) -> set[str]:
+    """The CSE GUIDs listed in one extension-names attribute."""
+    return {group[0] for group in parse(value)}
+
+
 def _current(conn: DirectoryConnection, dn: str, attribute: str) -> str:
     """The attribute as groups, with GPMC's empty marker read as empty."""
     entry: Any = conn.get(dn, attrs=[attribute])

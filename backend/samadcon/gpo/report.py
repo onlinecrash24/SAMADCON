@@ -33,7 +33,7 @@ from xml.etree import ElementTree
 
 from samadcon.ad.connection import DirectoryConnection
 from samadcon.core.errors import InvalidRequest
-from samadcon.gpo import container, folders, registry_pol, sysvol
+from samadcon.gpo import container, cse, folders, registry_pol, sysvol
 
 logger = logging.getLogger(__name__)
 
@@ -172,21 +172,34 @@ def registration_problems(gpo: dict[str, Any], report: dict[str, Any]) -> list[s
       its opening lines — "applies nowhere, and nothing reports it" — and this
       is that report.
     * **An extension registered with nothing to apply.** Every client in scope
-      fetches the policy on each refresh and finds it empty. Windows clears
-      the registration itself when the last setting goes, so a GPO left in
-      this state was usually emptied by something that did not.
+      fetches the policy on each refresh and finds it empty.
+
+    The second one is raised only for extensions Windows itself clears, which
+    is not all of them. Verified against GPMC: removing the last
+    administrative template or the last startup script empties the attribute,
+    while removing the last security setting leaves the security pair
+    registered and an empty `[Registry Values]` section behind. Flagging that
+    would report a state GPMC produces on purpose — see
+    :data:`samadcon.gpo.cse.KEEPS_REGISTRATION`.
 
     Judged on understood content only. An unrecognised file is not evidence
     that a client would apply something, so it must not raise a finding that
     says so.
+
+    Both directions look at the half as a whole rather than at each extension,
+    so a half whose security template is filled while only the registry
+    extension is registered goes unreported. That is a finding missed, not a
+    false one, and closing it needs the report to say which extension each
+    piece of content belongs to.
     """
     problems: list[str] = []
     for half, attribute in REGISTRATION_ATTRIBUTE.items():
         has_content = _understood_content(report[half.lower()])
-        registered = bool(gpo.get(attribute))
+        registered = cse.registered_extensions(gpo.get(attribute))
+        clears = registered - cse.KEEPS_REGISTRATION
         if has_content and not registered:
             problems.append(f"{half.lower()}_content_without_extension")
-        elif registered and not has_content:
+        elif clears and not has_content:
             problems.append(f"{half.lower()}_extension_without_content")
     return problems
 
