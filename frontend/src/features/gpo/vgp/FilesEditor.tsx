@@ -90,9 +90,9 @@ export function FilesEditor({
             <tr>
               <th>{t('vgp.field.source')}</th>
               <th>{t('vgp.field.target')}</th>
-              <th className="table__cell--narrow">{t('vgp.field.user')}</th>
-              <th className="table__cell--narrow">{t('vgp.field.group')}</th>
-              <th className="table__cell--narrow">{t('vgp.field.mode')}</th>
+              <th className="table__cell--account">{t('vgp.field.user')}</th>
+              <th className="table__cell--account">{t('vgp.field.group')}</th>
+              <th className="table__cell--mode">{t('vgp.field.mode')}</th>
               <th className="table__cell--narrow" />
             </tr>
           </thead>
@@ -123,26 +123,28 @@ export function FilesEditor({
                       onChange={(event) => edit(index, 'target', event.target.value)}
                     />
                   </td>
-                  <td>
+                  <td className="table__cell--account">
                     <input
                       value={String(entry.user ?? '')}
                       onChange={(event) => edit(index, 'user', event.target.value)}
                     />
                   </td>
-                  <td>
+                  <td className="table__cell--account">
                     <input
                       value={String(entry.group ?? '')}
                       onChange={(event) => edit(index, 'group', event.target.value)}
                     />
                   </td>
-                  <td>
-                    <input
-                      className="mono"
-                      value={mode}
-                      placeholder="0644"
-                      onChange={(event) => edit(index, 'mode', event.target.value)}
-                    />
-                    <span className="mono small muted">{symbolic(mode)}</span>
+                  <td className="table__cell--mode">
+                    <span className="mode">
+                      <input
+                        className="mono"
+                        value={mode}
+                        placeholder="0644"
+                        onChange={(event) => edit(index, 'mode', event.target.value)}
+                      />
+                      <span className="mono small muted">{symbolic(mode)}</span>
+                    </span>
                   </td>
                   <td>
                     <button

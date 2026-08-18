@@ -710,6 +710,16 @@ button:focus-visible {
    own value. */
 .table__cell--action { width: 11rem; }
 
+/* An account name in a table of file properties. Not --narrow either: sized to
+   the header, "root" came out as "roo" with the caret hiding the rest. */
+.table__cell--account { width: 8rem; }
+
+/* An octal file mode with its symbolic reading. The two belong side by side —
+   stacked, the reading wrapped after four characters and read as damage. */
+.table__cell--mode { width: 11rem; }
+.table__cell--mode .mode { display: flex; align-items: baseline; gap: 8px; }
+.table__cell--mode input { width: 4.5rem; }
+
 .table--pairs { table-layout: fixed; }
 .table--pairs td { overflow-wrap: anywhere; }
 .table--pairs td:first-child { width: 22rem; }
