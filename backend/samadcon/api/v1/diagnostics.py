@@ -8,6 +8,7 @@ with `samba-tool fsmo seize` and `samba-tool drs replicate`.
 
 from __future__ import annotations
 
+import logging
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Query
@@ -15,6 +16,9 @@ from fastapi import APIRouter, Query
 from samadcon.ad import diagnostics
 from samadcon.ad.access import ad_read
 from samadcon.auth.deps import CurrentSession, Worker
+from samadcon.core import findings
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/diagnostics", tags=["diagnostics"])
 
@@ -60,3 +64,40 @@ async def account_problems(
     return await ad_read(
         worker, session, diagnostics.account_problems, limit=limit, label="diag.accounts"
     )
+
+
+@router.get("/findings")
+async def security_findings(worker: Worker, session: CurrentSession) -> dict[str, Any]:
+    """What is worth telling an administrator about this domain.
+
+    The binding half of the security report: rules over values the tool
+    already reads, each carrying what it was decided from. Nothing is asked
+    of a language model here — see :mod:`samadcon.core.findings`.
+    """
+
+    def _run(conn: Any) -> dict[str, Any]:
+        # Read section by section. A part that cannot be read leaves its
+        # findings out and says so, which beats failing the whole report
+        # over one unreachable corner — and beats reporting a clean bill of
+        # health for a section nobody looked at.
+        gathered: dict[str, Any] = {}
+        unreadable: list[str] = []
+        for name, read in (("policy", diagnostics.password_policy),
+                           ("replication", diagnostics.replication)):
+            try:
+                gathered[name] = read(conn)
+            except Exception:
+                logger.warning("cannot read %s for the findings", name, exc_info=True)
+                unreadable.append(name)
+
+        found = findings.evaluate(
+            policy=gathered.get("policy"),
+            replication=gathered.get("replication"),
+            connection=conn.transport.describe() if conn.transport else None,
+        )
+        return {
+            "findings": [item.describe() for item in found],
+            "unreadable": unreadable,
+        }
+
+    return await ad_read(worker, session, _run, label="diag.findings")
