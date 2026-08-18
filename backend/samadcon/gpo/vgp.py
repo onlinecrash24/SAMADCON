@@ -86,6 +86,13 @@ KINDS: dict[str, VgpKind] = {
         name="Symlink Policy",
         description="Specifies symbolic link data",
     ),
+    "files": VgpKind(
+        id="files",
+        directory="Unix\\Files",
+        # Both quoted from cmd_add_files, which is what writes them.
+        name="Files",
+        description="Represents file data to set/copy on clients",
+    ),
     "motd": VgpKind(
         id="motd",
         directory="Unix\\MOTD",
@@ -159,6 +166,43 @@ def _symlink_entries(data: Any) -> list[dict[str, Any]]:
         {"source": _text(entry, "source"), "target": _text(entry, "target")}
         for entry in data.findall("file_properties")
     ]
+
+
+# Which bits a permissions block carries, by its ``type`` attribute, and which
+# element name grants which bit. Read off Samba's own ``calc_mode``: the
+# elements are empty, so a permission is granted by being present at all.
+PERMISSION_SHIFT = {"user": 6, "group": 3, "other": 0}
+PERMISSION_BITS = (("read", 0o4), ("write", 0o2), ("execute", 0o1))
+
+
+def _files_entries(data: Any) -> list[dict[str, Any]]:
+    return [
+        {
+            "source": _text(entry, "source"),
+            "target": _text(entry, "target"),
+            "user": _text(entry, "user"),
+            "group": _text(entry, "group"),
+            "mode": format(_calc_mode(entry), "04o"),
+        }
+        for entry in data.findall("file_properties")
+    ]
+
+
+def _calc_mode(entry: Any) -> int:
+    """The octal mode a file_properties element describes.
+
+    Nothing at all means 0o000 — a file no one may read. That is what Samba
+    computes, so it is what we report; the editor is where it gets questioned.
+    """
+    mode = 0
+    for permissions in entry.findall("permissions"):
+        shift = PERMISSION_SHIFT.get(permissions.get("type") or "")
+        if shift is None:
+            continue
+        for name, bit in PERMISSION_BITS:
+            if permissions.find(name) is not None:
+                mode |= bit << shift
+    return mode
 
 
 def _text_block(data: Any) -> list[dict[str, Any]]:
@@ -266,6 +310,48 @@ def _write_symlink(data: Any, entries: list[dict[str, Any]]) -> None:
         ElementTree.SubElement(node, "target").text = str(entry.get("target", ""))
 
 
+def _write_files(data: Any, entries: list[dict[str, Any]]) -> None:
+    for entry in entries:
+        mode = _parse_mode(entry.get("mode"))
+        node = ElementTree.SubElement(data, "file_properties")
+        ElementTree.SubElement(node, "source").text = str(entry.get("source", ""))
+        ElementTree.SubElement(node, "target").text = str(entry.get("target", ""))
+        ElementTree.SubElement(node, "user").text = str(entry.get("user", ""))
+        ElementTree.SubElement(node, "group").text = str(entry.get("group", ""))
+        # All three blocks, always, even when they grant nothing. cmd_add_files
+        # writes them unconditionally and only the children are decided by the
+        # mode; an omitted block and an empty one read the same anyway.
+        for ptype, shift in (("user", 6), ("group", 3), ("other", 0)):
+            permissions = ElementTree.SubElement(node, "permissions")
+            permissions.set("type", ptype)
+            for name, bit in PERMISSION_BITS:
+                if mode & (bit << shift):
+                    ElementTree.SubElement(permissions, name)
+
+
+def _parse_mode(value: Any) -> int:
+    """An octal mode, the way samba-tool takes it on the command line."""
+    if isinstance(value, int):
+        mode = value
+    else:
+        try:
+            mode = int(str(value or "").strip(), 8)
+        except ValueError:
+            raise InvalidRequest(
+                "The permissions are not an octal mode.",
+                code="vgp_invalid_mode",
+                hint="Three or four octal digits, for example 0644.",
+                context={"given": str(value)},
+            ) from None
+    if not 0 <= mode <= 0o777:
+        raise InvalidRequest(
+            "The permissions are outside the range a file mode can hold.",
+            code="vgp_invalid_mode",
+            context={"given": str(value)},
+        )
+    return mode
+
+
 def _write_text_block(data: Any, entries: list[dict[str, Any]]) -> None:
     # One block of text. More than one entry would silently lose all but the
     # first, so it is refused instead.
@@ -312,6 +398,7 @@ def _write_access(data: Any, entries: list[dict[str, Any]]) -> None:
 READERS: dict[str, Callable[[Any], list[dict[str, Any]]]] = {
     "sudoers": _sudoers_entries,
     "symlink": _symlink_entries,
+    "files": _files_entries,
     "motd": _text_block,
     "issue": _text_block,
     "openssh": _openssh_entries,
@@ -322,6 +409,7 @@ READERS: dict[str, Callable[[Any], list[dict[str, Any]]]] = {
 WRITERS: dict[str, Callable[[Any, list[dict[str, Any]]], None]] = {
     "sudoers": _write_sudoers,
     "symlink": _write_symlink,
+    "files": _write_files,
     "motd": _write_text_block,
     "issue": _write_text_block,
     "openssh": _write_openssh,

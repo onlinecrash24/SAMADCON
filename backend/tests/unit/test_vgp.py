@@ -214,3 +214,100 @@ def test_every_kind_has_a_reader_and_a_writer():
     """
     assert set(vgp.READERS) == set(vgp.KINDS)
     assert set(vgp.WRITERS) == set(vgp.KINDS)
+
+
+# ---------------------------------------------------------------------------
+# Unix/Files
+#
+# Read off the pinned Samba in the image, not from documentation: vgp_files_ext
+# for the reader (calc_mode) and cmd_add_files for the writer. Between them
+# they settle the element order, that all three permissions blocks are written
+# even when empty, and that `source` is a bare file name.
+# ---------------------------------------------------------------------------
+
+FILES_MANIFEST = """<?xml version='1.0' encoding='UTF-8'?>
+<vgppolicy>
+  <policysetting>
+    <version>1</version>
+    <name>Files</name>
+    <description>Represents file data to set/copy on clients</description>
+    <data>
+      <file_properties>
+        <source>motd.txt</source>
+        <target>/etc/motd</target>
+        <user>root</user>
+        <group>root</group>
+        <permissions type="user"><read /><write /></permissions>
+        <permissions type="group"><read /></permissions>
+        <permissions type="other"><read /></permissions>
+      </file_properties>
+    </data>
+  </policysetting>
+</vgppolicy>"""
+
+
+def test_a_file_entry_is_read_with_its_mode():
+    entries = vgp.parse("files", FILES_MANIFEST)
+    assert entries == [
+        {
+            "source": "motd.txt",
+            "target": "/etc/motd",
+            "user": "root",
+            "group": "root",
+            "mode": "0644",
+        }
+    ]
+
+
+def test_permissions_are_granted_by_presence_not_by_value():
+    """The elements are empty. Samba tests `find(...) is not None`."""
+    manifest = FILES_MANIFEST.replace(
+        '<permissions type="user"><read /><write /></permissions>',
+        '<permissions type="user"><read /><write /><execute /></permissions>',
+    )
+    assert vgp.parse("files", manifest)[0]["mode"] == "0744"
+
+
+def test_a_file_with_no_permissions_reads_as_nothing_granted():
+    """calc_mode starts at zero and only ever ORs, so an entry without any
+    permissions block describes a file no one may read. Reported as it is."""
+    manifest = FILES_MANIFEST
+    for ptype in ("user", "group", "other"):
+        start = manifest.index(f'<permissions type="{ptype}"')
+        end = manifest.index("</permissions>", start) + len("</permissions>")
+        manifest = manifest[:start] + manifest[end:]
+    assert vgp.parse("files", manifest)[0]["mode"] == "0000"
+
+
+def test_all_three_permission_blocks_are_written_even_when_empty():
+    """cmd_add_files writes the three unconditionally and decides only their
+    children by the mode."""
+    rendered = vgp.render("files", [{"source": "a", "target": "/a", "user": "u",
+                                     "group": "g", "mode": "0400"}]).decode("utf-8")
+    assert rendered.count("<permissions") == 3
+    assert '<permissions type="group" />' in rendered
+    assert '<permissions type="other" />' in rendered
+
+
+def test_a_file_entry_survives_a_round_trip():
+    entries = vgp.parse("files", FILES_MANIFEST)
+    again = vgp.parse("files", vgp.render("files", entries).decode("utf-8"))
+    assert again == entries
+
+
+def test_the_mode_is_octal_not_decimal():
+    rendered = vgp.render("files", [{"source": "a", "target": "/a", "user": "u",
+                                     "group": "g", "mode": "644"}]).decode("utf-8")
+    assert vgp.parse("files", rendered)[0]["mode"] == "0644"
+
+
+def test_a_mode_that_is_not_octal_is_refused():
+    with pytest.raises(InvalidRequest):
+        vgp.render("files", [{"source": "a", "target": "/a", "user": "u",
+                              "group": "g", "mode": "rwxr-xr-x"}])
+
+
+def test_a_mode_beyond_a_file_mode_is_refused():
+    with pytest.raises(InvalidRequest):
+        vgp.render("files", [{"source": "a", "target": "/a", "user": "u",
+                              "group": "g", "mode": "7777"}])
