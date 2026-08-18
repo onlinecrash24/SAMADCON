@@ -720,6 +720,38 @@ button:focus-visible {
 .table__cell--mode .mode { display: flex; align-items: baseline; gap: 8px; }
 .table__cell--mode input { width: 4.5rem; }
 
+/* The model's half of the security report. Framed and tinted so that where
+   the established part ends is visible without reading a word of it — the
+   one thing a reader must never have to work out. */
+.assistant {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+}
+.assistant__label {
+  margin: 0 0 8px;
+  font-size: 0.82em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.assistant h4 { margin: 12px 0 4px; font-size: 0.95em; }
+
+/* The prompt, shown before it is sent. Scrolls rather than stretching the
+   page, and wraps rather than cutting a line off at the edge. */
+.payload {
+  max-height: 18rem;
+  overflow: auto;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .table--pairs { table-layout: fixed; }
 .table--pairs td { overflow-wrap: anywhere; }
 .table--pairs td:first-child { width: 22rem; }

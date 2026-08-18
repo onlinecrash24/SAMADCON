@@ -251,6 +251,36 @@ export interface FindingsReport {
   unreadable: string[]
 }
 
+/** Whether a model service is configured at all. Answered without calling it. */
+export interface AssistantStatus {
+  configured: boolean
+}
+
+export interface OllamaModel {
+  name: string
+  size: number | null
+  family: string | null
+}
+
+/** Exactly what leaves the container if a report is asked for. */
+export interface AssistantPayload {
+  findings: Finding[]
+  prompt: string
+}
+
+/** The model's part. Never binding — the findings above it are. */
+export interface AssistantAnswer {
+  summary: string
+  order: { id: string; reason: string }[]
+  suggestions: string[]
+  model: string
+}
+
+export interface AssistantReport {
+  findings: Finding[]
+  answer: AssistantAnswer
+}
+
 // --- DNS -------------------------------------------------------------------
 
 export interface DnsZone {

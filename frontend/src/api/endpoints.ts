@@ -11,6 +11,9 @@ import type {
   AdmxBundled,
   AdmxStore,
   AdmxTree,
+  AssistantPayload,
+  AssistantReport,
+  AssistantStatus,
   AttributeListing,
   ChildListing,
   ComputerDetail,
@@ -36,6 +39,7 @@ import type {
   GroupDetail,
   LoginOptions,
   MemberListing,
+  OllamaModel,
   OuDetail,
   PasswordPolicy,
   PolicyState,
@@ -553,6 +557,17 @@ export const api = {
   // -- diagnostics --------------------------------------------------------
   diagnostics: () => http.get<DiagnosticsOverview>('/diagnostics'),
   securityFindings: () => http.get<FindingsReport>('/diagnostics/findings'),
+
+  // -- the optional model service ----------------------------------------
+  assistant: () => http.get<AssistantStatus>('/assistant'),
+  assistantModels: () => http.get<{ models: OllamaModel[] }>('/assistant/models'),
+  /** What would be sent. Fetched before sending, not described. */
+  assistantPayload: (language: string) =>
+    http.get<AssistantPayload>(`/assistant/payload?language=${language}`),
+  assistantReport: (model: string, language: string) =>
+    http.post<AssistantReport>(
+      `/assistant/report?model=${encodeURIComponent(model)}&language=${language}`,
+    ),
   passwordPolicy: () => http.get<PasswordPolicy>('/diagnostics/policy'),
   problemAccounts: (limit = 200) =>
     http.get<AccountProblems>(`/diagnostics/accounts?limit=${limit}`),

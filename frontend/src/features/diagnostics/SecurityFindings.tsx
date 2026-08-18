@@ -19,6 +19,7 @@ import { api } from '../../api/endpoints'
 import type { Finding } from '../../api/types'
 import { Badge, ErrorMessage, Spinner } from '../../components/primitives'
 import { useI18n } from '../../i18n'
+import { AssistantReport } from './AssistantReport'
 import type { MessageKey } from '../../i18n/messages'
 
 const TONE = {
@@ -61,6 +62,9 @@ export function SecurityFindings() {
       {data.findings.map((finding) => (
         <FindingCard key={finding.id} finding={finding} />
       ))}
+
+      {/* Below the findings, never among them. */}
+      <AssistantReport />
     </div>
   )
 }

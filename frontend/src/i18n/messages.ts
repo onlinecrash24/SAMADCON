@@ -487,6 +487,24 @@ export const de = {
   'findings.severity.low': 'Niedrig',
   'findings.severity.info': 'Hinweis',
 
+  'assistant.title': 'Aufbereitung durch ein Modell',
+  'assistant.notConfigured':
+    'Nicht eingerichtet. Ohne Adresse eines Modelldienstes wird nichts gesendet und nichts abgerufen. Die Adresse gehört in die docker-compose.yml, nicht hierher: den Aufruf macht der Container, und eine hier eingebbare Adresse könnte er auf Hosts richten, die Ihr Browser gar nicht erreicht.',
+  'assistant.intro':
+    'Ein lokal betriebenes Modell formuliert die Befunde oben aus und schlägt eine Reihenfolge vor. Verbindlich bleiben die Befunde; alles aus dem Modell ist ungeprüft und unten als solches gekennzeichnet.',
+  'assistant.loadModels': 'Modelle laden',
+  'assistant.pickModel': '— Modell wählen —',
+  'assistant.noModels': 'Der Dienst ist erreichbar, hält aber kein Modell bereit.',
+  'assistant.ask': 'Bericht anfordern',
+  'assistant.asking': 'Modell antwortet …',
+  'assistant.showPayload': 'Zeigen, was gesendet wird',
+  'assistant.unverified':
+    'Ab hier: Ausgabe von {model}. Ungeprüft — nichts davon wurde nachgerechnet.',
+  'assistant.order': 'Vorgeschlagene Reihenfolge',
+  'assistant.suggestions': 'Zusätzliche Hinweise',
+  'assistant.suggestionsHint':
+    'Diese Punkte stammen nicht aus einer Regel und wurden nicht geprüft. Behandeln Sie sie als Fragen, denen man nachgehen kann — nicht als Befunde.',
+
   'findings.password_reversible_encryption': 'Kennwörter werden umkehrbar gespeichert',
   'findings.password_reversible_encryption.why':
     'Die Domäne kann die Klartextkennwörter wieder herausgeben. Wer die Datenbank oder eine Sicherung davon in die Hände bekommt, hat damit die Kennwörter selbst, nicht nur ihre Prüfsummen. Das ist keine Ermessensfrage.',
@@ -1603,6 +1621,24 @@ export const en: Record<MessageKey, string> = {
   'findings.severity.medium': 'Medium',
   'findings.severity.low': 'Low',
   'findings.severity.info': 'Note',
+
+  'assistant.title': 'Wording by a model',
+  'assistant.notConfigured':
+    'Not set up. Without the address of a model service nothing is sent and nothing is fetched. The address belongs in docker-compose.yml rather than here: the container makes the call, and an address typed here could point it at hosts your own browser cannot reach.',
+  'assistant.intro':
+    'A locally run model puts the findings above into words and proposes an order to work through. The findings stay binding; everything from the model is unverified and marked as such below.',
+  'assistant.loadModels': 'Load models',
+  'assistant.pickModel': '— pick a model —',
+  'assistant.noModels': 'The service answers but holds no model.',
+  'assistant.ask': 'Ask for a report',
+  'assistant.asking': 'The model is answering …',
+  'assistant.showPayload': 'Show what gets sent',
+  'assistant.unverified':
+    'From here on: output of {model}. Unverified — none of it was checked.',
+  'assistant.order': 'Suggested order',
+  'assistant.suggestions': 'Additional hints',
+  'assistant.suggestionsHint':
+    'These did not come from a rule and were not checked. Treat them as questions worth following up, not as findings.',
 
   'findings.password_reversible_encryption': 'Passwords are stored reversibly',
   'findings.password_reversible_encryption.why':
