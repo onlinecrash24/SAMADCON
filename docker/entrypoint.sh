@@ -88,6 +88,10 @@ SMB_CONF="${SAMADCON_CONF_DIR}/smb.conf"
     echo "    client min protocol = SMB3"
     echo "    client use spnego = yes"
     echo "    kerberos method = secrets and keytab"
+    # Samba would otherwise generate its own krb5.conf and find the KDC for it
+    # over DNS SRV, bypassing the one this container writes with the KDC
+    # addresses already proven to answer. See auth/kerberos.load_loadparm.
+    echo "    create krb5 conf = no"
     echo "    log level = ${SAMADCON_SAMBA_LOG_LEVEL:-0}"
     echo "    private dir = /var/lib/samadcon"
     echo "    state directory = /var/lib/samadcon"
