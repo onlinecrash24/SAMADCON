@@ -199,3 +199,18 @@ def test_a_missing_element_reads_as_empty_rather_than_raising():
     )
 
     assert vgp.parse("symlink", text) == [{"source": "/etc/motd", "target": ""}]
+
+
+# ---------------------------------------------------------------------------
+# Every kind must be handled deliberately
+# ---------------------------------------------------------------------------
+
+
+def test_every_kind_has_a_reader_and_a_writer():
+    """The dispatch used to be a chain of ``if kind.id == ...`` ending in a
+    fallback, so a kind added to KINDS and forgotten was read as an access
+    list and written as `adobject` elements — silently, onto a share every
+    domain member reads. This is the check that makes that impossible.
+    """
+    assert set(vgp.READERS) == set(vgp.KINDS)
+    assert set(vgp.WRITERS) == set(vgp.KINDS)

@@ -32,6 +32,7 @@ reason the others are in it — evidence:
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 from xml.etree import ElementTree
@@ -146,20 +147,23 @@ def parse(policy: str, text: str) -> list[dict[str, Any]]:
     data = _data_of(text)
     if data is None:
         return []
+    return READERS[kind.id](data)
 
-    if kind.id == "sudoers":
-        return [_sudoers_entry(entry) for entry in data.findall("sudoers_entry")]
-    if kind.id == "symlink":
-        return [
-            {"source": _text(entry, "source"), "target": _text(entry, "target")}
-            for entry in data.findall("file_properties")
-        ]
-    if kind.id in ("motd", "issue"):
-        # A single block of text, not a list.
-        return [{"text": _text(data, "text"), "filename": _text(data, "filename")}]
-    if kind.id == "openssh":
-        return _openssh_entries(data)
-    return _access_entries(data)
+
+def _sudoers_entries(data: Any) -> list[dict[str, Any]]:
+    return [_sudoers_entry(entry) for entry in data.findall("sudoers_entry")]
+
+
+def _symlink_entries(data: Any) -> list[dict[str, Any]]:
+    return [
+        {"source": _text(entry, "source"), "target": _text(entry, "target")}
+        for entry in data.findall("file_properties")
+    ]
+
+
+def _text_block(data: Any) -> list[dict[str, Any]]:
+    """A single block of text, not a list."""
+    return [{"text": _text(data, "text"), "filename": _text(data, "filename")}]
 
 
 def _data_of(text: str) -> Any:
@@ -240,56 +244,90 @@ def render(policy: str, entries: list[dict[str, Any]]) -> bytes:
 
 
 def _fill(kind: VgpKind, data: Any, entries: list[dict[str, Any]]) -> None:
-    if kind.id == "sudoers":
-        for entry in entries:
-            node = ElementTree.SubElement(data, "sudoers_entry")
-            if entry.get("password"):
-                ElementTree.SubElement(node, "password")
-            ElementTree.SubElement(node, "command").text = str(entry.get("command", ""))
-            ElementTree.SubElement(node, "user").text = str(entry.get("user", ""))
-            listelement = ElementTree.SubElement(node, "listelement")
-            for principal in entry.get("principals") or []:
-                ElementTree.SubElement(listelement, "principal").text = str(principal)
-        return
+    WRITERS[kind.id](data, entries)
 
-    if kind.id == "symlink":
-        for entry in entries:
-            node = ElementTree.SubElement(data, "file_properties")
-            ElementTree.SubElement(node, "source").text = str(entry.get("source", ""))
-            ElementTree.SubElement(node, "target").text = str(entry.get("target", ""))
-        return
 
-    if kind.id in ("motd", "issue"):
-        # One block of text. More than one entry would silently lose all but
-        # the first, so it is refused instead.
-        if len(entries) > 1:
-            raise InvalidRequest(
-                "This policy holds a single block of text.",
-                code="vgp_single_entry",
-                context={"policy": kind.id, "given": len(entries)},
-            )
-        ElementTree.SubElement(data, "text").text = str(
-            entries[0].get("text", "") if entries else ""
+def _write_sudoers(data: Any, entries: list[dict[str, Any]]) -> None:
+    for entry in entries:
+        node = ElementTree.SubElement(data, "sudoers_entry")
+        if entry.get("password"):
+            ElementTree.SubElement(node, "password")
+        ElementTree.SubElement(node, "command").text = str(entry.get("command", ""))
+        ElementTree.SubElement(node, "user").text = str(entry.get("user", ""))
+        listelement = ElementTree.SubElement(node, "listelement")
+        for principal in entry.get("principals") or []:
+            ElementTree.SubElement(listelement, "principal").text = str(principal)
+
+
+def _write_symlink(data: Any, entries: list[dict[str, Any]]) -> None:
+    for entry in entries:
+        node = ElementTree.SubElement(data, "file_properties")
+        ElementTree.SubElement(node, "source").text = str(entry.get("source", ""))
+        ElementTree.SubElement(node, "target").text = str(entry.get("target", ""))
+
+
+def _write_text_block(data: Any, entries: list[dict[str, Any]]) -> None:
+    # One block of text. More than one entry would silently lose all but the
+    # first, so it is refused instead.
+    if len(entries) > 1:
+        raise InvalidRequest(
+            "This policy holds a single block of text.",
+            code="vgp_single_entry",
+            context={"given": len(entries)},
         )
-        return
+    ElementTree.SubElement(data, "text").text = str(entries[0].get("text", "") if entries else "")
 
-    if kind.id == "openssh":
-        configfile = ElementTree.SubElement(data, "configfile")
-        section = ElementTree.SubElement(configfile, "configsection")
-        # Samba skips a section whose name has text, so the settings it reads
-        # are the ones in the unnamed section. The element has to be there.
-        ElementTree.SubElement(section, "sectionname")
-        for entry in entries:
-            pair = ElementTree.SubElement(section, "keyvaluepair")
-            ElementTree.SubElement(pair, "key").text = str(entry.get("key", ""))
-            ElementTree.SubElement(pair, "value").text = str(entry.get("value", ""))
-        return
 
+def _write_openssh(data: Any, entries: list[dict[str, Any]]) -> None:
+    configfile = ElementTree.SubElement(data, "configfile")
+    section = ElementTree.SubElement(configfile, "configsection")
+    # Samba skips a section whose name has text, so the settings it reads are
+    # the ones in the unnamed section. The element has to be there.
+    ElementTree.SubElement(section, "sectionname")
+    for entry in entries:
+        pair = ElementTree.SubElement(section, "keyvaluepair")
+        ElementTree.SubElement(pair, "key").text = str(entry.get("key", ""))
+        ElementTree.SubElement(pair, "value").text = str(entry.get("value", ""))
+
+
+def _write_access(data: Any, entries: list[dict[str, Any]]) -> None:
     for entry in entries:
         listelement = ElementTree.SubElement(data, "listelement")
         adobject = ElementTree.SubElement(listelement, "adobject")
         ElementTree.SubElement(adobject, "name").text = str(entry.get("name", ""))
         ElementTree.SubElement(adobject, "domain").text = str(entry.get("domain", ""))
+
+
+# ---------------------------------------------------------------------------
+# Which reader and writer belong to which kind
+#
+# A table rather than a chain of ``if kind.id == …``. The chain ended in a
+# fallback, so a kind added to KINDS and forgotten here was read as an access
+# list and written as `adobject` elements — silently, and onto a share every
+# domain member reads. Missing from the table, the same mistake is a KeyError
+# on the first call, and `test_every_kind_has_a_reader_and_a_writer` catches
+# it before that.
+# ---------------------------------------------------------------------------
+
+READERS: dict[str, Callable[[Any], list[dict[str, Any]]]] = {
+    "sudoers": _sudoers_entries,
+    "symlink": _symlink_entries,
+    "motd": _text_block,
+    "issue": _text_block,
+    "openssh": _openssh_entries,
+    "access_allow": _access_entries,
+    "access_deny": _access_entries,
+}
+
+WRITERS: dict[str, Callable[[Any, list[dict[str, Any]]], None]] = {
+    "sudoers": _write_sudoers,
+    "symlink": _write_symlink,
+    "motd": _write_text_block,
+    "issue": _write_text_block,
+    "openssh": _write_openssh,
+    "access_allow": _write_access,
+    "access_deny": _write_access,
+}
 
 
 # ---------------------------------------------------------------------------
