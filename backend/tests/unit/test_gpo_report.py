@@ -439,3 +439,38 @@ def test_scripts_are_reported_because_windows_clears_them():
         built(),
     )
     assert problems == ["machine_extension_without_content"]
+
+
+def test_a_kept_extension_without_content_is_noted_not_flagged():
+    """The state GPMC leaves behind after the last security setting goes.
+
+    It is not a fault, so it must not make the policy inconsistent — but the
+    policy list shows that half as carrying something, and the colour is a
+    riddle without a word somewhere.
+    """
+    security = ("[{827D319E-6EAC-11D2-A4EA-00C04F79F83A}"
+                "{803E14A0-B4FB-11D0-A0D0-00A0C90F574B}]")
+
+    assert report.registration_problems(gpo(machine=security), built()) == []
+    assert report.registration_notes(gpo(machine=security), built()) == [
+        "machine_extension_kept_without_content"
+    ]
+
+
+def test_a_kept_extension_with_content_is_not_noted():
+    half = {"security": {"System Access": [{"name": "MinimumPasswordLength", "value": "14"}]}}
+    security = ("[{827D319E-6EAC-11D2-A4EA-00C04F79F83A}"
+                "{803E14A0-B4FB-11D0-A0D0-00A0C90F574B}]")
+
+    assert report.registration_notes(gpo(machine=security), built(machine=half)) == []
+
+
+def test_an_extension_windows_clears_is_a_problem_not_a_note():
+    """Otherwise the stale registration would be explained away."""
+    registry = ("[{35378EAC-683F-11D2-A89A-00C04FBBCFA2}"
+                "{D02B1F72-3407-48AE-BA88-E8213C6761F1}]")
+
+    assert report.registration_notes(gpo(machine=registry), built()) == []
+    assert report.registration_problems(gpo(machine=registry), built()) == [
+        "machine_extension_without_content"
+    ]

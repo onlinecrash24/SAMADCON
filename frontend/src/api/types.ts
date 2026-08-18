@@ -573,6 +573,8 @@ export interface GpoStatus {
   consistent: boolean
   /** Empty when both halves agree; otherwise what does not line up. */
   problems: string[]
+  /** Correct but surprising states. They never make a policy inconsistent. */
+  notes?: string[]
 }
 
 export interface GpoLink {

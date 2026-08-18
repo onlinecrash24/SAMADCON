@@ -633,6 +633,21 @@ function HealthTab({ gpo }: { gpo: Gpo }) {
         <dd>{data.sysvol_version ?? '—'}</dd>
       </dl>
 
+      {/* Notes stand apart from problems on purpose: they describe states
+          that are correct and merely look wrong — a half that shows as
+          carrying something while the report says it holds nothing, because
+          Windows keeps that extension registered. Without a word here the
+          colour in the policy list is a riddle. */}
+      {(data.notes ?? []).length > 0 && (
+        <div className="alert alert--info">
+          <ul className="plain-list">
+            {(data.notes ?? []).map((note) => (
+              <li key={note}>{t(`gpo.note.${note}` as MessageKey)}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {data.consistent ? (
         <div className="alert alert--success">{t('gpo.consistent')}</div>
       ) : (

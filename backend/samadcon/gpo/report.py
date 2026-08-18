@@ -204,6 +204,26 @@ def registration_problems(gpo: dict[str, Any], report: dict[str, Any]) -> list[s
     return problems
 
 
+def registration_notes(gpo: dict[str, Any], report: dict[str, Any]) -> list[str]:
+    """States that look wrong and are not.
+
+    A half whose only registered extension is one Windows keeps, holding
+    nothing to apply, is what GPMC leaves behind after the last security
+    setting is cleared. It is not a fault, so it is no problem — but the
+    policy list shows that half as carrying something, and without a word
+    somewhere the colour is a riddle. Saying it plainly beats leaving someone
+    to work out why an empty policy looks configured.
+    """
+    notes: list[str] = []
+    for half, attribute in REGISTRATION_ATTRIBUTE.items():
+        if _understood_content(report[half.lower()]):
+            continue
+        registered = cse.registered_extensions(gpo.get(attribute))
+        if registered & cse.KEEPS_REGISTRATION:
+            notes.append(f"{half.lower()}_extension_kept_without_content")
+    return notes
+
+
 def _note(unreadable: list[dict[str, Any]], path: str, exc: Exception) -> None:
     logger.warning("cannot read %s", path, exc_info=True)
     unreadable.append({"path": path, "reason": type(exc).__name__})

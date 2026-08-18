@@ -57,8 +57,13 @@ async def gpo_status(worker: Worker, session: CurrentSession, dn: DnQuery) -> di
         # files hold, so it needs the report rather than a listing. Only asked
         # once SYSVOL is known to be readable — with the folder missing there
         # is nothing to compare and the walk would only produce noise.
+        status["notes"] = []
         if status["sysvol_present"]:
-            status["problems"] += report.registration_problems(gpo, report.build_report(conn, dn))
+            built = report.build_report(conn, dn)
+            status["problems"] += report.registration_problems(gpo, built)
+            # Notes are deliberately kept out of `consistent`: they describe
+            # states that are correct and merely surprising.
+            status["notes"] = report.registration_notes(gpo, built)
             status["consistent"] = not status["problems"]
         return status
 

@@ -649,6 +649,10 @@ export const de = {
     'Computerkonfiguration: Eine Erweiterung ist registriert, aber es gibt nichts anzuwenden. Jeder Client holt die Richtlinie bei jeder Aktualisierung und findet sie leer.',
   'gpo.problem.user_extension_without_content':
     'Benutzerkonfiguration: Eine Erweiterung ist registriert, aber es gibt nichts anzuwenden. Jeder Client holt die Richtlinie bei jeder Aktualisierung und findet sie leer.',
+  'gpo.note.machine_extension_kept_without_content':
+    'Computerkonfiguration: Eine Erweiterung ist eingetragen, obwohl nichts anzuwenden ist — deshalb erscheint diese Hälfte in der Liste als gefüllt. Das ist kein Fehler: Windows behält die Registrierung, wenn die letzte Sicherheitseinstellung entfernt wird, damit Clients eine bereits angewandte Einstellung noch zurücknehmen.',
+  'gpo.note.user_extension_kept_without_content':
+    'Benutzerkonfiguration: Eine Erweiterung ist eingetragen, obwohl nichts anzuwenden ist — deshalb erscheint diese Hälfte in der Liste als gefüllt. Das ist kein Fehler: Windows behält die Registrierung in diesem Fall, damit Clients eine bereits angewandte Einstellung noch zurücknehmen.',
   'gpo.problem.no_path': 'Das Objekt nennt keinen SYSVOL-Pfad.',
   'gpo.problem.invalid_path': 'Der SYSVOL-Pfad im Objekt ist unbrauchbar.',
 
@@ -1728,6 +1732,10 @@ export const en: Record<MessageKey, string> = {
     'Computer configuration: an extension is registered but there is nothing to apply. Every client fetches the policy on each refresh and finds it empty.',
   'gpo.problem.user_extension_without_content':
     'User configuration: an extension is registered but there is nothing to apply. Every client fetches the policy on each refresh and finds it empty.',
+  'gpo.note.machine_extension_kept_without_content':
+    'Computer configuration: an extension is registered although there is nothing to apply, which is why this half shows as carrying something in the list. Not a fault: Windows keeps the registration when the last security setting is removed, so that clients can still revert one they applied earlier.',
+  'gpo.note.user_extension_kept_without_content':
+    'User configuration: an extension is registered although there is nothing to apply, which is why this half shows as carrying something in the list. Not a fault: Windows keeps the registration in this case so that clients can still revert a setting they applied earlier.',
   'gpo.problem.no_path': 'The object names no SYSVOL path.',
   'gpo.problem.invalid_path': 'The SYSVOL path on the object is unusable.',
 
