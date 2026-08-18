@@ -8,9 +8,17 @@ Point them at your own test domain:
     TEST_INSECURE=1          # self-signed certificate
 
     SAMADCON_TARGET=test       # the suite lives in the image, not in a mount
+    SAMADCON_COOKIE_SECURE=0   # TestClient speaks http, a Secure cookie
+                               # would be set and never sent back
 
     docker compose up -d --build
     docker compose exec samadcon python -m pytest tests/integration -q
+
+Or without touching a running deployment — the tests need no server of their
+own, TestClient runs the application in-process::
+
+    docker build -f docker/Dockerfile --target test -t samadcon:test .
+    docker run --rm         --add-host dc.example.lan:192.0.2.10 --dns 192.0.2.10         -e TEST_DC_HOST=dc.example.lan -e TEST_ADMIN_PASSWORD=…         -e TEST_INSECURE=1 -e SAMADCON_COOKIE_SECURE=0         samadcon:test python -m pytest tests/integration -q
 
 Everything goes through the HTTP API rather than the internal modules: that is
 what an administrator actually exercises, and it covers the session, CSRF and
@@ -119,6 +127,19 @@ def api(running_app, reachable_server: str):
         pytest.skip(f"cannot sign in to the test domain: {response.text}")
 
     client.headers["X-CSRF-Token"] = response.json()["csrf_token"]
+
+    # Signing in is not the same as staying signed in, and the difference is
+    # not obvious from the outside: the session cookie is Secure by default
+    # while TestClient speaks http://testserver, so it is set, never sent back,
+    # and every later request answers 401. Without this check the suite reports
+    # that as ninety-odd unrelated KeyErrors — one per test that expected a
+    # payload and got an error body — and the cause appears nowhere.
+    if client.get("/api/v1/auth/session").status_code != 200:
+        pytest.skip(
+            "signed in, but the session does not survive the next request. "
+            "These tests talk plain http, so the container needs "
+            "SAMADCON_COOKIE_SECURE=0 for the cookie to come back."
+        )
     yield client
     client.post("/api/v1/auth/logout")
 
