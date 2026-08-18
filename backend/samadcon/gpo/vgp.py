@@ -45,6 +45,7 @@ logger = logging.getLogger(__name__)
 
 VGP_ROOT = "MACHINE\\VGP\\VTLA"
 MANIFEST = "manifest.xml"
+SEPARATOR = "\\"
 
 # ElementTree writes this exact declaration, single quotes and all. Matching it
 # keeps a file we write and one `samba-tool gpo manage` writes comparable.
@@ -62,10 +63,19 @@ class VgpKind:
     apply_mode: str | None = None
     # Elements that sit in <data> before the entries, as name/text pairs.
     preamble: tuple[tuple[str, str], ...] = field(default_factory=tuple)
+    # The entry field naming a file that has to sit beside the manifest, for
+    # the kinds whose entries point at one instead of carrying it. Empty for
+    # the kinds that hold their content inline.
+    payload_field: str = ""
 
     @property
     def path(self) -> str:
         return f"{VGP_ROOT}\\{self.directory}\\{MANIFEST}"
+
+    @property
+    def directory_path(self) -> str:
+        """The manifest's directory — where payload files live too."""
+        return f"{VGP_ROOT}\\{self.directory}"
 
 
 # ``name`` and ``description`` are what samba-tool writes; the applier reads
@@ -92,6 +102,9 @@ KINDS: dict[str, VgpKind] = {
         # Both quoted from cmd_add_files, which is what writes them.
         name="Files",
         description="Represents file data to set/copy on clients",
+        # cmd_add_files stores os.path.basename(source) and uploads the file
+        # beside the manifest; vgp_files_ext then looks for it there.
+        payload_field="source",
     ),
     "motd": VgpKind(
         id="motd",
@@ -491,14 +504,153 @@ def write(
 
     share = sysvol.sysvol_for(conn)
     _, _, base = sysvol.parse_unc(gpo["path"])
+
+    # Every payload an entry names has to be on the share already. Writing a
+    # manifest that points at a file nobody uploaded produces a policy which
+    # logs "Source file does not exist" on each member and applies nothing —
+    # and the console would show it as configured. Checked before the manifest
+    # is written, so a rejected save leaves the old one intact.
+    _check_payloads(share, base, kind, entries)
+
     target = share.resolve(base, kind.path) or sysvol.join(base, kind.path)
     share.makedirs(target.rsplit("\\", 1)[0])
     share.write(target, updated)
+
+    # cmd_remove_files unlinks an entry's source when the entry goes, so a
+    # replaced list has to take the files it dropped with it. Only after the
+    # manifest is written: an orphan left behind is untidy, a file deleted
+    # while the manifest still names it is a broken policy.
+    _remove_dropped_payloads(share, base, kind, current, entries)
 
     # Machine half only: every one of these lives under MACHINE.
     after = container.bump_version(conn, dn, machine_changed=True, user_changed=False)
     logger.info("wrote %d %s entries to %s", len(entries), kind.id, gpo["display_name"])
     return {"dn": dn, "changed": True, "version": after["version"], "written": len(entries)}
+
+
+def _payload_names(kind: VgpKind, entries: list[dict[str, Any]]) -> list[str]:
+    if not kind.payload_field:
+        return []
+    return [str(entry.get(kind.payload_field, "")).strip() for entry in entries]
+
+
+def payload_name(kind: VgpKind, name: str) -> str:
+    """A payload file name, checked before it becomes a path.
+
+    This writes onto a share every domain member reads, so a name that climbs
+    out of the directory is refused rather than reshaped. samba-tool stores
+    ``os.path.basename(source)``, so a plain name is also all the reader will
+    ever look for.
+    """
+    cleaned = name.replace("/", "\\").strip().strip("\\")
+    if not cleaned or "\\" in cleaned or cleaned in (".", "..") or ":" in cleaned:
+        raise InvalidRequest(
+            "A file for this policy needs a plain name, without a path.",
+            code="vgp_invalid_payload_name",
+            context={"policy": kind.id, "given": name},
+        )
+    return cleaned
+
+
+def _payload_path(base: str, kind: VgpKind, name: str) -> str:
+    return sysvol.join(base, f"{kind.directory_path}\\{payload_name(kind, name)}")
+
+
+def _check_payloads(
+    share: sysvol.SysvolConnection,
+    base: str,
+    kind: VgpKind,
+    entries: list[dict[str, Any]],
+) -> None:
+    missing = [
+        name
+        for name in _payload_names(kind, entries)
+        if not share.exists(_payload_path(base, kind, name))
+    ]
+    if missing:
+        raise InvalidRequest(
+            "These files are not on SYSVOL yet.",
+            code="vgp_payload_missing",
+            hint="Upload them for this policy before referring to them.",
+            context={"policy": kind.id, "missing": ", ".join(missing)},
+        )
+
+
+def _remove_dropped_payloads(
+    share: sysvol.SysvolConnection,
+    base: str,
+    kind: VgpKind,
+    previous: str | None,
+    entries: list[dict[str, Any]],
+) -> None:
+    if not kind.payload_field or previous is None:
+        return
+
+    kept = {name.lower() for name in _payload_names(kind, entries)}
+    for name in _payload_names(kind, parse(kind.id, previous)):
+        if not name or name.lower() in kept:
+            continue
+        try:
+            share.unlink(_payload_path(base, kind, name))
+        except Exception:
+            # An orphan left behind is untidy; failing the save over it is worse.
+            logger.warning("could not remove %s from %s", name, kind.directory_path, exc_info=True)
+
+
+def write_payload(
+    conn: DirectoryConnection, dn: str, policy: str, name: str, data: bytes
+) -> dict[str, Any]:
+    """Put a file this policy's entries can refer to beside its manifest.
+
+    Deliberately *not* added to the entry list as well. samba-tool takes both
+    in one command, but here they are two decisions: a file has to exist
+    before an entry can name it, and uploading one is not the same as putting
+    it into force.
+    """
+    kind = kind_for(policy)
+    if not kind.payload_field:
+        raise InvalidRequest(
+            "This policy carries its content itself and refers to no files.",
+            code="vgp_no_payload",
+            context={"policy": kind.id},
+        )
+
+    gpo = container.get_gpo(conn, dn)
+    if not gpo["path"]:
+        raise InvalidRequest(
+            "This policy has no SYSVOL path.", code="gpo_without_path", context={"dn": dn}
+        )
+
+    _, _, base = sysvol.parse_unc(gpo["path"])
+    path = _payload_path(base, kind, name)
+    share = sysvol.sysvol_for(conn)
+    share.makedirs(path.rsplit(SEPARATOR, 1)[0])
+    share.write(path, data)
+    logger.info("stored %s for the %s policy of %s", name, kind.id, gpo["display_name"])
+    return {"name": payload_name(kind, name), "size": len(data)}
+
+
+def list_payloads(conn: DirectoryConnection, dn: str, policy: str) -> list[dict[str, Any]]:
+    """The files sitting beside this policy's manifest."""
+    kind = kind_for(policy)
+    gpo = container.get_gpo(conn, dn)
+    if not kind.payload_field or not gpo["path"]:
+        return []
+
+    share = sysvol.sysvol_for(conn)
+    _, _, base = sysvol.parse_unc(gpo["path"])
+    directory = share.resolve(base, kind.directory_path)
+    if directory is None:
+        return []
+
+    return sorted(
+        (
+            {"name": entry["name"], "size": entry["size"]}
+            for entry in share.listdir(directory)
+            if not entry["is_directory"] and entry["name"].lower() != MANIFEST
+        ),
+        key=lambda item: item["name"].lower(),
+    )
 
 
 def _read_manifest(

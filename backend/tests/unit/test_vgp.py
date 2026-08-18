@@ -311,3 +311,36 @@ def test_a_mode_beyond_a_file_mode_is_refused():
     with pytest.raises(InvalidRequest):
         vgp.render("files", [{"source": "a", "target": "/a", "user": "u",
                               "group": "g", "mode": "7777"}])
+
+
+# ---------------------------------------------------------------------------
+# Payload files
+#
+# Unix/Files is the first kind whose entries point at a file instead of
+# carrying their content. cmd_add_files stores os.path.basename(source) and
+# uploads the file beside the manifest; cmd_remove_files unlinks it when the
+# entry goes.
+# ---------------------------------------------------------------------------
+
+FILES_KIND = vgp.KINDS["files"]
+
+
+def test_only_kinds_that_refer_to_a_file_have_a_payload_field():
+    assert FILES_KIND.payload_field == "source"
+    assert vgp.KINDS["sudoers"].payload_field == ""
+
+
+def test_a_payload_lives_beside_the_manifest():
+    assert FILES_KIND.directory_path == FILES_KIND.path.rsplit(vgp.SEPARATOR, 1)[0]
+
+
+def test_a_plain_name_is_accepted():
+    assert vgp.payload_name(FILES_KIND, "motd.txt") == "motd.txt"
+
+
+def test_a_name_given_with_a_path_is_reduced_to_nothing_acceptable():
+    """samba-tool stores a basename, so a path is never what the reader looks
+    for — and this writes onto a share every domain member reads."""
+    for given in ("sub/motd.txt", "sub" + '\\' + "motd.txt", "../motd.txt", "..", "C:motd.txt", ""):
+        with pytest.raises(InvalidRequest):
+            vgp.payload_name(FILES_KIND, given)
