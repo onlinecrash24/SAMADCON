@@ -236,6 +236,21 @@ export interface AttributeListing {
   attributes: Record<string, AttributeEntry>
 }
 
+/** One thing worth telling an administrator, decided by a rule. */
+export interface Finding {
+  id: string
+  severity: 'high' | 'medium' | 'low' | 'info'
+  area: string
+  /** What the rule looked at, so a finding can be checked rather than believed. */
+  evidence: Record<string, unknown>
+}
+
+export interface FindingsReport {
+  findings: Finding[]
+  /** Sections that could not be read. Their findings are missing, not clean. */
+  unreadable: string[]
+}
+
 // --- DNS -------------------------------------------------------------------
 
 export interface DnsZone {

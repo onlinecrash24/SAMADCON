@@ -21,6 +21,7 @@ import type {
   DnsRecordListing,
   DnsRecordTypeInfo,
   DnsZone,
+  FindingsReport,
   DirectoryObject,
   Gpo,
   GpoFiltering,
@@ -551,6 +552,7 @@ export const api = {
 
   // -- diagnostics --------------------------------------------------------
   diagnostics: () => http.get<DiagnosticsOverview>('/diagnostics'),
+  securityFindings: () => http.get<FindingsReport>('/diagnostics/findings'),
   passwordPolicy: () => http.get<PasswordPolicy>('/diagnostics/policy'),
   problemAccounts: (limit = 200) =>
     http.get<AccountProblems>(`/diagnostics/accounts?limit=${limit}`),

@@ -475,6 +475,39 @@ export const de = {
   'diag.tab.replication': 'Replikation',
   'diag.tab.policy': 'Kennwortrichtlinie',
   'diag.tab.accounts': 'Konten',
+  'diag.tab.findings': 'Sicherheit',
+
+  'findings.intro':
+    'Jede Zeile hier stammt aus einer Regel über Werte, die dieses Werkzeug selbst liest, und trägt die Werte mit, aus denen sie entschieden wurde. Kein Sprachmodell ist daran beteiligt.',
+  'findings.none': 'Keine Auffälligkeiten in den geprüften Bereichen.',
+  'findings.unreadable':
+    'Nicht gelesen werden konnte: {sections}. Für diesen Bereich fehlen Befunde — das heißt nicht, dass es keine gibt.',
+  'findings.severity.high': 'Hoch',
+  'findings.severity.medium': 'Mittel',
+  'findings.severity.low': 'Niedrig',
+  'findings.severity.info': 'Hinweis',
+
+  'findings.password_reversible_encryption': 'Kennwörter werden umkehrbar gespeichert',
+  'findings.password_reversible_encryption.why':
+    'Die Domäne kann die Klartextkennwörter wieder herausgeben. Wer die Datenbank oder eine Sicherung davon in die Hände bekommt, hat damit die Kennwörter selbst, nicht nur ihre Prüfsummen. Das ist keine Ermessensfrage.',
+  'findings.password_no_lockout': 'Konten werden nie gesperrt',
+  'findings.password_no_lockout.why':
+    'Die Sperrschwelle steht auf 0. Ein Angreifer darf damit beliebig oft raten, ohne dass etwas eingreift. Eine Schwelle bremst das Raten; sie lässt sich allerdings auch zum Sperren echter Konten missbrauchen — deshalb Schwelle und Beobachtungsfenster gemeinsam betrachten.',
+  'findings.password_short_minimum': 'Die Mindestlänge für Kennwörter ist kurz',
+  'findings.password_short_minimum.why':
+    'Das ist eine Konvention, kein Naturgesetz — die Zahl, gegen die geprüft wurde, steht unten. Wer sie für unpassend hält, sollte über die Zahl streiten, nicht über den Befund.',
+  'findings.password_no_complexity': 'Komplexitätsanforderungen sind abgeschaltet',
+  'findings.password_no_complexity.why':
+    'Ebenfalls eine Konvention. Sie verhindert die naheliegendsten Kennwörter, treibt Leute aber auch zu vorhersagbaren Mustern aus Wort, Jahreszahl und Ausrufezeichen. Länge wirkt zuverlässiger als Zeichenklassen.',
+  'findings.password_settings_objects_present': 'Es gibt abweichende Kennwortrichtlinien (PSOs)',
+  'findings.password_settings_objects_present.why':
+    'Kein Fehler, sondern der Grund, warum die Befunde oben womöglich nicht für alle gelten: ein PSO überschreibt die Domänenrichtlinie für seine Zielgruppe. Wer die Domänenrichtlinie für die ganze Antwort hält, liegt daneben.',
+  'findings.replication_failing': 'Replikation schlägt fehl',
+  'findings.replication_failing.why':
+    'Mindestens ein Partner konnte zuletzt nicht replizieren. Solange das anhält, arbeiten die Domänencontroller mit unterschiedlichen Ständen — Änderungen an Konten und Richtlinien kommen dann nicht überall an.',
+  'findings.connection_certificate_unverified': 'Das Zertifikat des DCs wird nicht geprüft',
+  'findings.connection_certificate_unverified.why':
+    'Diese Sitzung läuft über LDAPS, ohne das Zertifikat zu prüfen. Die Verbindung ist verschlüsselt, die Gegenstelle aber nicht bewiesen. Abhilfe: die CA-Datei hinterlegen — bei Sambas selbst erzeugtem Zertifikat liegt sie auf dem DC unter /var/lib/samba/private/tls/ca.pem.',
   'diag.netbios': 'NetBIOS-Name',
   'diag.connectedDc': 'Verbunden mit',
   'diag.domainLevel': 'Domänenfunktionsebene',
@@ -1559,6 +1592,39 @@ export const en: Record<MessageKey, string> = {
   'diag.tab.replication': 'Replication',
   'diag.tab.policy': 'Password policy',
   'diag.tab.accounts': 'Accounts',
+  'diag.tab.findings': 'Security',
+
+  'findings.intro':
+    'Every line here comes from a rule over values this tool reads itself, and carries the values it was decided from. No language model is involved.',
+  'findings.none': 'Nothing stands out in the sections that were checked.',
+  'findings.unreadable':
+    'Could not be read: {sections}. Findings for that section are missing, which is not the same as there being none.',
+  'findings.severity.high': 'High',
+  'findings.severity.medium': 'Medium',
+  'findings.severity.low': 'Low',
+  'findings.severity.info': 'Note',
+
+  'findings.password_reversible_encryption': 'Passwords are stored reversibly',
+  'findings.password_reversible_encryption.why':
+    'The domain can hand the plaintext passwords back. Anyone who obtains the database, or a backup of it, has the passwords themselves rather than their hashes. This one is not a matter of judgement.',
+  'findings.password_no_lockout': 'Accounts are never locked out',
+  'findings.password_no_lockout.why':
+    'The lockout threshold is 0, so an attacker may guess as often as they like with nothing intervening. A threshold slows guessing down — it can also be abused to lock real accounts out, so consider it together with the observation window.',
+  'findings.password_short_minimum': 'The minimum password length is short',
+  'findings.password_short_minimum.why':
+    'A convention rather than a law of nature — the number it was measured against is below. Anyone who finds it unsuitable should argue with the number, not with the finding.',
+  'findings.password_no_complexity': 'Complexity requirements are switched off',
+  'findings.password_no_complexity.why':
+    'Also a convention. It rules out the most obvious passwords, but it pushes people towards predictable shapes of word, year and exclamation mark. Length turns out to matter more reliably than character classes.',
+  'findings.password_settings_objects_present': 'Password settings objects are in use',
+  'findings.password_settings_objects_present.why':
+    'Not a fault, but the reason the findings above may not describe everyone: a PSO overrides the domain policy for whoever it applies to. Taking the domain policy for the whole answer would be wrong.',
+  'findings.replication_failing': 'Replication is failing',
+  'findings.replication_failing.why':
+    'At least one partner failed to replicate. While that lasts the domain controllers hold different states, and changes to accounts and policies do not reach everywhere.',
+  'findings.connection_certificate_unverified': 'The DC certificate is not verified',
+  'findings.connection_certificate_unverified.why':
+    'This session runs over LDAPS without checking the certificate. The connection is encrypted but the far end is not proven. The fix is to supply the CA file — for the certificate Samba generates itself it sits on the DC at /var/lib/samba/private/tls/ca.pem.',
   'diag.netbios': 'NetBIOS name',
   'diag.connectedDc': 'Connected to',
   'diag.domainLevel': 'Domain functional level',

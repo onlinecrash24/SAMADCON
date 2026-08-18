@@ -20,10 +20,11 @@ import type {
 } from '../../api/types'
 import { Badge, ErrorMessage, Spinner, useDateFormat } from '../../components/primitives'
 import { useI18n } from '../../i18n'
+import { SecurityFindings } from './SecurityFindings'
 import type { MessageKey } from '../../i18n/messages'
 import { useSession } from '../../state/session'
 
-type Tab = 'overview' | 'replication' | 'policy' | 'accounts'
+type Tab = 'overview' | 'findings' | 'replication' | 'policy' | 'accounts'
 
 export function DiagnosticsView() {
   const { t } = useI18n()
@@ -41,7 +42,7 @@ export function DiagnosticsView() {
     <>
       <div className="pane__header">
         <div className="tabs">
-          {(['overview', 'replication', 'policy', 'accounts'] as Tab[]).map((id) => (
+          {(['overview', 'findings', 'replication', 'policy', 'accounts'] as Tab[]).map((id) => (
             <button
               key={id}
               type="button"
@@ -63,6 +64,7 @@ export function DiagnosticsView() {
         </div>
       )}
 
+      {tab === 'findings' && <SecurityFindings />}
       {tab === 'replication' && <ReplicationCard status={data.replication} />}
       {tab === 'policy' && <PolicyCard policy={data.policy} />}
       {tab === 'accounts' && <AccountsCard />}
