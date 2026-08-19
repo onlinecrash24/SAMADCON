@@ -239,6 +239,18 @@ export function LoginView() {
                 </span>
               </div>
             )}
+            {(probe.srv_lookups ?? []).length > 0 && (
+              <div className="row">
+                <span className="row__label">{t('login.srvRecords')}</span>
+                <span className="row__value">
+                  {probe.srv_lookups.every((item) => item.found > 0) ? (
+                    <Badge tone="ok">{t('login.srvFound')}</Badge>
+                  ) : (
+                    <Badge tone="warn">{t('login.srvMissing')}</Badge>
+                  )}
+                </span>
+              </div>
+            )}
             {!probe.is_domain_controller && (
               <Banner tone="warning" message={t('login.notADomainController')} />
             )}
@@ -249,6 +261,22 @@ export function LoginView() {
           <Banner
             tone="warning"
             message={t('login.hostnameUnresolvedHint', { host: probe.dc_hostname })}
+          />
+        )}
+
+        {/* Said before the password, because the failure it predicts happens
+            at the bind — after a wait, with an error about the one thing
+            that was fine. The queries are named rather than summarised: a
+            reader who wants to check gets the exact lookup to try. */}
+        {probe?.srv_lookups?.some((item) => item.found === 0) && (
+          <Banner
+            tone="warning"
+            message={t('login.srvMissingHint', {
+              queries: probe.srv_lookups
+                .filter((item) => item.found === 0)
+                .map((item) => item.query)
+                .join(', '),
+            })}
           />
         )}
 

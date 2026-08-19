@@ -129,6 +129,12 @@ export interface ProbeResult {
   ldaps_certificate_trusted: boolean | null
   /** Whether the container can resolve the DC's own name — Kerberos needs it. */
   dc_hostname_resolves: boolean | null
+  /**
+   * Whether the container's resolver serves this domain. Samba locates a DC
+   * over these records; an /etc/hosts entry carries none, which is why a
+   * server that answers on both ports can still fail the sign-in.
+   */
+  srv_lookups: { query: string; found: number }[]
   domain_functional_level: number | null
   forest_functional_level: number | null
   /** True when LDAPS answers but its certificate does not validate. */

@@ -332,6 +332,9 @@ def probed(monkeypatch):
         return discovery.ServerIdentity(
             host=host,
             dc_hostname="dc1.example.lan",
+            # A resolver that serves the domain. The interesting case for this
+            # test is the name, not the records.
+            srv_lookups=[{"query": "_ldap._tcp.dc._msdcs.example.lan", "found": 1}],
             realm="EXAMPLE.LAN",
             dns_domain="example.lan",
             base_dn="DC=example,DC=lan",

@@ -75,6 +75,13 @@ class ServerIdentity:
     # tickets for ldap/<hostname>@REALM, so a name that does not resolve here
     # breaks the sign-in even though the probe itself worked over the IP.
     dc_hostname_resolves: bool | None
+    # Whether the container's resolver serves this domain. Samba locates a
+    # domain controller with a netlogon ping over these records, and a
+    # container given only an /etc/hosts entry has none — which is why a
+    # server that answers on both ports can still fail the sign-in with
+    # NT_STATUS_NO_LOGON_SERVERS. Reported, never required: a deployment
+    # that names its DC explicitly does not need them.
+    srv_lookups: list[dict[str, Any]]
     domain_functional_level: int | None
     forest_functional_level: int | None
 
@@ -91,6 +98,7 @@ class ServerIdentity:
             "ldaps_reachable": self.ldaps_reachable,
             "ldaps_certificate_trusted": self.ldaps_certificate_trusted,
             "dc_hostname_resolves": self.dc_hostname_resolves,
+            "srv_lookups": self.srv_lookups,
             "domain_functional_level": self.domain_functional_level,
             "forest_functional_level": self.forest_functional_level,
         }
@@ -99,6 +107,42 @@ class ServerIdentity:
 # ---------------------------------------------------------------------------
 # Address handling
 # ---------------------------------------------------------------------------
+
+
+# The two the sign-in depends on. The first is what Samba's netlogon ping
+# uses to find a domain controller; the second is where Kerberos looks for
+# a KDC when the configuration does not name one.
+SRV_QUERIES = (
+    "_ldap._tcp.dc._msdcs.{realm}",
+    "_kerberos._udp.{realm}",
+)
+
+
+def srv_lookups(realm: str) -> list[dict[str, Any]]:
+    """How many records the container's resolver returns for each query.
+
+    Never raises. This runs inside a probe whose job is to describe a
+    server, and a resolver that answers nothing is a fact worth reporting
+    rather than a reason to report nothing at all.
+    """
+    if not realm:
+        return []
+
+    results: list[dict[str, Any]] = []
+    for template in SRV_QUERIES:
+        query = template.format(realm=realm.lower())
+        try:
+            import dns.resolver
+
+            answers = dns.resolver.resolve(query, "SRV")
+            results.append({"query": query, "found": len(answers)})
+        except Exception:
+            # Every failure means the same thing here — the resolver did
+            # not answer with records — and the distinctions between them
+            # (NXDOMAIN, timeout, no nameserver) do not change what to do.
+            logger.info("SRV lookup of %s found nothing", query, exc_info=True)
+            results.append({"query": query, "found": 0})
+    return results
 
 
 def normalise_host(raw: str) -> str:
@@ -316,6 +360,7 @@ def probe(
         host=target_host,
         dc_hostname=dc_hostname,
         dc_hostname_resolves=resolves,
+        srv_lookups=srv_lookups(realm),
         realm=realm,
         dns_domain=dns_domain,
         base_dn=base_dn,

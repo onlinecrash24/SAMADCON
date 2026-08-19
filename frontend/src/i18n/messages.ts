@@ -32,6 +32,11 @@ export const de = {
   'login.certificateTrusted': 'Zertifikat gültig',
   'login.certificateUntrusted': 'Zertifikat nicht überprüfbar',
   'login.ldapsUnreachable': 'Port 636 nicht erreichbar',
+  'login.srvRecords': 'SRV-Einträge',
+  'login.srvFound': 'auflösbar',
+  'login.srvMissing': 'nicht auflösbar',
+  'login.srvMissingHint':
+    'Der Container kann {queries} nicht auflösen. Samba sucht den Domänencontroller über diese Einträge - ohne sie scheitert die Anmeldung mit NT_STATUS_NO_LOGON_SERVERS, obwohl der Server auf beiden Ports antwortet. Abhilfe: in der docker-compose.yml dns: mit der Adresse des DCs. Ein extra_hosts-Eintrag löst den Namen auf und traegt keine SRV-Einträge.',
   'login.certificateHint':
     'Das Zertifikat lässt sich nicht überprüfen — typisch für ein selbstsigniertes Samba-Zertifikat. Für die Anmeldung ist das meist unerheblich: SAMADCON verbindet vorrangig über LDAP mit Kerberos-Verschlüsselung, ganz ohne Zertifikat. Die Option unten greift nur, falls auf LDAPS ausgewichen werden muss.',
   'login.notADomainController':
@@ -1170,6 +1175,11 @@ export const en: Record<MessageKey, string> = {
   'login.certificateTrusted': 'Certificate valid',
   'login.certificateUntrusted': 'Certificate cannot be verified',
   'login.ldapsUnreachable': 'Port 636 unreachable',
+  'login.srvRecords': 'SRV records',
+  'login.srvFound': 'resolvable',
+  'login.srvMissing': 'not resolvable',
+  'login.srvMissingHint':
+    'The container cannot resolve {queries}. Samba locates the domain controller through these records - without them the sign-in fails with NT_STATUS_NO_LOGON_SERVERS even though the server answers on both ports. The fix is dns: in docker-compose.yml with the DC address. An extra_hosts entry resolves the name and carries no SRV records.',
   'login.certificateHint':
     'The certificate cannot be verified — typical for a self-signed Samba certificate. It rarely matters for signing in: SAMADCON connects over LDAP with Kerberos encryption first, which involves no certificate at all. The option below only applies if it has to fall back to LDAPS.',
   'login.notADomainController':
