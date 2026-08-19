@@ -97,7 +97,7 @@ def test_a_well_formed_answer_is_passed_through():
     )
 
     assert parsed["summary"] == "Two things"
-    assert parsed["order"] == [{"id": "replication_failing", "reason": "first"}]
+    assert parsed["order"] == [{"id": "replication_failing", "subject": "", "reason": "first"}]
     assert parsed["model"] == "llama3.1"
 
 
@@ -116,6 +116,92 @@ def test_an_id_the_findings_do_not_contain_is_dropped():
     )
 
     assert [item["id"] for item in parsed["order"]] == ["replication_failing"]
+
+
+POLICIES: list[dict[str, Any]] = [
+    {
+        "id": "gpo_linked_but_empty",
+        "severity": "medium",
+        "area": "group_policy",
+        "subject": "SAMADCON Linux-GPO",
+        "evidence": {"links": 1},
+    },
+    {
+        "id": "gpo_linked_but_empty",
+        "severity": "medium",
+        "area": "group_policy",
+        "subject": "SAMADCON Windows-GPO",
+        "evidence": {"links": 1},
+    },
+]
+
+
+def test_two_findings_sharing_an_id_stay_two_steps():
+    """The policies area broke an assumption the security one never did:
+    five policies nobody linked are five findings under one id. Ordered by id
+    alone they collapse into one step, and the model has no way to say which."""
+    parsed = ollama.parse_answer(
+        answer(
+            order=[
+                {
+                    "id": "gpo_linked_but_empty",
+                    "subject": "SAMADCON Windows-GPO",
+                    "reason": "second",
+                },
+                {
+                    "id": "gpo_linked_but_empty",
+                    "subject": "SAMADCON Linux-GPO",
+                    "reason": "first",
+                },
+            ]
+        ),
+        POLICIES,
+        model="m",
+    )
+
+    assert [item["subject"] for item in parsed["order"]] == [
+        "SAMADCON Windows-GPO",
+        "SAMADCON Linux-GPO",
+    ]
+
+
+def test_a_subject_no_finding_carries_is_dropped_like_an_invented_id():
+    """Naming a real id with the wrong policy would put a true finding under
+    the wrong name, which is worse than leaving it out of the ordering."""
+    parsed = ollama.parse_answer(
+        answer(
+            order=[
+                {
+                    "id": "gpo_linked_but_empty",
+                    "subject": "Default Domain Policy",
+                    "reason": "wrong policy",
+                }
+            ]
+        ),
+        POLICIES,
+        model="m",
+    )
+
+    assert parsed["order"] == []
+
+
+def test_a_missing_subject_is_filled_in_where_the_id_is_unique():
+    """Not a guess: where one finding carries the id there is nothing to be
+    wrong about, and models routinely drop a field whose value is empty.
+    Without this the whole security ordering would be thrown away."""
+    parsed = ollama.parse_answer(
+        answer(order=[{"id": "replication_failing", "reason": "first"}]),
+        FINDINGS,
+        model="m",
+    )
+
+    assert parsed["order"] == [{"id": "replication_failing", "subject": "", "reason": "first"}]
+
+
+def test_the_instructions_keep_the_identifiers_out_of_the_prose():
+    """Observed on a real instance: a German report read "beide
+    linked-but-empty-Funde", pasting our internal name into a sentence."""
+    assert "internal identifiers" in ollama.system_prompt("policies")
 
 
 def test_suggestions_survive_because_they_are_marked_as_unverified():
@@ -168,6 +254,7 @@ def test_missing_fields_come_back_empty_rather_than_absent():
         "structured": True,
         "model": "m",
     }
+
 
 def test_the_schema_is_in_the_prompt_as_well_as_the_format_field():
     """Verified against a real instance: a cloud model proxied through Ollama

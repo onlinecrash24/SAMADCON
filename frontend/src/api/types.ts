@@ -285,7 +285,8 @@ export interface AssistantPayload {
 export interface AssistantAnswer {
   /** The explanation. When `structured` is false this is the model's whole reply. */
   summary: string
-  order: { id: string; reason: string }[]
+  /** Subject included: the same id can name several findings. */
+  order: { id: string; subject: string; reason: string }[]
   suggestions: string[]
   /** False when the model ignored the schema: text only, nothing read out of it. */
   structured: boolean

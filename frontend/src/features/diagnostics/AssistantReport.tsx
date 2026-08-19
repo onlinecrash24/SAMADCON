@@ -173,8 +173,12 @@ function Answer({ answer }: { answer: AssistantAnswer }) {
           <h4>{t('assistant.order')}</h4>
           <ol>
             {answer.order.map((step) => (
-              <li key={step.id}>
-                <strong>{t(`findings.${step.id}` as MessageKey)}</strong> — {step.reason}
+              // Two steps can share an id; only the subject tells them apart.
+              <li key={`${step.id}:${step.subject}`}>
+                <strong>{t(`findings.${step.id}` as MessageKey)}</strong>
+                {step.subject && <span className="mono small"> {step.subject}</span>}
+                {' — '}
+                {step.reason}
               </li>
             ))}
           </ol>

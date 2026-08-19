@@ -48,9 +48,10 @@ RESPONSE_SCHEMA: dict[str, Any] = {
                 "type": "object",
                 "properties": {
                     "id": {"type": "string"},
+                    "subject": {"type": "string"},
                     "reason": {"type": "string"},
                 },
-                "required": ["id", "reason"],
+                "required": ["id", "subject", "reason"],
             },
         },
         "suggestions": {"type": "array", "items": {"type": "string"}},
@@ -73,14 +74,20 @@ SYSTEM_PROMPT = (
     "- Never invent a finding. If you think something else is worth checking, "
     "put it in `suggestions`, phrased as something to check rather than "
     "something that is true.\n"
-    "- `order` may only contain ids that appear in the findings.\n"
+    "- `order` may only contain ids that appear in the findings. The same "
+    "id can occur in several findings about different subjects, so copy "
+    "each finding's `subject` next to its id. Use an empty string where "
+    "a finding has none.\n"
+    "- The ids are internal identifiers. They belong in `order` and never "
+    "in your prose: name a finding by what it is, in the language you are "
+    "answering in.\n"
     "- If the findings are empty, say so plainly and leave `order` empty. Do "
     "not manufacture concerns to fill the space.\n"
     "\n"
     "Answer with a single JSON object and nothing else: no explanation "
     "around it, no code fence. Its shape:\n"
-    '{"summary": string, "order": [{"id": string, "reason": string}], '
-    '"suggestions": [string]}\n'
+    '{"summary": string, "order": [{"id": string, "subject": string, '
+    '"reason": string}], "suggestions": [string]}\n'
     "\n"
     "Answer in the language named below."
 )
@@ -240,15 +247,7 @@ def parse_answer(content: str, findings: list[dict[str, Any]], *, model: str) ->
     if not isinstance(answer, dict):
         return _unstructured(content, model)
 
-    known = {finding.get("id") for finding in findings}
-    order = [
-        item
-        for item in (answer.get("order") or [])
-        # An id the findings do not contain is the model inventing one. Dropped
-        # rather than shown: the whole promise of this half is that it adds no
-        # findings of its own.
-        if isinstance(item, dict) and item.get("id") in known
-    ]
+    order = _checked_order(answer.get("order"), findings)
 
     return {
         "summary": str(answer.get("summary") or ""),
@@ -257,6 +256,44 @@ def parse_answer(content: str, findings: list[dict[str, Any]], *, model: str) ->
         "structured": True,
         "model": model,
     }
+
+
+def _checked_order(given: Any, findings: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """The model's ordering, reduced to steps that name a real finding.
+
+    A step the findings do not contain is the model inventing one, and the
+    whole promise of this half is that it adds no findings of its own. So a
+    step is kept only when its id and subject match a finding that was sent.
+
+    One allowance, and it is not a guess: a step that names no subject is
+    matched to its id when exactly one finding carries it. Where the id is
+    unique there is nothing to be wrong about, and models routinely omit a
+    field whose value would be the empty string.
+    """
+    known: dict[str, list[str]] = {}
+    for finding in findings:
+        known.setdefault(str(finding.get("id") or ""), []).append(str(finding.get("subject") or ""))
+
+    steps: list[dict[str, str]] = []
+    for item in given or []:
+        if not isinstance(item, dict):
+            continue
+        found = known.get(str(item.get("id") or ""))
+        if not found:
+            continue
+        subject = str(item.get("subject") or "")
+        if subject not in found:
+            if len(found) != 1:
+                continue
+            subject = found[0]
+        steps.append(
+            {
+                "id": str(item["id"]),
+                "subject": subject,
+                "reason": str(item.get("reason") or ""),
+            }
+        )
+    return steps
 
 
 def _unfenced(content: str) -> str:
