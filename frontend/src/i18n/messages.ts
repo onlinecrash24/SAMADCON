@@ -479,8 +479,44 @@ export const de = {
   'diag.tab.policy': 'Kennwortrichtlinie',
   'diag.tab.accounts': 'Konten',
 
-  'findings.intro':
+  'findings.area.security': 'Sicherheit',
+  'findings.area.policies': 'Gruppenrichtlinien',
+  'findings.deep': 'Gründlich prüfen',
+  'findings.deepHint':
+    'Liest zusätzlich die Dateien jeder Richtlinie auf SYSVOL. Findet Einstellungen, die kein Client je anwendet — kostet aber einen Zugriff je Richtlinie.',
+  'findings.intro.security':
     'Jede Zeile hier stammt aus einer Regel über Werte, die dieses Werkzeug selbst liest, und trägt die Werte mit, aus denen sie entschieden wurde. Kein Sprachmodell ist daran beteiligt.',
+  'findings.intro.policies':
+    'Gruppenrichtlinien, die nicht das tun, wonach sie aussehen. Eine Richtlinie, die niemanden erreicht, sieht in jeder Konsole aus wie eine funktionierende — Einstellungen, Versionen und Verknüpfungen stehen da, nur passiert nichts.',
+
+  'findings.gpo_not_linked': 'Nirgends verknüpft',
+  'findings.gpo_not_linked.why':
+    'Die Richtlinie ist an keinen Standort, keine Domäne und keine OU gebunden und wirkt deshalb auf niemanden. Kein Fehler — so sieht eine vorbereitete Richtlinie aus, die noch nicht in Kraft gesetzt wurde.',
+  'findings.gpo_all_links_disabled': 'Alle Verknüpfungen deaktiviert',
+  'findings.gpo_all_links_disabled.why':
+    'Die Richtlinie ist verknüpft, aber jede Verknüpfung ist abgeschaltet. Wirkung hat sie damit keine.',
+  'findings.gpo_both_halves_disabled': 'Beide Hälften abgeschaltet',
+  'findings.gpo_both_halves_disabled.why':
+    'Computer- und Benutzerkonfiguration sind beide deaktiviert. Was in der Richtlinie steht, wird unabhängig von den Verknüpfungen nicht angewendet.',
+  'findings.gpo_linked_but_empty': 'Verknüpft, aber ohne registrierte Erweiterung',
+  'findings.gpo_linked_but_empty.why':
+    'Die Richtlinie ist verknüpft und eingeschaltet, hat aber in keiner Hälfte eine clientseitige Erweiterung eingetragen — Clients holen sie und finden nichts zu tun. Das ist der Fall, der sich am ehesten wie eine funktionierende Richtlinie liest.',
+  'findings.gpo_machine_content_without_extension': 'Computerkonfiguration: Inhalt, den niemand anwendet',
+  'findings.gpo_machine_content_without_extension.why':
+    'Auf SYSVOL liegen Einstellungen, für die keine passende Erweiterung registriert ist. Kein Client liest sie. In jeder Konsole erscheint die Richtlinie vollständig.',
+  'findings.gpo_user_content_without_extension': 'Benutzerkonfiguration: Inhalt, den niemand anwendet',
+  'findings.gpo_user_content_without_extension.why':
+    'Auf SYSVOL liegen Einstellungen, für die keine passende Erweiterung registriert ist. Kein Client liest sie. In jeder Konsole erscheint die Richtlinie vollständig.',
+  'findings.gpo_machine_extension_without_content': 'Computerkonfiguration: Erweiterung ohne Inhalt',
+  'findings.gpo_machine_extension_without_content.why':
+    'Eine Erweiterung ist registriert, aber es gibt nichts anzuwenden. Jeder Client im Geltungsbereich holt die Richtlinie bei jeder Aktualisierung und findet sie leer.',
+  'findings.gpo_user_extension_without_content': 'Benutzerkonfiguration: Erweiterung ohne Inhalt',
+  'findings.gpo_user_extension_without_content.why':
+    'Eine Erweiterung ist registriert, aber es gibt nichts anzuwenden. Jeder Client im Geltungsbereich holt die Richtlinie bei jeder Aktualisierung und findet sie leer.',
+  'findings.gpo_version_mismatch': 'Versionen stimmen nicht überein',
+  'findings.gpo_version_mismatch.why':
+    'Die Version im Verzeichnis und die in der GPT.INI weichen voneinander ab. Clients lesen die Richtlinie dann entweder nie neu oder bei jeder Anmeldung erneut.',
+
   'findings.none': 'Keine Auffälligkeiten in den geprüften Bereichen.',
   'findings.unreadable':
     'Nicht gelesen werden konnte: {sections}. Für diesen Bereich fehlen Befunde — das heißt nicht, dass es keine gibt.',
@@ -1617,8 +1653,44 @@ export const en: Record<MessageKey, string> = {
   'diag.tab.policy': 'Password policy',
   'diag.tab.accounts': 'Accounts',
 
-  'findings.intro':
+  'findings.area.security': 'Security',
+  'findings.area.policies': 'Group policies',
+  'findings.deep': 'Check thoroughly',
+  'findings.deepHint':
+    'Also reads each policy’s files on SYSVOL. Finds settings no client will ever apply — at the cost of one round trip per policy.',
+  'findings.intro.security':
     'Every line here comes from a rule over values this tool reads itself, and carries the values it was decided from. No language model is involved.',
+  'findings.intro.policies':
+    'Group policies that do not do what they look like they do. A policy reaching nobody looks exactly like one that works — the settings, the versions and the links are all there, and nothing happens.',
+
+  'findings.gpo_not_linked': 'Linked nowhere',
+  'findings.gpo_not_linked.why':
+    'The policy is bound to no site, domain or OU, so it reaches nobody. Not a fault — a policy staged and not yet put into force looks exactly like this.',
+  'findings.gpo_all_links_disabled': 'Every link disabled',
+  'findings.gpo_all_links_disabled.why':
+    'The policy is linked, but every link is switched off. It has no effect.',
+  'findings.gpo_both_halves_disabled': 'Both halves switched off',
+  'findings.gpo_both_halves_disabled.why':
+    'Computer and user configuration are both disabled. Whatever the policy holds is not applied, wherever it is linked.',
+  'findings.gpo_linked_but_empty': 'Linked with no extension registered',
+  'findings.gpo_linked_but_empty.why':
+    'The policy is linked and switched on but registers no client-side extension in either half — clients fetch it and find nothing to do. This is the case that reads most like a working policy.',
+  'findings.gpo_machine_content_without_extension': 'Computer configuration: content nobody applies',
+  'findings.gpo_machine_content_without_extension.why':
+    'Settings sit on SYSVOL with no matching extension registered. No client reads them, and every console shows the policy as complete.',
+  'findings.gpo_user_content_without_extension': 'User configuration: content nobody applies',
+  'findings.gpo_user_content_without_extension.why':
+    'Settings sit on SYSVOL with no matching extension registered. No client reads them, and every console shows the policy as complete.',
+  'findings.gpo_machine_extension_without_content': 'Computer configuration: extension with nothing to apply',
+  'findings.gpo_machine_extension_without_content.why':
+    'An extension is registered but there is nothing to apply. Every client in scope fetches the policy on each refresh and finds it empty.',
+  'findings.gpo_user_extension_without_content': 'User configuration: extension with nothing to apply',
+  'findings.gpo_user_extension_without_content.why':
+    'An extension is registered but there is nothing to apply. Every client in scope fetches the policy on each refresh and finds it empty.',
+  'findings.gpo_version_mismatch': 'The versions disagree',
+  'findings.gpo_version_mismatch.why':
+    'The version in the directory and the one in GPT.INI differ. Clients then either never re-read the policy or re-read it at every logon.',
+
   'findings.none': 'Nothing stands out in the sections that were checked.',
   'findings.unreadable':
     'Could not be read: {sections}. Findings for that section are missing, which is not the same as there being none.',

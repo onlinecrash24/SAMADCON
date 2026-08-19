@@ -24,6 +24,7 @@ import type {
   DnsRecordListing,
   DnsRecordTypeInfo,
   DnsZone,
+  FindingArea,
   FindingsReport,
   DirectoryObject,
   Gpo,
@@ -556,17 +557,21 @@ export const api = {
 
   // -- diagnostics --------------------------------------------------------
   diagnostics: () => http.get<DiagnosticsOverview>('/diagnostics'),
-  securityFindings: () => http.get<FindingsReport>('/diagnostics/findings'),
+  securityFindings: (area: FindingArea, deep = false) =>
+    http.get<FindingsReport>(`/diagnostics/findings?area=${area}&deep=${deep}`),
 
   // -- the optional model service ----------------------------------------
   assistant: () => http.get<AssistantStatus>('/assistant'),
   assistantModels: () => http.get<{ models: OllamaModel[] }>('/assistant/models'),
   /** What would be sent. Fetched before sending, not described. */
-  assistantPayload: (language: string) =>
-    http.get<AssistantPayload>(`/assistant/payload?language=${language}`),
-  assistantReport: (model: string, language: string) =>
+  assistantPayload: (language: string, area: FindingArea, deep = false) =>
+    http.get<AssistantPayload>(
+      `/assistant/payload?language=${language}&area=${area}&deep=${deep}`,
+    ),
+  assistantReport: (model: string, language: string, area: FindingArea, deep = false) =>
     http.post<AssistantReport>(
-      `/assistant/report?model=${encodeURIComponent(model)}&language=${language}`,
+      `/assistant/report?model=${encodeURIComponent(model)}` +
+        `&language=${language}&area=${area}&deep=${deep}`,
     ),
   passwordPolicy: () => http.get<PasswordPolicy>('/diagnostics/policy'),
   problemAccounts: (limit = 200) =>

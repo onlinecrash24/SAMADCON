@@ -20,16 +20,22 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import { api } from '../../api/endpoints'
-import type { AssistantAnswer } from '../../api/types'
+import type { AssistantAnswer, FindingArea } from '../../api/types'
 import { ErrorMessage, Spinner } from '../../components/primitives'
 import { useI18n } from '../../i18n'
 import type { MessageKey } from '../../i18n/messages'
 
-export function AssistantReport() {
+export function AssistantReport({ area, deep }: { area: FindingArea; deep: boolean }) {
   const { t, language } = useI18n()
   const [model, setModel] = useState('')
   const [error, setError] = useState<unknown>(null)
   const [answer, setAnswer] = useState<AssistantAnswer | null>(null)
+
+  // An answer about the security findings must not stay on screen once the
+  // reader switched to the policies. It would read as being about those.
+  const [shownFor, setShownFor] = useState('')
+  const key = `${area}:${deep}`
+  if (answer && shownFor !== key) setAnswer(null)
 
   const status = useQuery({ queryKey: ['assistant'], queryFn: () => api.assistant() })
 
@@ -42,14 +48,19 @@ export function AssistantReport() {
   })
 
   const payload = useQuery({
-    queryKey: ['assistant-payload', language],
-    queryFn: () => api.assistantPayload(language),
+    // The area and the depth belong in the key: they decide what would be
+    // sent, and a preview of the wrong area is worse than none.
+    queryKey: ['assistant-payload', language, area, deep],
+    queryFn: () => api.assistantPayload(language, area, deep),
     enabled: false,
   })
 
   const report = useMutation({
-    mutationFn: () => api.assistantReport(model, language),
-    onSuccess: (result) => setAnswer(result.answer),
+    mutationFn: () => api.assistantReport(model, language, area, deep),
+    onSuccess: (result) => {
+      setShownFor(key)
+      setAnswer(result.answer)
+    },
     onError: setError,
   })
 
@@ -118,7 +129,16 @@ export function AssistantReport() {
       <details onToggle={() => void (payload.isFetched || payload.refetch())}>
         <summary>{t('assistant.showPayload')}</summary>
         {payload.isFetching && <Spinner label={t('status.loading')} />}
-        {payload.data && <pre className="payload mono small">{payload.data.prompt}</pre>}
+        {payload.data && (
+          // Both halves. The instructions shape the answer as much as the
+          // findings do, and showing only one would be a half-truth about
+          // what leaves the container.
+          <pre className="payload mono small">
+            {payload.data.system}
+            {'\n\n'}
+            {payload.data.prompt}
+          </pre>
+        )}
       </details>
 
       {answer && <Answer answer={answer} />}

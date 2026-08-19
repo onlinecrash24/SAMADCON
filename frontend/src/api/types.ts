@@ -243,10 +243,15 @@ export interface AttributeListing {
 }
 
 /** One thing worth telling an administrator, decided by a rule. */
+/** Which set of rules produced a report. */
+export type FindingArea = 'security' | 'policies'
+
 export interface Finding {
   id: string
   severity: 'high' | 'medium' | 'low' | 'info'
   area: string
+  /** What it is about — a policy's name. Empty for findings about the domain. */
+  subject: string
   /** What the rule looked at, so a finding can be checked rather than believed. */
   evidence: Record<string, unknown>
 }
@@ -272,6 +277,8 @@ export interface OllamaModel {
 export interface AssistantPayload {
   findings: Finding[]
   prompt: string
+  /** The instructions that go with it — the other half of what is sent. */
+  system: string
 }
 
 /** The model's part. Never binding — the findings above it are. */
