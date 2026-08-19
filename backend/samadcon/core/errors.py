@@ -407,6 +407,20 @@ _NT_STATUS: dict[str, tuple[type[SamadconError], str, str, str | None]] = {
         "The directory is not empty.",
         None,
     ),
+    # Samba locates a domain controller with a netlogon ping, and that needs
+    # the domain's SRV records. A container given only `extra_hosts` resolves
+    # the names and has no SRV, so a configured address connects while this
+    # fails — which reads like anything but DNS. Verified twice, in two
+    # domains, after a wrong diagnosis sent the reader to check clocks.
+    "NT_STATUS_NO_LOGON_SERVERS": (
+        UpstreamUnavailable,
+        "no_logon_servers",
+        "No domain controller could be located for this domain.",
+        "Samba looks one up through the domain's DNS SRV records. Give the "
+        "container a resolver that serves the domain — in docker compose that is "
+        "`dns:` with the DC's address. An `extra_hosts` entry resolves the name "
+        "but carries no SRV records, which is not enough.",
+    ),
     "NT_STATUS_CONNECTION_REFUSED": (
         UpstreamUnavailable,
         "dc_unreachable",

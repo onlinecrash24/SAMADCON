@@ -585,6 +585,27 @@ def connect(target: ConnectionTarget, settings: Settings, ccache: Path) -> Direc
             context={"realm": target.realm, "hosts": list(target.hosts)},
         )
 
+    # A name that answered but produced NO_LOGON_SERVERS is not an
+    # unreachable server, and the usual advice — check the port, the clock,
+    # the account — sends the reader past the cause. Samba locates a DC with
+    # a netlogon ping over the domain's SRV records; a container given only
+    # `extra_hosts` resolves names and has none. Said plainly, because the
+    # generic hint cost two rounds of looking in the wrong place.
+    if any("NO_LOGON_SERVERS" in failure for failure in failures):
+        raise UpstreamUnavailable(
+            "No domain controller could be located for this domain.",
+            code="no_logon_servers",
+            detail="; ".join(failures),
+            hint=(
+                "Samba looks one up through the domain's DNS SRV records. Give "
+                "the container a resolver that serves the domain — in docker "
+                "compose that is `dns:` with the DC's address. An `extra_hosts` "
+                "entry resolves the name but carries no SRV records, which is "
+                "not enough."
+            ),
+            context={"realm": target.realm, "hosts": list(target.hosts)},
+        )
+
     raise UpstreamUnavailable(
         "No domain controller could be reached.",
         code="dc_unreachable",

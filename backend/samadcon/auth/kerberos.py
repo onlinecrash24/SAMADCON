@@ -138,19 +138,6 @@ def load_loadparm(settings: Settings, target: ConnectionTarget, *, transport: st
     lp.set("realm", target.realm)
     lp.set("workgroup", target.netbios_name)
 
-    # Do not let Samba write its own krb5.conf.
-    #
-    # With the default (`yes`) the credentials layer generates a private one
-    # and locates the KDC for it itself, over DNS SRV — which silently bypasses
-    # the file SAMADCON writes with the KDC addresses already known to answer.
-    # A container reached through `extra_hosts` has A-record resolution and no
-    # SRV, so LDAP connected, the probe reported the server reachable, and the
-    # ticket request then failed with NT_STATUS_NO_LOGON_SERVERS: Samba's way
-    # of saying it found no domain controller.
-    #
-    # Set to `no`, Samba uses KRB5_CONFIG — our file, with `kdc =` pinned — and
-    # needs no SRV records at all.
-    _try_set(lp, "create krb5 conf", "no")
 
     apply_transport_settings(
         lp,

@@ -44,6 +44,15 @@ services:
     container_name: samadcon
     restart: unless-stopped
 
+    # The container needs a resolver that serves the domain. Samba locates a
+    # domain controller with a netlogon ping over the domain's SRV records,
+    # and without them a sign-in fails with NT_STATUS_NO_LOGON_SERVERS even
+    # though every address is reachable. An extra_hosts entry resolves the
+    # name and carries no SRV records, so it is not a substitute.
+    #
+    #   dns:
+    #     - 192.0.2.10        # the DC
+
     environment:
       # --- The domain ----------------------------------------------------
       # Both may stay empty: the sign-in form then asks for a server address
