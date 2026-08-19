@@ -257,27 +257,20 @@ export function LoginView() {
           </div>
         )}
 
-        {probe?.dc_hostname && probe.dc_hostname_resolves === false && (
-          <Banner
-            tone="warning"
-            message={t('login.hostnameUnresolvedHint', { host: probe.dc_hostname })}
-          />
-        )}
-
-        {/* Said before the password, because the failure it predicts happens
-            at the bind — after a wait, with an error about the one thing
-            that was fine. The queries are named rather than summarised: a
-            reader who wants to check gets the exact lookup to try. */}
-        {probe?.srv_lookups?.some((item) => item.found === 0) && (
-          <Banner
-            tone="warning"
-            message={t('login.srvMissingHint', {
-              queries: probe.srv_lookups
-                .filter((item) => item.found === 0)
-                .map((item) => item.query)
-                .join(', '),
-            })}
-          />
+        {/* One box for both: an unresolvable DC name and missing SRV records
+            are the same missing resolver, and the same line fixes them. Said
+            before the password, because the failure they predict happens at
+            the bind — after a wait, with an error about the one thing that
+            was fine. Why it matters belongs in that error, where someone is
+            actually looking; a hint beforehand should say what to change. */}
+        {probe && (probe.dc_hostname_resolves === false ||
+          probe.srv_lookups?.some((item) => item.found === 0)) && (
+          <div className="alert alert--warning">
+            <div className="alert__body">
+              <p>{t('login.dnsHint')}</p>
+              <pre className="payload mono small">{`dns:\n  - ${probe.host}`}</pre>
+            </div>
+          </div>
         )}
 
         {probe?.requires_insecure && (
