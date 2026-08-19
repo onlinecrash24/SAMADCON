@@ -844,3 +844,110 @@ button:focus-visible {
 /* A disabled fieldset greys its inputs; say why rather than leaving it to
    be guessed at. */
 fieldset[disabled] { opacity: 0.6; }
+
+/* ---------------------------------------------------------------------------
+   The report
+   --------------------------------------------------------------------------- */
+
+.report {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.report__bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.report__scroll { overflow-y: auto; padding: 24px 16px 48px; }
+
+.report__page {
+  max-width: 900px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.report__head { border-bottom: 2px solid var(--accent); padding-bottom: 12px; }
+.report__head h1 { margin: 0; font-size: 1.5em; }
+.report__head p { margin: 2px 0; }
+.report__subject { margin: 4px 0 8px !important; font-size: 1.15em; font-weight: 600; }
+
+.report__section { display: flex; flex-direction: column; gap: 12px; }
+.report__section > h2 {
+  margin: 0;
+  font-size: 1.05em;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* The marked frame. A border is drawn on every fragment a box breaks into,
+   so on paper the marking survives onto page two — which the frame on screen
+   never had to worry about. */
+.report__model {
+  border: 2px solid var(--warning);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.report__model > h2 { margin: 0 0 6px; font-size: 1.05em; }
+.report__model h3 { margin: 16px 0 0; font-size: 1em; }
+
+@media print {
+  /* The console is not what is being printed. */
+  .console, .boot, .placeholder, .no-print { display: none !important; }
+
+  /* Whatever the screen is set to, paper is white. Without this a reader in
+     dark mode prints light grey on white and can read none of it: browsers
+     drop backgrounds by default and keep the text colour. */
+  :root {
+    --bg: #ffffff;
+    --surface: #ffffff;
+    --surface-alt: #ffffff;
+    --border: #8a8a8a;
+    --text: #000000;
+    --text-muted: #3a3a3a;
+    --hover: #ffffff;
+    --selected: #ffffff;
+    --accent: #000000;
+    --danger: #8c1d18;
+    --warning: #6b4400;
+    --success: #13512e;
+    --warning-bg: #ffffff;
+    --success-bg: #ffffff;
+    --error-bg: #ffffff;
+  }
+
+  /* The console fills the viewport and says so with height:100%. On paper
+     a fixed height is how a long report comes out as one page. */
+  html, body, #root { height: auto; }
+  body { background: #ffffff; }
+
+  .report { position: static; display: block; background: #ffffff; }
+  .report__scroll { overflow: visible; padding: 0; }
+  .report__page { max-width: none; gap: 20px; }
+
+  /* Backgrounds are not printed, so a badge needs an outline to still read
+     as one. */
+  .badge { border: 1px solid var(--border); }
+
+  /* A card split across a page boundary loses the heading it belongs to. */
+  .card { break-inside: avoid; box-shadow: none; }
+  .report__section > h2 { break-after: avoid; }
+  tr { break-inside: avoid; }
+
+  /* Long inventories run over pages; the columns have to keep their names. */
+  thead { display: table-header-group; }
+  .table-wrap { overflow-x: visible; }
+
+  @page { margin: 18mm 15mm; }
+}

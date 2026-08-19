@@ -24,6 +24,7 @@ import type {
   DnsRecordListing,
   DnsRecordTypeInfo,
   DnsZone,
+  DomainReport,
   FindingArea,
   FindingsReport,
   DirectoryObject,
@@ -559,6 +560,9 @@ export const api = {
   diagnostics: () => http.get<DiagnosticsOverview>('/diagnostics'),
   securityFindings: (area: FindingArea, deep = false) =>
     http.get<FindingsReport>(`/diagnostics/findings?area=${area}&deep=${deep}`),
+  /** Both reports in full, gathered in one pass so the timestamp holds. */
+  domainReport: (deep = false) =>
+    http.get<DomainReport>(`/diagnostics/report?deep=${deep}`),
 
   // -- the optional model service ----------------------------------------
   assistant: () => http.get<AssistantStatus>('/assistant'),

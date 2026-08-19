@@ -16,7 +16,7 @@ from fastapi import APIRouter, Query
 from samadcon.ad import diagnostics
 from samadcon.ad.access import ad_read
 from samadcon.auth.deps import CurrentSession, Worker
-from samadcon.core import findings_source
+from samadcon.core import document, findings_source
 
 logger = logging.getLogger(__name__)
 
@@ -91,9 +91,34 @@ async def security_findings(
     """
 
     def _run(conn: Any) -> dict[str, Any]:
+        # One collection for both: asking separately what was found and
+        # what could not be read used to read the same two sections twice.
+        collected = findings_source.collect(conn, area, deep=deep)
         return {
-            "findings": findings_source.gather(conn, area, deep=deep),
-            "unreadable": findings_source.unreadable(conn, area),
+            "findings": collected["findings"],
+            "unreadable": collected["unreadable"],
         }
 
     return await ad_read(worker, session, _run, label="diag.findings")
+
+
+@router.get("/report")
+async def domain_report(
+    worker: Worker,
+    session: CurrentSession,
+    deep: Annotated[
+        bool, Query(description="Walk each policy's files on SYSVOL as well")
+    ] = False,
+) -> dict[str, Any]:
+    """Both reports in full, as one reading, for printing.
+
+    The screen shows findings; this adds the values they were decided
+    from — the password policy in full, replication, every policy in the
+    domain with its links. Gathered in one pass so the timestamp at the
+    top is true of all of it.
+    """
+
+    def _run(conn: Any) -> dict[str, Any]:
+        return document.build(conn, deep=deep)
+
+    return await ad_read(worker, session, _run, label="diag.report")

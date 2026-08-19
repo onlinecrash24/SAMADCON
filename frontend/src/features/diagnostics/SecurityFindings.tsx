@@ -23,6 +23,7 @@ import { Badge, ErrorMessage, Spinner } from '../../components/primitives'
 import { useI18n } from '../../i18n'
 import type { MessageKey } from '../../i18n/messages'
 import { AssistantReport } from './AssistantReport'
+import { ReportView } from './ReportView'
 
 const AREAS: FindingArea[] = ['security', 'policies']
 
@@ -37,6 +38,7 @@ export function SecurityFindings() {
   const { t } = useI18n()
   const [area, setArea] = useState<FindingArea>('security')
   const [deep, setDeep] = useState(false)
+  const [reporting, setReporting] = useState(false)
 
   const report = useQuery({
     // Both belong in the key: each changes what the server sends back, not
@@ -61,13 +63,27 @@ export function SecurityFindings() {
           ))}
         </div>
 
-        {area === 'policies' && (
-          <label className="checkbox checkbox--inline" title={t('findings.deepHint')}>
-            <input type="checkbox" checked={deep} onChange={(e) => setDeep(e.target.checked)} />
-            <span>{t('findings.deep')}</span>
-          </label>
-        )}
+        <div className="pane__actions">
+          {area === 'policies' && (
+            <label className="checkbox checkbox--inline" title={t('findings.deepHint')}>
+              <input
+                type="checkbox"
+                checked={deep}
+                onChange={(e) => setDeep(e.target.checked)}
+              />
+              <span>{t('findings.deep')}</span>
+            </label>
+          )}
+
+          {/* Both areas at once, so it sits outside the tabs: a document
+              covering half a domain is not what anyone means by a report. */}
+          <button type="button" className="button" onClick={() => setReporting(true)}>
+            {t('report.open')}
+          </button>
+        </div>
       </div>
+
+      {reporting && <ReportView deep={deep} onClose={() => setReporting(false)} />}
 
       <div className="stack">
         <p className="muted small">{t(`findings.intro.${area}` as MessageKey)}</p>
@@ -104,7 +120,7 @@ export function SecurityFindings() {
   )
 }
 
-function FindingCard({ finding }: { finding: Finding }) {
+export function FindingCard({ finding }: { finding: Finding }) {
   const { t } = useI18n()
   const evidence = Object.entries(finding.evidence)
 

@@ -517,22 +517,32 @@ def _account_summary(entry: Any) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+def domain_facts(conn: DirectoryConnection) -> dict[str, Any]:
+    """Which domain this is, from what the connection already knows.
+
+    Its own function because a report has to name the domain it is about,
+    and reaching into `overview()` for that would fetch four other things
+    to throw them away.
+    """
+    return {
+        "dns_domain": conn.info.dns_domain,
+        "netbios_name": conn.info.netbios_name,
+        "base_dn": conn.info.base_dn,
+        "domain_sid": conn.info.domain_sid,
+        "connected_dc": conn.info.dc_hostname,
+        "domain_level": conn.info.domain_functional_level,
+        "domain_level_name": level_name(conn.info.domain_functional_level),
+        "forest_level": conn.info.forest_functional_level,
+        "forest_level_name": level_name(conn.info.forest_functional_level),
+        "is_forest_root": (conn.info.root_domain_dn or conn.info.base_dn).lower()
+        == conn.info.base_dn.lower(),
+    }
+
+
 def overview(conn: DirectoryConnection) -> dict[str, Any]:
     """The diagnosis page in one call."""
     return {
-        "domain": {
-            "dns_domain": conn.info.dns_domain,
-            "netbios_name": conn.info.netbios_name,
-            "base_dn": conn.info.base_dn,
-            "domain_sid": conn.info.domain_sid,
-            "connected_dc": conn.info.dc_hostname,
-            "domain_level": conn.info.domain_functional_level,
-            "domain_level_name": level_name(conn.info.domain_functional_level),
-            "forest_level": conn.info.forest_functional_level,
-            "forest_level_name": level_name(conn.info.forest_functional_level),
-            "is_forest_root": (conn.info.root_domain_dn or conn.info.base_dn).lower()
-            == conn.info.base_dn.lower(),
-        },
+        "domain": domain_facts(conn),
         "roles": fsmo_roles(conn),
         "controllers": domain_controllers(conn),
         "replication": replication(conn),

@@ -11,6 +11,7 @@ import { useState, type ReactNode } from 'react'
 
 import { api } from '../../api/endpoints'
 import type {
+  ConnectionState,
   DomainController,
   DomainSummary,
   FsmoRole,
@@ -57,7 +58,7 @@ export function DiagnosticsView() {
       {tab === 'overview' && (
         <div className="stack">
           <DomainCard domain={data.domain} />
-          <ConnectionCard />
+          <ConnectionCard state={null} />
           <RolesCard roles={data.roles} />
           <ControllersCard controllers={data.controllers} />
         </div>
@@ -74,7 +75,7 @@ export function DiagnosticsView() {
 // Overview
 // ---------------------------------------------------------------------------
 
-function DomainCard({ domain }: { domain: DomainSummary }) {
+export function DomainCard({ domain }: { domain: DomainSummary }) {
   const { t } = useI18n()
 
   return (
@@ -104,10 +105,12 @@ function DomainCard({ domain }: { domain: DomainSummary }) {
  * person looking at the screen is using, and a second administrator signed in
  * over a different transport should see their own answer, not this one.
  */
-function ConnectionCard() {
+export function ConnectionCard({ state: given }: { state?: ConnectionState | null }) {
   const { t } = useI18n()
   const { session } = useSession()
-  const state = session?.connection
+  // The report passes the connection it was gathered over; the
+  // diagnosis page has none to pass and means the live one.
+  const state = given ?? session?.connection
   if (!state) return null
 
   const yes = <Badge tone="ok">{t('common.yes')}</Badge>
@@ -151,7 +154,7 @@ function ConnectionCard() {
   )
 }
 
-function RolesCard({ roles }: { roles: FsmoRole[] }) {
+export function RolesCard({ roles }: { roles: FsmoRole[] }) {
   const { t } = useI18n()
 
   return (
@@ -191,7 +194,7 @@ function RolesCard({ roles }: { roles: FsmoRole[] }) {
   )
 }
 
-function ControllersCard({ controllers }: { controllers: DomainController[] }) {
+export function ControllersCard({ controllers }: { controllers: DomainController[] }) {
   const { t } = useI18n()
   const formatDate = useDateFormat()
 
@@ -234,7 +237,7 @@ function ControllersCard({ controllers }: { controllers: DomainController[] }) {
 // Replication
 // ---------------------------------------------------------------------------
 
-function ReplicationCard({ status }: { status: ReplicationStatus }) {
+export function ReplicationCard({ status }: { status: ReplicationStatus }) {
   const { t } = useI18n()
   const formatDate = useDateFormat()
 
@@ -295,7 +298,7 @@ function ReplicationCard({ status }: { status: ReplicationStatus }) {
 // Password policy
 // ---------------------------------------------------------------------------
 
-function PolicyCard({ policy }: { policy: PasswordPolicy }) {
+export function PolicyCard({ policy }: { policy: PasswordPolicy }) {
   const { t } = useI18n()
 
   return (

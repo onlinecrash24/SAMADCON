@@ -262,6 +262,40 @@ export interface FindingsReport {
   unreadable: string[]
 }
 
+/** A policy as the report lists it: with the links pointing at it. */
+export interface ReportedGpo extends Gpo {
+  links: GpoLinkLocation[]
+  /** Only where the deep pass walked the files. Null means it did not. */
+  status: GpoStatus | null
+}
+
+/**
+ * Both reports as one reading, for printing.
+ *
+ * Not assembled from the endpoints the screen uses: those would be read
+ * minutes apart, and the timestamp on the page would be true of none of them.
+ */
+export interface DomainReport {
+  /** UTC, with its offset — a report is read in a timezone nobody knows here. */
+  generated_at: string
+  deep: boolean
+  domain: DomainSummary
+  connection: ConnectionState | null
+  roles: FsmoRole[]
+  controllers: DomainController[]
+  security: {
+    policy: PasswordPolicy | null
+    replication: ReplicationStatus | null
+    findings: Finding[]
+    unreadable: string[]
+  }
+  policies: {
+    gpos: ReportedGpo[]
+    findings: Finding[]
+    unreadable: string[]
+  }
+}
+
 /** Whether a model service is configured at all. Answered without calling it. */
 export interface AssistantStatus {
   configured: boolean

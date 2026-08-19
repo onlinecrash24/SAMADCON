@@ -146,7 +146,7 @@ export function AssistantReport({ area, deep }: { area: FindingArea; deep: boole
   )
 }
 
-function Answer({ answer }: { answer: AssistantAnswer }) {
+export function Answer({ answer }: { answer: AssistantAnswer }) {
   const { t } = useI18n()
 
   return (
