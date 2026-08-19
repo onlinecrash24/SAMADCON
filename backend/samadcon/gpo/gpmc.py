@@ -184,6 +184,45 @@ def set_inheritance_block(conn: DirectoryConnection, dn: str, block: bool) -> di
 # ---------------------------------------------------------------------------
 
 
+def link_map(conn: DirectoryConnection) -> dict[str, list[dict[str, Any]]]:
+    """Every link in the domain and the configuration, by policy GUID.
+
+    Two searches for the whole domain rather than two per policy.
+    :func:`find_links` is right for one policy on its own page and wrong
+    for a report that asks about all of them: twenty policies would cost
+    forty searches, and every answer sits in the same attribute anyway.
+    """
+    found: dict[str, list[dict[str, Any]]] = {}
+    for base in (conn.info.base_dn, conn.info.config_dn):
+        try:
+            result = conn.search(
+                base,
+                scope=SCOPE_SUBTREE,
+                expression="(gPLink=*)",
+                attrs=["distinguishedName", "name", "objectClass", "gPLink"],
+            )
+        except Exception:
+            logger.debug("cannot search %s for links", base, exc_info=True)
+            continue
+
+        for entry in result:
+            dn = values.as_str(entry, "distinguishedName") or str(entry.dn)
+            for link in links.parse(values.as_str(entry, "gPLink")):
+                guid = values.name_from_dn(link["dn"]).upper()
+                found.setdefault(guid, []).append(
+                    {
+                        "container": values.as_str(entry, "name")
+                        or values.name_from_dn(dn),
+                        "container_dn": dn,
+                        "kind": _container_kind(entry),
+                        "order": link["order"],
+                        "enabled": link["enabled"],
+                        "enforced": link["enforced"],
+                    }
+                )
+    return found
+
+
 def find_links(conn: DirectoryConnection, guid: str) -> list[dict[str, Any]]:
     """Every container in the domain and the configuration that links *guid*.
 

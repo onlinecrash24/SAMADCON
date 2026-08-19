@@ -190,5 +190,8 @@ def test_every_finding_can_be_handed_to_the_interface():
         "id": "password_reversible_encryption",
         "severity": "high",
         "area": "password_policy",
+        # Empty: a finding about the domain is one of a kind. A policy
+        # finding names the policy, because several share an id.
+        "subject": "",
         "evidence": {"reversible_encryption": True},
     }

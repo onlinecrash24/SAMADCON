@@ -77,13 +77,6 @@ SYSTEM_PROMPT = (
     "- If the findings are empty, say so plainly and leave `order` empty. Do "
     "not manufacture concerns to fill the space.\n"
     "\n"
-    "Two things this tool leaves out on purpose. Do not suggest them:\n"
-    "- Forcing passwords to expire. That was standard advice for decades and "
-    "NIST withdrew it, because scheduled changes push people towards "
-    "predictable variations of one password.\n"
-    "- Listing locked, disabled or expired accounts. The console shows those "
-    "elsewhere, and repeating them buries the findings that need a decision.\n"
-    "\n"
     "Answer with a single JSON object and nothing else: no explanation "
     "around it, no code fence. Its shape:\n"
     '{"summary": string, "order": [{"id": string, "reason": string}], '
@@ -91,6 +84,48 @@ SYSTEM_PROMPT = (
     "\n"
     "Answer in the language named below."
 )
+
+# What the shared body cannot know: which advice this tool withholds, and
+# what its findings are about. Left out, the model fills the gap from its
+# training — which is how it came to recommend password expiry, the one
+# convention the rules deliberately reject.
+AREA_NOTES = {
+    "security": (
+        "\n\nThese findings are about the domain's own settings: its password "
+        "policy, replication between its controllers, and how this console is "
+        "connected to it.\n"
+        "\n"
+        "Two things this tool leaves out on purpose. Do not suggest them:\n"
+        "- Forcing passwords to expire. That was standard advice for decades "
+        "and NIST withdrew it, because scheduled changes push people towards "
+        "predictable variations of one password.\n"
+        "- Listing locked, disabled or expired accounts. The console shows "
+        "those elsewhere, and repeating them buries the findings that need a "
+        "decision."
+    ),
+    "policies": (
+        "\n\nThese findings are about group policy objects, and each names the "
+        "policy it concerns in `subject`. What they have in common is that a "
+        "policy reaching nobody looks exactly like one that works: every "
+        "console shows its settings, its versions and its links, and none of "
+        "them says that nothing happens.\n"
+        "\n"
+        "Bear in mind when ordering them:\n"
+        "- A policy nobody linked may be staged on purpose. Say what it is, "
+        "not that it is wrong.\n"
+        "- Settings on the share that no registered extension applies are the "
+        "worst kind: the policy looks complete and reaches nobody, and no "
+        "other tool reports it.\n"
+        "- Do not suggest deleting anything. This console can, and a "
+        "suggestion to remove a policy is not something an unverified half "
+        "should make."
+    ),
+}
+
+
+def system_prompt(area: str) -> str:
+    """The shared instructions plus what belongs to one area."""
+    return SYSTEM_PROMPT + AREA_NOTES.get(area, "")
 
 
 def is_configured() -> bool:
@@ -125,14 +160,16 @@ def build_prompt(findings: list[dict[str, Any]], language: str) -> str:
     )
 
 
-def build_request(findings: list[dict[str, Any]], *, model: str, language: str) -> dict[str, Any]:
+def build_request(
+    findings: list[dict[str, Any]], *, model: str, language: str, area: str = "security"
+) -> dict[str, Any]:
     """The body of the chat call. Pure, so it can be tested without a network."""
     return {
         "model": model,
         "stream": False,
         "format": RESPONSE_SCHEMA,
         "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt(area)},
             {"role": "user", "content": build_prompt(findings, language)},
         ],
     }
@@ -157,10 +194,17 @@ def _family(item: dict[str, Any]) -> str | None:
 
 
 async def explain(
-    findings: list[dict[str, Any]], *, model: str, language: str
+    findings: list[dict[str, Any]],
+    *,
+    model: str,
+    language: str,
+    area: str = "security",
 ) -> dict[str, Any]:
     """Ask the model to explain and order the findings."""
-    body = await _post("/api/chat", build_request(findings, model=model, language=language))
+    body = await _post(
+        "/api/chat",
+        build_request(findings, model=model, language=language, area=area),
+    )
     content = ((body.get("message") or {}).get("content") or "").strip()
     return parse_answer(content, findings, model=model)
 

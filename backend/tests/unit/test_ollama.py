@@ -181,8 +181,35 @@ def test_the_schema_is_in_the_prompt_as_well_as_the_format_field():
 def test_the_model_is_told_which_advice_this_tool_rejects():
     """The same run suggested checking password expiry — precisely what the
     findings layer leaves out because NIST withdrew it. The model had no way
-    to know, so now it is told."""
-    assert "NIST withdrew it" in ollama.SYSTEM_PROMPT
+    to know, so now it is told — in the note for the area it applies to, not
+    in the body both areas share."""
+    assert "NIST withdrew it" in ollama.system_prompt("security")
+    assert "NIST withdrew it" not in ollama.SYSTEM_PROMPT
+
+
+def test_each_area_gets_what_belongs_to_it():
+    """Left to the shared body, the model fills the gap from its training —
+    which is how password expiry got recommended in the first place."""
+    policies = ollama.system_prompt("policies")
+
+    assert "group policy objects" in policies
+    # The security note has no business in a report about policies.
+    assert "NIST" not in policies
+
+
+def test_the_policy_note_forbids_suggesting_deletions():
+    """This console can delete a policy, and a suggestion to remove one is
+    not something the unverified half should be making."""
+    assert "Do not suggest deleting" in ollama.system_prompt("policies")
+
+
+def test_an_unknown_area_falls_back_to_the_shared_body():
+    assert ollama.system_prompt("nonesuch") == ollama.SYSTEM_PROMPT
+
+
+def test_the_area_decides_which_note_the_request_carries():
+    request = ollama.build_request(FINDINGS, model="m", language="en", area="policies")
+    assert "group policy objects" in request["messages"][0]["content"]
 
 
 def test_json_inside_a_code_fence_is_unwrapped():

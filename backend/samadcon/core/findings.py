@@ -1,6 +1,7 @@
 """What is worth telling an administrator about this domain, and why.
 
-The binding half of the security report. Every finding here is decided by a
+The binding half of both reports — the domain's security and its group
+policies. Every finding here is decided by a
 rule over values the tool already reads, carries the values it was decided
 from, and says the same thing on every run. Nothing here asks a language
 model anything; the model's part is to explain and prioritise what this
@@ -57,6 +58,10 @@ class Finding:
     id: str
     severity: str
     area: str
+    #: What this is about — a policy's name, say. Empty for findings about
+    #: the domain itself, which are one of a kind; policy findings are not,
+    #: and several can share an id.
+    subject: str = ""
     #: The values the rule looked at. Present so a finding can be checked
     #: rather than believed.
     evidence: dict[str, Any] = field(default_factory=dict)
@@ -66,6 +71,7 @@ class Finding:
             "id": self.id,
             "severity": self.severity,
             "area": self.area,
+            "subject": self.subject,
             "evidence": self.evidence,
         }
 
@@ -92,6 +98,99 @@ def evaluate(
 
     order = {name: index for index, name in enumerate(SEVERITIES)}
     found.sort(key=lambda finding: (order.get(finding.severity, len(order)), finding.id))
+    return found
+
+
+def evaluate_policies(
+    gpos: list[dict[str, Any]],
+    *,
+    links: dict[str, list[dict[str, Any]]],
+    deep: dict[str, list[str]] | None = None,
+) -> list[Finding]:
+    """Every finding about the domain's group policies, worst first.
+
+    The shallow rules need nothing but the directory: a policy that reaches
+    nobody looks exactly like one that works, and no console says which is
+    which. The `deep` argument carries what only SYSVOL can answer —
+    content that no registered extension will apply, and a version the two
+    halves disagree about — and is absent when the report was not asked to
+    go that far.
+    """
+    found: list[Finding] = []
+    for gpo in gpos:
+        name = gpo.get("display_name") or gpo.get("name") or ""
+        guid = (gpo.get("guid") or "").upper()
+        here = links.get(guid, [])
+
+        if not here:
+            # Not a fault — a policy may be staged deliberately — but it
+            # applies to nobody, and that is invisible from its own page.
+            found.append(
+                Finding(
+                    id="gpo_not_linked",
+                    severity="low",
+                    area="policies",
+                    subject=name,
+                    evidence={"guid": guid},
+                )
+            )
+        elif not any(link.get("enabled") for link in here):
+            found.append(
+                Finding(
+                    id="gpo_all_links_disabled",
+                    severity="low",
+                    area="policies",
+                    subject=name,
+                    evidence={"links": len(here)},
+                )
+            )
+
+        if not gpo.get("machine_enabled") and not gpo.get("user_enabled"):
+            found.append(
+                Finding(
+                    id="gpo_both_halves_disabled",
+                    severity="low",
+                    area="policies",
+                    subject=name,
+                    evidence={},
+                )
+            )
+        elif here and not gpo.get("machine_extensions") and not gpo.get(
+            "user_extensions"
+        ):
+            # Linked, switched on, and registering nothing: the link does
+            # nothing at all, which reads as a working policy everywhere.
+            found.append(
+                Finding(
+                    id="gpo_linked_but_empty",
+                    severity="medium",
+                    area="policies",
+                    subject=name,
+                    evidence={"links": len(here)},
+                )
+            )
+
+        for problem in (deep or {}).get(guid, []):
+            found.append(
+                Finding(
+                    id=f"gpo_{problem}",
+                    severity=(
+                        "high" if "content_without_extension" in problem else "medium"
+                    ),
+                    area="policies",
+                    subject=name,
+                    evidence={},
+                )
+            )
+
+    order = {name: index for index, name in enumerate(SEVERITIES)}
+    found.sort(
+        key=lambda finding: (
+            order.get(finding.severity, len(order)),
+            finding.subject.lower(),
+            finding.id,
+        )
+    )
     return found
 
 

@@ -16,11 +16,15 @@ from fastapi import APIRouter, Query
 from samadcon.ad import diagnostics
 from samadcon.ad.access import ad_read
 from samadcon.auth.deps import CurrentSession, Worker
-from samadcon.core import findings
+from samadcon.core import findings_source
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/diagnostics", tags=["diagnostics"])
+
+# Which set of rules to run. A name, checked against the two that exist —
+# it selects a code path, so anything else is refused rather than defaulted.
+AreaQuery = Annotated[str, Query(pattern="^(security|policies)$")]
 
 
 @router.get("")
@@ -67,37 +71,29 @@ async def account_problems(
 
 
 @router.get("/findings")
-async def security_findings(worker: Worker, session: CurrentSession) -> dict[str, Any]:
+async def security_findings(
+    worker: Worker,
+    session: CurrentSession,
+    area: AreaQuery = "security",
+    deep: Annotated[
+        bool, Query(description="Walk each policy's files on SYSVOL as well")
+    ] = False,
+) -> dict[str, Any]:
     """What is worth telling an administrator about this domain.
 
-    The binding half of the security report: rules over values the tool
-    already reads, each carrying what it was decided from. Nothing is asked
+    The binding half of both reports: rules over values the tool already
+    reads, each finding carrying what it was decided from. Nothing is asked
     of a language model here — see :mod:`samadcon.core.findings`.
+
+    `deep` only means anything for the policies: it adds a walk of each
+    policy's files, which is what finds settings no registered extension
+    will ever apply, and costs one round trip per policy.
     """
 
     def _run(conn: Any) -> dict[str, Any]:
-        # Read section by section. A part that cannot be read leaves its
-        # findings out and says so, which beats failing the whole report
-        # over one unreachable corner — and beats reporting a clean bill of
-        # health for a section nobody looked at.
-        gathered: dict[str, Any] = {}
-        unreadable: list[str] = []
-        for name, read in (("policy", diagnostics.password_policy),
-                           ("replication", diagnostics.replication)):
-            try:
-                gathered[name] = read(conn)
-            except Exception:
-                logger.warning("cannot read %s for the findings", name, exc_info=True)
-                unreadable.append(name)
-
-        found = findings.evaluate(
-            policy=gathered.get("policy"),
-            replication=gathered.get("replication"),
-            connection=conn.transport.describe() if conn.transport else None,
-        )
         return {
-            "findings": [item.describe() for item in found],
-            "unreadable": unreadable,
+            "findings": findings_source.gather(conn, area, deep=deep),
+            "unreadable": findings_source.unreadable(conn, area),
         }
 
     return await ad_read(worker, session, _run, label="diag.findings")
