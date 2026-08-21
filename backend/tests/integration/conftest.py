@@ -18,8 +18,15 @@ Or without touching a running deployment — the tests need no server of their
 own, TestClient runs the application in-process::
 
     docker build -f docker/Dockerfile --target test -t samadcon:test .
-    docker run --rm         --add-host dc.example.lan:192.0.2.10 --dns 192.0.2.10         -e TEST_DC_HOST=dc.example.lan -e TEST_ADMIN_PASSWORD=…         -e TEST_INSECURE=1 -e SAMADCON_COOKIE_SECURE=0         samadcon:test python -m pytest tests/integration -q
+    docker run --rm \
+        --dns 192.0.2.10 \
+        -e TEST_DC_HOST=dc.example.lan -e TEST_ADMIN_PASSWORD=… \
+        -e TEST_INSECURE=1 -e SAMADCON_COOKIE_SECURE=0 \
+        samadcon:test python -m pytest tests/integration -q
 
+The container needs its own way to resolve the DC: --dns pointing at the
+domain's own resolver covers both the A record and the SRV lookups. Where
+only the one host matters, --add-host dc.example.lan:192.0.2.10 is enough.
 Everything goes through the HTTP API rather than the internal modules: that is
 what an administrator actually exercises, and it covers the session, CSRF and
 error-translation layers at the same time.
