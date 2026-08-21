@@ -13,6 +13,10 @@ SAMADCON_REALM="${SAMADCON_REALM:-}"
 SAMADCON_WORKGROUP="${SAMADCON_WORKGROUP:-}"
 SAMADCON_DC_HOSTS="${SAMADCON_DC_HOSTS:-}"
 SAMADCON_CONF_DIR="${SAMADCON_CONF_DIR:-/etc/samadcon}"
+# Exported because envsubst substitutes only exported variables: unexported,
+# the include path in nginx.conf.template renders empty and nginx refuses to
+# start with `open() "/real-ip.conf" failed`.
+export SAMADCON_CONF_DIR
 SAMADCON_CCACHE_DIR="${SAMADCON_CCACHE_DIR:-/dev/shm/samadcon-ccache}"
 SAMADCON_TLS_CERT="${SAMADCON_TLS_CERT:-${SAMADCON_CONF_DIR}/tls/server.crt}"
 SAMADCON_TLS_KEY="${SAMADCON_TLS_KEY:-${SAMADCON_CONF_DIR}/tls/server.key}"
