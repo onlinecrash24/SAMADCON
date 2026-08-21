@@ -48,6 +48,13 @@ der SPN noch der Realm ableiten. Anschließend wird eine Kerberos-Konfiguration 
 diese Adresse als KDC einträgt; damit funktioniert die Anmeldung auch ohne passende DNS-Einträge.
 Mehrere Realms werden parallel unterstützt.
 
+Das gilt für den Weg über eine **Adresse**. Wer sich mit einem **Domänennamen** anmeldet, für den
+muss SAMADCON erst einen Controller finden, und das geschieht über SRV-Records — die brauchen
+einen Resolver, der die Domäne bedient. Ein Container, dessen Resolver sie nicht kennt, scheitert
+mit `NT_STATUS_NO_LOGON_SERVERS`, ohne je bei einem DC angekommen zu sein, der ihn hätte abweisen
+können. Entweder `dns:` auf den Resolver der Domäne zeigen lassen, oder die Controller in
+`SAMADCON_DC_HOSTS` benennen und die Suche ganz überspringen.
+
 ### Transport
 
 SAMADCON verbindet sich in zwei Stufen, beide verschlüsselt:
@@ -81,54 +88,128 @@ Verzeichnis legen:
 ```yaml
 services:
   samadcon:
+    # `latest` folgt dem Standardbranch. Für alles, woran etwas hängt, den
+    # `sha-<kurz>`-Tag festnageln — siehe „Welcher Tag" weiter unten.
     image: ghcr.io/onlinecrash24/samadcon:latest
+    # Fester Name, damit `docker logs samadcon` und `docker exec samadcon …`
+    # funktionieren, ohne nachzusehen, was compose vergeben hat.
     container_name: samadcon
+    # Kommt nach einem Neustart des Hosts wieder hoch, bleibt aber unten, wenn
+    # Sie ihn selbst gestoppt haben.
     restart: unless-stopped
 
     environment:
-      # Der Name, unter dem die Konsole erreichbar ist. Er landet als CN und SAN
-      # im selbstsignierten Zertifikat und als Ziel der HTTPS-Weiterleitung —
-      # der einzige Wert, den praktisch jede Installation ändern muss.
+      # Der Name, unter dem die Konsole erreichbar ist. Landet als CN und SAN
+      # im selbstsignierten Zertifikat und als Ziel der HTTP-nach-HTTPS-
+      # Weiterleitung — der eine Wert, den praktisch jede Installation
+      # ändern muss.
       SAMADCON_PUBLIC_HOST: "samadcon.example.lan"
-      # Muss den Port nennen, den der Host veröffentlicht, nicht den von nginx.
+      # Muss den Port benennen, den der Host veröffentlicht, nicht den, auf
+      # dem nginx lauscht. Die beiden unterscheiden sich, sobald ein Proxy
+      # oder eine Portabbildung dazwischenliegt — und die Weiterleitung zeigt
+      # dann irgendwohin, wo niemand ankommt.
       SAMADCON_PUBLIC_HTTPS_PORT: "8443"
+      # Der Reverse Proxy vor diesem Container, falls es einen gibt. Nur einer
+      # hier genannten Adresse wird geglaubt, wer der Aufrufer ist — siehe
+      # „Hinter einem Reverse Proxy" weiter unten. Leer heißt: kein Proxy.
+      SAMADCON_TRUSTED_PROXIES: ""
 
-      # Beide dürfen leer bleiben: dann fragt die Anmeldemaske nach einer
+      # Beide dürfen leer bleiben: Die Anmeldemaske fragt dann nach einer
       # Serveradresse. Wenn gesetzt, dann auflösbare Namen — Kerberos braucht
       # den FQDN des DCs, eine nackte IP scheitert mit
       # NT_STATUS_INVALID_PARAMETER.
       SAMADCON_REALM: ""
       SAMADCON_DC_HOSTS: ""
 
+      # INFO benennt, was geschieht; DEBUG dient dazu, einem Problem
+      # nachzugehen, nicht dem Betrieb. Schreibende Zugriffe stehen ohnehin im
+      # Audit-Log — das hängt an dieser Einstellung nicht.
       SAMADCON_LOG_LEVEL: "INFO"
 
+      # Der Modelldienst des KI-Managers. Leer heißt aus — es wird nichts
+      # irgendwohin gesendet, und die Berichte zeigen nur, was die Regeln
+      # gefunden haben. Die Adresse gehört hierher und nicht in die Oberfläche:
+      # Der Container führt den Aufruf aus, eine eintippbare Adresse würde also
+      # Hosts erreichen, an die der Browser nicht herankommt. Von hier drinnen
+      # ist localhost dieser Container — die Adresse des Ollama-Hosts angeben:
+      #
+      #   SAMADCON_OLLAMA_URL: "http://192.168.1.20:11434"
+      #
+      SAMADCON_OLLAMA_URL: ""
+
     ports:
-      - "8443:8443"
-      - "8080:8080"
+      # Nur Loopback. Ohne Adressangabe veröffentlicht Docker auf jeder
+      # Schnittstelle des Hosts, und das hier ist eine Anmeldemaske, die
+      # Kerberos-Tickets für die Domäne ausstellt. Von einer anderen Maschine
+      # aus erreichbar zu sein ist eine Entscheidung — die trifft man hier,
+      # indem man die Adresse benennt, auf der geantwortet werden soll:
+      #
+      #   - "0.0.0.0:8443:8443"
+      #
+      - "127.0.0.1:8443:8443"
+      # HTTP, und es liefert genau zwei Dinge: die Weiterleitung auf HTTPS und
+      # den Health-Check. Hier wird nichts beantwortet, das zu lesen lohnt.
+      - "127.0.0.1:8080:8080"
+
+    # Wie der Container die Domäne erreicht. Sind die Controller in
+    # SAMADCON_DC_HOSTS benannt, braucht es hier nichts. Bleibt das leer, sucht
+    # SAMADCON einen DC über SRV-Records — und dafür braucht es einen Resolver,
+    # der die Domäne bedient, in der Praxis also den DC selbst. Ohne ihn
+    # scheitert die Anmeldung mit NT_STATUS_NO_LOGON_SERVERS, und nichts auf
+    # dem Weg dorthin sagt, warum:
+    #
+    #   dns: ["192.168.1.10"]
+    #   dns_search: ["example.lan"]
+    #
+    # Kerberos muss außerdem den FQDN des DCs auflösen können. Wo DNS ihn nicht
+    # liefert, direkt benennen — das gibt eine Adresse und keine SRV-Records,
+    # ergänzt `dns:` also, statt es zu ersetzen:
+    #
+    #   extra_hosts: ["dc1.example.lan:192.168.1.10"]
 
     volumes:
       # Ein echtes Zertifikat kommt hier als server.crt und server.key hinein.
-      # Ohne eines erzeugt der Container beim ersten Start ein selbstsigniertes.
+      # Ohne eins erzeugt der Container beim ersten Start ein selbstsigniertes.
+      # Der Container läuft als uid 1000, ein Bind-Mount gehört root — dieses
+      # Verzeichnis muss für ihn also beschreibbar sein, siehe unten.
       - ./tls:/etc/samadcon/tls
-      # CA-Bündel zur Prüfung der LDAPS-Zertifikate der DCs.
+      # CA-Bündel zum Prüfen der LDAPS-Zertifikate der DCs. Nur lesend: Der
+      # Container hat nichts daran zu ändern, wogegen er prüft.
       - ./ca:/etc/samadcon/ca:ro
+      # Sambas Cache- und Lock-Verzeichnis. Es zu verlieren kostet nichts außer
+      # etwas Geschwindigkeit; es ist ein Volume, damit der Container nicht in
+      # seine eigene Image-Schicht schreibt.
       - samadcon-cache:/var/cache/samadcon
+      # Das Home des samadcon-Benutzers und Sambas private- und
+      # state-Verzeichnis. Hier landet auch ein erzeugtes Zertifikat, wenn
+      # ./tls nicht beschreibbar ist — weshalb dieses Volume zu verlieren ein
+      # neues selbstsigniertes Zertifikat bedeutet.
       - samadcon-data:/var/lib/samadcon
-      # Der Audit-Verlauf soll den Container überleben.
+      # Die Audit-Spur sollte den Container überleben. Wer was an welchem DN
+      # mit welcher Attributänderung getan hat — die Aufzeichnung, die man
+      # braucht, wenn Monate später jemand fragt.
       - samadcon-logs:/var/log/samadcon
 
-    # Kerberos-Credential-Caches liegen in /dev/shm und dürfen nie auf Platte.
+    # Kerberos-Credential-Caches liegen in /dev/shm und dürfen nie auf eine
+    # Platte gelangen.
     shm_size: 64m
     tmpfs:
-      # uid/gid sind nötig: ein tmpfs-Mount gehört per Vorgabe root, und nginx
-      # und supervisor laufen als uid 1000.
+      # uid/gid sind nötig: Ein tmpfs-Mount gehört standardmäßig root, und
+      # nginx und supervisor laufen als uid 1000.
       - /run/samadcon:mode=0700,uid=1000,gid=1000,size=8m
 
+    # Nichts hier drin muss privilegierter werden, als es startet, und
+    # setuid-Programme sind der übliche Weg, auf dem das passiert.
     security_opt:
       - no-new-privileges:true
+    # Gar keine Capability. nginx lauscht auf 8443, oberhalb des privilegierten
+    # Bereichs — nicht einmal NET_BIND_SERVICE wird gebraucht.
     cap_drop:
       - ALL
 
+# Benannte Volumes, damit Docker sie dort verwahrt, wo es solche Dinge
+# verwahrt, und sie ein `docker compose down` überstehen. Erst
+# `docker compose down -v` entfernt sie.
 volumes:
   samadcon-cache:
   samadcon-data:
@@ -147,6 +228,31 @@ docker compose up -d
 **Welcher Tag.** `latest` folgt dem Standardbranch, `DEV` benennt ihn ausdrücklich, und jeder Bau
 trägt zusätzlich `sha-<kurz>`. Für alles, woran etwas hängt, den `sha-`Tag festnageln: `latest`
 wandert beim nächsten Push unter Ihnen weg.
+
+### Hinter einem Reverse Proxy
+
+Die Ports oben binden auf Loopback, was die meisten Installationen wollen: Ein Proxy auf demselben
+Host terminiert TLS und leitet an `127.0.0.1:8443` weiter. Wer die Konsole stattdessen direkt von
+anderen Maschinen aus erreichen will, benennt die Adresse in den `ports`-Zeilen —
+`0.0.0.0:8443:8443`, oder besser die eine Adresse, auf der geantwortet werden soll. (Die
+`docker-compose.yml` in diesem Repository liest sie aus `SAMADCON_BIND`; dort genügt ein
+`SAMADCON_BIND=0.0.0.0`.)
+
+Ein Proxy muss benannt werden, sonst verliert das Audit-Log das Einzige, wofür es da ist:
+
+```yaml
+SAMADCON_TRUSTED_PROXIES: "192.168.1.5"     # oder "10.0.0.0/8, 192.168.1.5"
+```
+
+nginx sieht nur die Maschine, die sich verbunden hat, und hinter einem Proxy ist das der Proxy.
+Ohne diesen Eintrag steht in jedem Audit-Eintrag dessen Adresse, und zwei Administratoren, die
+durch denselben Proxy arbeiten, werden ununterscheidbar — ausgerechnet in der Aufzeichnung, die
+sie auseinanderhalten soll.
+
+Es ist eine Liste und kein Schalter, weil `X-Forwarded-For` ein gewöhnlicher Header ist, den jeder
+Client senden kann. Geglaubt wird nur einem hier genannten Hop; eine Adresse, die nicht auf der
+Liste steht, gilt als der Aufrufer, was immer sie behauptet. Leer lassen, wo kein Proxy steht — ein
+falscher Eintrag ist schlimmer als keiner, denn er erlaubt diesem Host, sich für jeden auszugeben.
 
 ### Aus dem Quelltext bauen
 
@@ -209,10 +315,12 @@ zurückfällt, weil eine Variable nicht exportiert war.
 | `SAMADCON_PUBLIC_HOST` | Der Name, unter dem die Konsole erreichbar ist. Landet als CN und SAN im selbstsignierten Zertifikat und in der HTTPS-Weiterleitung. **Der einzige Wert, den praktisch jede Installation ändern muss.** |
 | `SAMADCON_REALM`, `SAMADCON_DC_HOSTS` | Vorbelegung der Anmeldemaske. **Auflösbare Namen, keine nackten IP-Adressen** — Kerberos braucht den FQDN des DCs. |
 | `SAMADCON_LDAP_CA_FILE` | Die CA des DCs, wenn das LDAPS-Zertifikat geprüft werden soll. |
+| `SAMADCON_TRUSTED_PROXIES` | Der Reverse Proxy vor dem Container, falls es einen gibt. Ohne ihn steht in jedem Audit-Eintrag der Proxy statt des Administrators — siehe [Hinter einem Reverse Proxy](#hinter-einem-reverse-proxy). Leer, wo keiner steht. |
 
 Was zur Maschine gehört statt zum Projekt, bleibt als `${VAR:-Vorgabe}` stehen und kommt aus der
-Shell: die Ports, falls 8443 oder 8080 belegt sind, `SAMADCON_TARGET=test` für das Testimage, und
-die `TEST_*`-Werte der Integrationstests. **Ein Kennwort gehört nie in die Compose-Datei** — die
+Shell: die Ports, falls 8443 oder 8080 belegt sind; `SAMADCON_BIND`, das auf `127.0.0.1` steht,
+solange die Konsole nicht auf einer anderen Adresse antworten soll; `SAMADCON_TARGET=test` für das
+Testimage, und die `TEST_*`-Werte der Integrationstests. **Ein Kennwort gehört nie in die Compose-Datei** — die
 liegt in der Versionskontrolle.
 
 ### Ablauf
@@ -258,6 +366,11 @@ docker compose up -d --build
 Die Zugangsdaten kommen aus der Shell, nicht aus einer Datei — ein Domänenadministrator-Kennwort
 hat in keiner Datei etwas verloren, die versehentlich mitgesichert werden kann.
 
+Unit-Tests brauchen keine Domäne und laufen überall. Drei von ihnen vergleichen gegen Dateien, die
+GPMC selbst erzeugt hat; sie liegen unter `backend/tests/data/` mit einer Notiz dazu,
+[woher sie stammen](backend/tests/data/PROVENANCE.md) und was für die Veröffentlichung geändert
+wurde.
+
 Die Tests liegen im Image, nicht im Mount — dafür braucht es das Build-Ziel `test`:
 
 ```bash
@@ -296,7 +409,8 @@ docker compose exec samadcon samadconctl check --server 192.168.1.10 --insecure
 | 1 | Fundament, Auth, Benutzer/Gruppen/Computer/OUs (ADUC-Ersatz) | steht, gegen eine echte Domäne verifiziert |
 | 2 | DNS, Sites & Services, Diagnose (FSMO, Replikation, Passwortrichtlinien) | steht, gegen eine echte Domäne verifiziert |
 | 3 | GPMC-Basis: GPOs, Verknüpfungen, Filterung, Backup/Restore, Report | steht, gegen eine echte Domäne verifiziert |
-| 4 | GPO-Editor: ADMX → Sicherheitseinstellungen → Linux/VGP → Preferences → Skripte/Ordnerumleitung | vollständig; jeder der fünf Teilbereiche auf einem echten Client als **angewendet** nachgewiesen (4c über `samba-gpupdate --rsop`), Preferences in allen drei Wellen |
+| 4 | GPO-Editor: ADMX → Sicherheitseinstellungen → Linux/VGP → Preferences → Skripte/Ordnerumleitung | vollständig; jeder der fünf Teilbereiche auf einem echten Client als **angewendet** nachgewiesen (4c über `samba-gpupdate --rsop`), Preferences in allen drei Wellen. [Was von diesem Nachweis im Repository liegt](#der-richtlinien-editor) — und was nicht |
+| 5 | KI-Manager: Befunde zur Domäne und ihren Richtlinien, ein druckbarer Bericht, auf Wunsch von einem Modell aufbereitet | steht; die Regeln laufen gegen eine echte Domäne, die Modellhälfte ist [optional und als ungeprüft gekennzeichnet](#der-ki-manager) |
 
 Meilenstein 1 umfasst: Kerberos-Sitzungen, Baumnavigation, Objektlisten und Suche (ANR),
 Benutzer (anlegen, bearbeiten, Kontooptionen, Passwort-Reset, Entsperren, Ablauf),
@@ -360,6 +474,19 @@ einem domänengejointen Windows 11 führt die Richtlinie unter *Applied GPOs* mi
 unter *Component Status* als **Success** und zeigt die Einstellung unter *Administrative
 Templates* als **Enabled**. Formal korrekt geschriebene Dateien sind nicht dasselbe wie
 angewandte Richtlinien — das ist der Unterschied, den nur dieser Test sieht.
+
+**Was davon im Repository liegt und was nicht.** Die von GPMC erzeugten Referenzdateien liegen
+darin: `backend/tests/data/` enthält `fdeploy1.ini`, `scripts.ini` und `GptTmpl.inf`, und die
+Unit-Tests lesen sie, statt gegen eine Abschrift zu prüfen. Ihre Domänennamen, Hostnamen und SIDs
+wurden vor der Veröffentlichung durch Beispielwerte ersetzt; das steht in
+[`backend/tests/data/PROVENANCE.md`](backend/tests/data/PROVENANCE.md), zusammen mit dem Preis
+dafür: Eine Byte-Zahl beweist nicht mehr, dass eine Datei die von GPMC geschriebene ist.
+
+Die `gpresult`- und `samba-gpupdate --rsop`-Berichte liegen **nicht** hier. Einen davon zu
+bereinigen ist erheblich aufwendiger als eine INI-Datei — ein `gpresult`-Bericht trägt den
+gesamten angewandten Richtliniensatz einer echten Maschine. Diese Hälfte des Nachweises ruht also
+auf ihrer Beschreibung, und wer sie aus erster Hand will, kann sie nachstellen: die Richtlinie in
+SAMADCON anlegen, `gpresult /h` auf einem gejointen Client laufen lassen und vergleichen.
 
 Zwei Formatdetails, gegengeprüft an einer von GPMC erzeugten Richtlinie statt aus der
 Spezifikation abgeleitet: Ein „Aus", das ADMX als `<delete/>` ausdrückt, schreibt einen
@@ -511,6 +638,49 @@ verbundenen DCs aus `repsFrom`, die Kennwort- und Sperrrichtlinie einschließlic
 differenzierter Richtlinien (PSOs) sowie gesperrte, deaktivierte und abgelaufene Konten.
 Rollen zu übernehmen oder Replikation zu erzwingen gehört bewusst nicht dazu — dafür gibt es
 `samba-tool fsmo seize` und `samba-tool drs replicate` auf dem DC.
+
+### Der KI-Manager
+
+Zwei Berichte, und die Grenze zwischen ihnen ist der eigentliche Punkt.
+
+**Die verbindliche Hälfte** sind Regeln über Werte, die SAMADCON selbst liest, in
+`core/findings.py`. Jeder Befund trägt die Werte mit, aus denen er entschieden wurde, und lässt
+sich damit bestreiten statt nur glauben: „Die Mindestlänge für Kennwörter ist 6, geprüft gegen 8"
+ist nachprüfbar, „die Kennwortrichtlinie ist schwach" nicht. Kein Modell ist daran beteiligt, und
+es braucht auch keins.
+
+Die Richtlinienregeln suchen nach dem Fehler, für den Gruppenrichtlinien berüchtigt sind und den
+keine Konsole meldet: **Eine Richtlinie, die niemanden erreicht, sieht aus wie eine
+funktionierende.** Ihre Einstellungen stehen da, ihre Versionen stehen da, ihre Verknüpfungen
+stehen da — und es passiert nichts, weil keine clientseitige Erweiterung registriert ist, oder
+jede Verknüpfung deaktiviert, oder die Hälfte mit den Einstellungen abgeschaltet.
+`gpo_linked_but_empty` schlägt in echten Domänen an, nicht nur in konstruierten. Eine gründliche
+Prüfung liest zusätzlich die Dateien jeder Richtlinie auf SYSVOL; das ist ein Schalter und nicht
+die Vorgabe, weil es einen Zugriff je Richtlinie kostet.
+
+Zwei Regeln fehlen **bewusst**, und Tests halten sie fern: erzwungener Kennwortablauf, den NIST
+zurückgezogen hat, weil geplante Wechsel Menschen zu vorhersehbaren Varianten eines Kennworts
+drängen; und das Auflisten gesperrter oder deaktivierter Konten, das die Diagnose ohnehin zeigt
+und das die Befunde begraben würde, die eine Entscheidung brauchen.
+
+**Die ungeprüfte Hälfte** ist optional und aus, solange `SAMADCON_OLLAMA_URL` keinen Modelldienst
+benennt. Sie ordnet die Befunde und formuliert sie aus; sie darf keinem widersprechen, keinen
+erfinden und keinen anders gewichten, als er gegeben ist. Was gesendet würde, lässt sich vorher
+ansehen — die exakte Anweisung, aus derselben Funktion, die auch die Anfrage baut. Denn
+Domänenkonfiguration, die zu einem anderen Dienst geht, ist eine Entscheidung, und eine
+Entscheidung braucht die Sache selbst statt einer Beschreibung davon. Die Antwort erscheint in
+einem Rahmen, der das Modell benennt und sagt, dass nichts darin nachgerechnet wurde.
+
+Die Adresse kommt aus der Bereitstellung und nie aus einer Anfrage: Der Container führt den Aufruf
+aus, eine eintippbare Adresse würde also jedem angemeldeten Konto Hosts öffnen, an die sein
+eigener Browser nicht herankommt. Der *Name* des Modells kommt aus der Oberfläche — ein Name ist
+keine Adresse.
+
+**Beide Berichte lassen sich drucken.** Es liegt keine PDF-Bibliothek im Image — der Browser
+schreibt bereits PDFs mit durchsuchbarem Text, und die Abhängigkeitsliste ist bewusst kurz. Das
+Dokument trägt die Werte und nicht nur die Befunde, denn wer einen Ausdruck in der Hand hält, kann
+nicht nachsehen. Das Druck-Stylesheet erzwingt Schwarz auf Weiß: Ein Leser im dunklen Modus würde
+sonst hellgraue Schrift auf weißes Papier drucken.
 
 ## Aufbau
 

@@ -85,8 +85,13 @@ A `docker-compose.yml` for that image, complete as it stands — put it in an em
 ```yaml
 services:
   samadcon:
+    # `latest` follows the default branch. Pin `sha-<short>` for anything that
+    # matters — see "Which tag" below.
     image: ghcr.io/onlinecrash24/samadcon:latest
+    # A fixed name, so `docker logs samadcon` and `docker exec samadcon …`
+    # work without looking up what compose generated.
     container_name: samadcon
+    # Comes back after a host reboot, stays down when you stopped it yourself.
     restart: unless-stopped
 
     environment:
@@ -95,6 +100,8 @@ services:
       # redirect — the one value practically every installation must change.
       SAMADCON_PUBLIC_HOST: "samadcon.example.lan"
       # Must name the port the host publishes, not the one nginx listens on.
+      # They differ as soon as a proxy or a port mapping sits in between, and
+      # the redirect then points somewhere nobody can reach.
       SAMADCON_PUBLIC_HTTPS_PORT: "8443"
       # The reverse proxy in front of this container, if there is one. Only an
       # address named here is believed about who the caller is — see
@@ -107,6 +114,9 @@ services:
       SAMADCON_REALM: ""
       SAMADCON_DC_HOSTS: ""
 
+      # INFO names what happens; DEBUG is for tracking a problem down and not
+      # for running. Writes are recorded separately in the audit log either
+      # way — that does not depend on this.
       SAMADCON_LOG_LEVEL: "INFO"
 
       # The KI-Manager's model service. Empty means off — nothing is sent
@@ -129,6 +139,8 @@ services:
       #   - "0.0.0.0:8443:8443"
       #
       - "127.0.0.1:8443:8443"
+      # HTTP, and it serves exactly two things: a redirect to HTTPS and the
+      # health check. Nothing is answered here that could be worth reading.
       - "127.0.0.1:8080:8080"
 
     # How the container reaches the domain. With SAMADCON_DC_HOSTS naming the
@@ -148,13 +160,24 @@ services:
 
     volumes:
       # A real certificate goes here as server.crt and server.key. Without one
-      # the container generates a self-signed certificate on first start.
+      # the container generates a self-signed certificate on first start. The
+      # container runs as uid 1000 and a bind mount belongs to root, so this
+      # directory has to be writable for it — see below.
       - ./tls:/etc/samadcon/tls
-      # CA bundles for validating the DCs' LDAPS certificates.
+      # CA bundles for validating the DCs' LDAPS certificates. Read-only: the
+      # container has no business changing what it validates against.
       - ./ca:/etc/samadcon/ca:ro
+      # Samba's cache and lock directory. Losing it costs nothing but a little
+      # speed; it is a volume so the container does not write into its own
+      # image layer.
       - samadcon-cache:/var/cache/samadcon
+      # The samadcon user's home, and Samba's private and state directory.
+      # Also where a generated certificate lands if ./tls is not writable —
+      # which is why losing this one means a new self-signed certificate.
       - samadcon-data:/var/lib/samadcon
-      # The audit trail should outlive the container.
+      # The audit trail should outlive the container. Who did what, to which
+      # DN, with which attribute changed — the record you need when someone
+      # asks months later.
       - samadcon-logs:/var/log/samadcon
 
     # Kerberos credential caches live in /dev/shm and must never hit a disk.
@@ -164,11 +187,17 @@ services:
       # nginx and supervisor run as uid 1000.
       - /run/samadcon:mode=0700,uid=1000,gid=1000,size=8m
 
+    # Nothing in here needs to become more privileged than it starts, and
+    # setuid binaries are the usual way that happens.
     security_opt:
       - no-new-privileges:true
+    # No capability at all. nginx listens on 8443, above the privileged range,
+    # so not even NET_BIND_SERVICE is wanted.
     cap_drop:
       - ALL
 
+# Named volumes, so docker keeps them where it keeps such things and they
+# survive `docker compose down`. Only `docker compose down -v` removes them.
 volumes:
   samadcon-cache:
   samadcon-data:
