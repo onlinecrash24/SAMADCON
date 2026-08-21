@@ -242,6 +242,29 @@ anderen Maschinen aus erreichen will, benennt die Adresse in den `ports`-Zeilen 
 `docker-compose.yml` in diesem Repository liest sie aus `SAMADCON_BIND`; dort genügt ein
 `SAMADCON_BIND=0.0.0.0`.)
 
+**Ein Proxy auf einer anderen Maschine** braucht das Gegenteil von Loopback: SAMADCON muss auf
+einer Adresse antworten, die der Proxy-Host erreicht. Alles Weitere folgt aus vier Einstellungen,
+und jeder der üblichen Fehler ist eine davon, die auf das Falsche zeigt:
+
+| Einstellung | Was sie sein muss | Falsch, wenn |
+|---|---|---|
+| `SAMADCON_BIND` (oder die Adresse in `ports`) | Eine Adresse, die der Proxy-Host erreicht — die LAN-Adresse dieses Hosts oder `0.0.0.0` | Auf `127.0.0.1` gelassen: der Proxy bekommt „connection refused" |
+| `SAMADCON_TRUSTED_PROXIES` | Die Adresse des Proxy-**Hosts**, nicht die seines Containers | Im Audit-Log steht weiterhin der Proxy |
+| `SAMADCON_PUBLIC_HOST` | Der Name, den die Leute im Browser eintippen | Betrifft nur das selbstsignierte Zertifikat, das der Proxy nicht prüft |
+| `SAMADCON_PUBLIC_HTTPS_PORT` | Der Port, den die Leute erreichen, also `443`, wenn der Proxy auf 443 lauscht | Betrifft nur die Weiterleitung auf 8080, an die hinter einem Proxy niemand kommt |
+
+Im Proxy auf **Port 8443 über https** weiterleiten. Port 8080 liefert eine Weiterleitung und den
+Health-Check und sonst nichts, und Anmeldedaten dorthin zu schicken hieße, sie im Klartext über
+die Leitung zu geben. Das Zertifikat auf 8443 ist selbstsigniert, solange Sie kein eigenes
+eingehängt haben; Proxys prüfen das Zertifikat der Gegenstelle standardmäßig nicht, und der
+Nginx Proxy Manager tut es auch nicht.
+
+Die Adresse des Proxys sollte man nachlesen statt sie zu raten. Ein Proxy, der selbst in Docker
+läuft, erreicht SAMADCON unter der Adresse seines *Hosts* und nicht der des Containers, weil der
+Host die Verbindung maskiert. Melden Sie sich einmal an und sehen Sie im Audit-Log auf
+`client_ip`: Die Adresse, die dort steht, gehört in `SAMADCON_TRUSTED_PROXIES`. Eintragen, erneut
+anmelden — dann muss dasselbe Feld die Adresse des Browsers zeigen.
+
 Ein Proxy muss benannt werden, sonst verliert das Audit-Log das Einzige, wofür es da ist:
 
 ```yaml

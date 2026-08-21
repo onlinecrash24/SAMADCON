@@ -228,6 +228,28 @@ machines instead, name the address in the `ports` lines — `0.0.0.0:8443:8443`,
 one address it should answer on. (The `docker-compose.yml` in this repository reads it from
 `SAMADCON_BIND`, so there one `SAMADCON_BIND=0.0.0.0` does the same job.)
 
+**A proxy on another machine** needs the opposite of loopback: SAMADCON has to answer on an
+address the proxy host can reach. Everything else follows from four settings, and each of the
+usual mistakes is one of them pointing at the wrong thing:
+
+| Setting | What it has to be | Wrong when |
+|---|---|---|
+| `SAMADCON_BIND` (or the address in `ports`) | An address the proxy host can reach — the LAN address of this host, or `0.0.0.0` | Left at `127.0.0.1`: the proxy gets connection refused |
+| `SAMADCON_TRUSTED_PROXIES` | The proxy **host's** address, not its container's | The audit log keeps showing the proxy |
+| `SAMADCON_PUBLIC_HOST` | The name people type in the browser | Only affects the self-signed certificate, which the proxy does not check |
+| `SAMADCON_PUBLIC_HTTPS_PORT` | The port people reach, so `443` when the proxy serves 443 | Only affects the redirect on 8080, which nobody reaches through a proxy |
+
+In the proxy, forward to **port 8443 over https**. Port 8080 serves a redirect and the health
+check and nothing else, and sending credentials to it would put them on the wire in clear. The
+certificate on 8443 is self-signed unless you mounted your own; proxies do not validate an
+upstream certificate by default, and Nginx Proxy Manager does not.
+
+The proxy's address is worth reading rather than guessing. A proxy that runs in Docker reaches
+SAMADCON as its *host's* address, not the container's, because the host masquerades the
+connection. Sign in once and look at `client_ip` in the audit log: the address you find there is
+the one that belongs in `SAMADCON_TRUSTED_PROXIES`. Put it in, sign in again, and the same field
+should now hold the browser's address instead.
+
 A proxy has to be named, or the audit log loses the one thing it is for:
 
 ```yaml
