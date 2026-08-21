@@ -112,6 +112,10 @@ services:
       # Der Reverse Proxy vor diesem Container, falls es einen gibt. Nur einer
       # hier genannten Adresse wird geglaubt, wer der Aufrufer ist — siehe
       # „Hinter einem Reverse Proxy" weiter unten. Leer heißt: kein Proxy.
+      #
+      # Niemals 0.0.0.0/0: Das vertraut jedem Host, jeder Client darf dann
+      # seine Adresse selbst benennen, und das Audit-Log schreibt auf, was
+      # man ihm gesagt hat.
       SAMADCON_TRUSTED_PROXIES: ""
 
       # Beide dürfen leer bleiben: Die Anmeldemaske fragt dann nach einer
@@ -253,6 +257,17 @@ Es ist eine Liste und kein Schalter, weil `X-Forwarded-For` ein gewöhnlicher He
 Client senden kann. Geglaubt wird nur einem hier genannten Hop; eine Adresse, die nicht auf der
 Liste steht, gilt als der Aufrufer, was immer sie behauptet. Leer lassen, wo kein Proxy steht — ein
 falscher Eintrag ist schlimmer als keiner, denn er erlaubt diesem Host, sich für jeden auszugeben.
+
+> **Niemals `0.0.0.0/0`, und niemals `::/0`.** Das konfiguriert die Einstellung nicht großzügig,
+> sondern schaltet sie ab: Jeder Host wird ein vertrauenswürdiger Hop, jeder Client darf sagen,
+> wer er ist, und das Audit-Log füllt sich mit Adressen, die die Aufrufer sich selbst ausgesucht
+> haben. Das ist schlimmer, als die Einstellung leer zu lassen — eine leere Liste schreibt den
+> Proxy hinein, was lediglich nichtssagend ist, eine weit offene schreibt Erfundenes hinein, das
+> sich wie eine Tatsache liest.
+
+Die eigene Adresse des Proxys eintragen. Nicht das Netz, in dem er steht, „zur Sicherheit etwas
+größer": Jeder Host in diesem Netz erbt damit das Recht, in Ihrer Audit-Spur jede beliebige
+Identität zu behaupten.
 
 ### Aus dem Quelltext bauen
 

@@ -18,16 +18,37 @@ license = { text = "AGPL-3.0-or-later" }
 # they come from the distribution and must not be pulled from PyPI:
 #   * samba (python3-samba)  — no PyPI equivalent exists
 #   * lxml  (python3-lxml)   — avoids a long native build in the image
+# The floors are the versions this is built and tested against, not the oldest
+# that might work. They used to be the latter and had drifted badly: the
+# declared set could not be installed together at all — fastapi 0.115 caps
+# starlette below its fixed versions, and a fastapi new enough to lift that cap
+# will not take pydantic 2.7. Nobody had ever resolved that combination, which
+# is how three of them came to permit versions with open advisories.
+#
+# scripts/dependency_requirements.py feeds pip-audit in CI, twice: once at what
+# a build actually gets, and once with every floor pinned, which is the pass
+# that catches a floor permitting something vulnerable. Lower one of these and
+# that second pass is what will object.
 dependencies = [
-    "fastapi>=0.115",
-    "uvicorn[standard]>=0.30",
-    "pydantic>=2.7",
-    "pydantic-settings>=2.3",
-    "python-multipart>=0.0.9",
-    "dnspython>=2.6",
+    "fastapi>=0.141.1",
+    # Declared even though fastapi brings it, for two reasons: it is imported
+    # directly (api/v1/servers.py), so it belongs here anyway; and fastapi's own
+    # floor is starlette>=0.46.0, which permits versions carrying eight
+    # advisories. Ours has to be its own.
+    "starlette>=1.6.0",
+    "uvicorn[standard]>=0.52.1",
+    "pydantic>=2.13.4",
+    "pydantic-settings>=2.15.0",
+    # Every advisory on this package is a denial of service, and on this
+    # application they are reachable without signing in: FastAPI reads the
+    # request body before it solves the dependency that checks the session
+    # (fastapi/routing.py — request.form() at 430, solve_dependencies at 481),
+    # and four endpoints take uploads.
+    "python-multipart>=0.0.32",
+    "dnspython>=2.8.0",
     # Only used to reach an optional, locally run model service. Nothing
     # calls out without SAMADCON_OLLAMA_URL set.
-    "httpx>=0.27",
+    "httpx>=0.28.1",
 ]
 
 [project.optional-dependencies]

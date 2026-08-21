@@ -97,6 +97,8 @@ services:
       # Empty means no proxy: the address that connected is the one recorded.
       # Leave it empty rather than guessing — a wrong entry is worse than none,
       # since it lets that host claim any caller address it likes.
+      # Never 0.0.0.0/0. That is not a generous setting, it is no setting:
+      # every host becomes trusted and the audit log records claims.
       SAMADCON_TRUSTED_PROXIES: "${SAMADCON_TRUSTED_PROXIES:-}"
 
       # --- Sessions ------------------------------------------------------

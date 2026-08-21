@@ -106,6 +106,9 @@ services:
       # The reverse proxy in front of this container, if there is one. Only an
       # address named here is believed about who the caller is — see
       # "Behind a reverse proxy" below. Empty means no proxy.
+      #
+      # Never 0.0.0.0/0: that trusts every host, so any client may name
+      # its own address and the audit log records what it was told.
       SAMADCON_TRUSTED_PROXIES: ""
 
       # Both may stay empty: the sign-in form then asks for a server address.
@@ -239,6 +242,15 @@ It is a list and not a switch because `X-Forwarded-For` is a plain header that a
 send. Only a hop named here is believed; an address that is not on the list is treated as the
 caller, whatever it claims. Leave it empty when there is no proxy — a wrong entry is worse than
 none, since it lets that host claim to be anyone.
+
+> **Never `0.0.0.0/0`, and never `::/0`.** That does not configure the setting generously, it
+> switches it off: every host becomes a trusted hop, every client may state who it is, and the
+> audit log fills with addresses the callers chose for themselves. It is worse than leaving the
+> setting empty — an empty list records the proxy, which is merely uninformative, while a
+> wide-open one records fiction that reads like fact.
+
+Name the proxy's own address. Not the subnet it sits in "to be safe": every host in that subnet
+inherits the right to claim any identity in your audit trail.
 
 ### Building from source
 

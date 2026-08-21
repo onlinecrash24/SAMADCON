@@ -89,7 +89,7 @@ jobs:
       # Ruff needs none of the Samba bindings, so it runs here rather than in
       # the image — seconds instead of a container build.
       - name: Install ruff
-        run: pip install "ruff>=0.5"
+        run: pip install "ruff>=0.5" pip-audit
 
       - name: Check
         working-directory: backend
@@ -111,6 +111,24 @@ jobs:
         run: python scripts/check_versions.py
         env:
           EXPECTED_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+
+      # Two passes, because they answer different questions and the second
+      # is the one nothing else here asks.
+      #
+      # A reader found python-multipart pinned no higher than 0.0.9. Auditing
+      # installed packages would never have shown it: >= resolves to the
+      # newest release, so a fresh build was never exposed. The floor was.
+      - name: Dependencies, at the versions a build actually gets
+        run: |
+          python scripts/dependency_requirements.py > "${RUNNER_TEMP}/declared.txt"
+          pip-audit --strict -r "${RUNNER_TEMP}/declared.txt"
+
+      # And with every floor pinned, which is what catches a constraint that
+      # permits something vulnerable. This found two more than the report did.
+      - name: ... and at the lowest versions the constraints permit
+        run: |
+          python scripts/dependency_requirements.py --floors > "${RUNNER_TEMP}/floors.txt"
+          pip-audit --strict -r "${RUNNER_TEMP}/floors.txt"
 
   publish:
     name: Publish to ghcr.io
