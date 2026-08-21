@@ -119,9 +119,11 @@ services:
       SAMADCON_TRUSTED_PROXIES: ""
 
       # Beide dürfen leer bleiben: Die Anmeldemaske fragt dann nach einer
-      # Serveradresse. Wenn gesetzt, dann auflösbare Namen — Kerberos braucht
-      # den FQDN des DCs, eine nackte IP scheitert mit
-      # NT_STATUS_INVALID_PARAMETER.
+      # Serveradresse. Eine IP ist hier in Ordnung. Kerberos braucht zwar den
+      # FQDN des DCs — für eine nackte Adresse gibt es kein Principal —, aber
+      # SAMADCON liest die rootDSE des Konfigurierten und erfährt den Namen
+      # vom DC selbst. Ein auflösbarer Name liest sich in Protokollen besser,
+      # nötig ist er nicht.
       SAMADCON_REALM: ""
       SAMADCON_DC_HOSTS: ""
 

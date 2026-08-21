@@ -56,9 +56,13 @@ services:
     environment:
       # --- The domain ----------------------------------------------------
       # Both may stay empty: the sign-in form then asks for a server address
-      # and works the domain out from it. When they are set, use names that
-      # resolve — Kerberos needs the DC's own FQDN, and a bare IP address
-      # fails with NT_STATUS_INVALID_PARAMETER rather than anything helpful.
+      # and works the domain out from it.
+      #
+      # An IP is fine here, and this is the case ad/targets.py goes out of its
+      # way to support: Kerberos issues tickets for ldap/<hostname>@REALM and
+      # has no principal for a bare address, so the configured domain is
+      # probed like a typed one and the DC's own name comes from its rootDSE.
+      # A name that resolves reads better in logs; it is not a requirement.
       SAMADCON_REALM: ""
       SAMADCON_DC_HOSTS: ""
       SAMADCON_WORKGROUP: ""

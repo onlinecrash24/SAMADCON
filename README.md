@@ -112,8 +112,10 @@ services:
       SAMADCON_TRUSTED_PROXIES: ""
 
       # Both may stay empty: the sign-in form then asks for a server address.
-      # When set, use names that resolve — Kerberos needs the DC's own FQDN,
-      # and a bare IP fails with NT_STATUS_INVALID_PARAMETER.
+      # An IP is fine here. Kerberos needs the DC's own FQDN — there is no
+      # principal for a bare address — but SAMADCON reads the rootDSE of
+      # whatever is configured and learns the name from the DC itself. A name
+      # that resolves reads better in logs; it is not a requirement.
       SAMADCON_REALM: ""
       SAMADCON_DC_HOSTS: ""
 
