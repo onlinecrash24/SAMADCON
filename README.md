@@ -46,6 +46,13 @@ Kerberos issues tickets for `ldap/dc1.example.lan@EXAMPLE.LAN` — a bare addres
 SPN nor a realm. A Kerberos configuration naming exactly that address as the KDC is then written,
 so signing in works even without matching DNS records. Several realms are supported side by side.
 
+That holds for the path where an **address** is given. Sign in with a **domain name** and SAMADCON
+has to find a controller first, which it does through SRV records — and those need a resolver that
+serves the domain. A container whose resolver does not know it fails with
+`NT_STATUS_NO_LOGON_SERVERS`, having never reached a DC to be refused by. Point `dns:` at the
+domain's own resolver, or name the controllers in `SAMADCON_DC_HOSTS` and skip discovery
+altogether.
+
 ### Transport
 
 SAMADCON connects in two stages, both encrypted:
@@ -102,6 +109,17 @@ services:
 
       SAMADCON_LOG_LEVEL: "INFO"
 
+      # The KI-Manager's model service. Empty means off — nothing is sent
+      # anywhere and the reports show only what the rules found. The address
+      # belongs here and not in the interface: the container makes the call,
+      # so an address a user could type would reach hosts their browser
+      # cannot. From in here, localhost is this container — name the Ollama
+      # host's own address:
+      #
+      #   SAMADCON_OLLAMA_URL: "http://192.168.1.20:11434"
+      #
+      SAMADCON_OLLAMA_URL: ""
+
     ports:
       # Loopback. Docker publishes on every interface of the host when no
       # address is given, and this is a sign-in form that issues Kerberos
@@ -112,6 +130,21 @@ services:
       #
       - "127.0.0.1:8443:8443"
       - "127.0.0.1:8080:8080"
+
+    # How the container reaches the domain. With SAMADCON_DC_HOSTS naming the
+    # controllers, nothing here is needed. Left empty, SAMADCON finds a DC
+    # through SRV records — and that needs a resolver which serves the domain,
+    # which in practice is the DC itself. Without one, signing in fails with
+    # NT_STATUS_NO_LOGON_SERVERS and nothing on the way there says why:
+    #
+    #   dns: ["192.168.1.10"]
+    #   dns_search: ["example.lan"]
+    #
+    # Kerberos also has to resolve the DC's own FQDN. Where DNS does not give
+    # it, name it directly — this provides an address and no SRV records, so
+    # it complements `dns:` rather than replacing it:
+    #
+    #   extra_hosts: ["dc1.example.lan:192.168.1.10"]
 
     volumes:
       # A real certificate goes here as server.crt and server.key. Without one
@@ -333,6 +366,7 @@ docker compose exec samadcon samadconctl check --server 192.168.1.10 --insecure
 | 2 | DNS, Sites & Services, diagnostics (FSMO, replication, password policies) | done, verified against a real domain |
 | 3 | GPMC basics: GPOs, links, filtering, backup/restore, report | done, verified against a real domain |
 | 4 | Group policy editor: ADMX → security settings → Linux/VGP → preferences → scripts/folder redirection | complete; each of the five parts proven **applied** on a real client (4c through `samba-gpupdate --rsop`), preferences in all three waves. [What of that proof is in this repository](#the-policy-editor) — and what is not |
+| 5 | KI-Manager: findings about the domain and its policies, a printable report, optionally written up by a model | done; the rules run against a real domain, the model half is [optional and marked as unverified](#the-ki-manager) |
 
 Milestone 1 covers: Kerberos sessions, tree navigation, object lists and search (ANR), users
 (create, edit, account options, password reset, unlock, expiry), groups (scope/type, members
@@ -537,6 +571,52 @@ roles and their holders, functional levels, the connected DC's replication state
 the password and lockout policy including fine-grained policies (PSOs), and locked, disabled and
 expired accounts. Seizing a role or forcing replication is deliberately not part of it — that is
 what `samba-tool fsmo seize` and `samba-tool drs replicate` on the DC are for.
+
+### The KI-Manager
+
+Two reports, and the line between them is the point of the thing.
+
+**The binding half** is rules over values SAMADCON reads itself, in
+`core/findings.py`. Each finding carries the values it was decided from, so it
+can be argued with rather than believed: "the minimum password length is 6,
+measured against 8" is checkable, "the password policy is weak" is not. No
+model is involved and none is needed.
+
+The policy rules look for the failure group policy is famous for and no console
+reports: **a policy that reaches nobody looks exactly like one that works.** Its
+settings are there, its versions are there, its links are there, and nothing
+happens — because no client-side extension is registered, or every link is
+disabled, or the half holding the settings is switched off. `gpo_linked_but_empty`
+fires on real domains, not only constructed ones. A thorough pass walks each
+policy's files on SYSVOL as well; it is a switch and not the default, because it
+costs one round trip per policy.
+
+Two rules are **deliberately absent**, and tests keep them absent: forcing
+passwords to expire, which NIST withdrew because scheduled changes push people
+towards predictable variations of one password; and listing locked or disabled
+accounts, which diagnostics already shows and which would bury the findings that
+need a decision.
+
+**The unverified half** is optional and off unless `SAMADCON_OLLAMA_URL` names a
+model service. It orders the findings and puts them in plain language; it may
+not contradict one, invent one, or restate its severity. What would be sent can
+be looked at before it goes — the exact prompt, from the same function that
+builds the request, because domain configuration leaving for another service is
+a decision and a decision needs the thing itself rather than a description of
+it. The answer appears in a frame that names the model and says nothing in it
+was checked.
+
+The address comes from the deployment and never from a request: the container
+makes the call, so an address a user could type would let any signed-in account
+reach hosts its own browser cannot. The model *name* comes from the interface,
+because a name is not an address.
+
+**Both reports print.** There is no PDF library in the image — the browser
+already writes PDFs with selectable text, and the dependency list is short on
+purpose. The document carries the values and not only the findings, since
+whoever is holding a printout cannot go and look. The print stylesheet forces
+black on white: a reader in dark mode would otherwise print pale grey onto white
+paper.
 
 ## Layout
 
