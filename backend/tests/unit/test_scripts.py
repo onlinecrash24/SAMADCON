@@ -13,26 +13,18 @@ import pytest
 from samadcon.core.errors import InvalidRequest
 from samadcon.gpo import scripts
 from samadcon.gpo.scripts import EVENTS, Script
+from tests.conftest import reference
 
 EVENTS_MACHINE = EVENTS["Machine"]
 
-# Byte for byte the Machine\Scripts\scripts.ini of a GPO that GPMC created —
-# "Deploy Tactical RMM Agent" in the domain these tests are verified against,
-# read off the share with `od -c` and reassembled here. 298 bytes.
+# The file GPMC wrote, read from tests/data rather than retyped here. See
+# tests/data/PROVENANCE.md for which GPO it came from and what was substituted
+# for publication.
 #
 # It is the whole reason this file is not guesswork: it settles the leading
 # blank line and the absence of an empty [Shutdown], both of which had been
 # written the other way here before anyone looked.
-GPMC_REFERENCE = (
-    b"\xff\xfe"
-    + (
-        "\r\n"
-        "[Startup]\r\n"
-        "0CmdLine=powershell.exe\r\n"
-        "0Parameters=-ExecutionPolicy Bypass "
-        "\\\\example.lan\\sysvol\\example.lan\\scripts\\deploy-tactical-rmm.ps1\r\n"
-    ).encode("utf-16-le")
-)
+GPMC_REFERENCE = reference("scripts.ini")
 
 # Shaped the same way, with a second event so the pairing and the ordering
 # have something to work on.

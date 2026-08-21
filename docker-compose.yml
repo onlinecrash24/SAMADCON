@@ -86,6 +86,18 @@ services:
       SAMADCON_PUBLIC_HOST: "samadcon.example.lan"
       # Must name the port the host publishes, not the one nginx listens on.
       SAMADCON_PUBLIC_HTTPS_PORT: "${SAMADCON_HTTPS_PORT:-8443}"
+      # The reverse proxy in front of this container, if there is one. Only an
+      # address named here is believed about who the caller is, because
+      # X-Forwarded-For is a plain header anyone can send — and the audit log
+      # is the thing that would record the lie. Comma or space separated,
+      # addresses or CIDR ranges:
+      #
+      #   SAMADCON_TRUSTED_PROXIES: "192.168.1.5, 10.0.0.0/8"
+      #
+      # Empty means no proxy: the address that connected is the one recorded.
+      # Leave it empty rather than guessing — a wrong entry is worse than none,
+      # since it lets that host claim any caller address it likes.
+      SAMADCON_TRUSTED_PROXIES: "${SAMADCON_TRUSTED_PROXIES:-}"
 
       # --- Sessions ------------------------------------------------------
       SAMADCON_TICKET_LIFETIME: "10h"
@@ -139,9 +151,18 @@ services:
       # path is LDAP with Kerberos encryption and needs no certificate.
       TEST_INSECURE: "${TEST_INSECURE:-1}"
 
+    # Loopback unless told otherwise. Without an address docker publishes on
+    # every interface the host has, and this is a sign-in form that issues
+    # Kerberos tickets for the domain — not something to expose by leaving a
+    # field blank. Reaching the console from another machine is a decision:
+    #
+    #   SAMADCON_BIND=0.0.0.0        (or the one address it should answer on)
+    #
+    # Behind a reverse proxy on the same host, leave it as it is and see
+    # SAMADCON_TRUSTED_PROXIES above.
     ports:
-      - "${SAMADCON_HTTPS_PORT:-8443}:8443"
-      - "${SAMADCON_HTTP_PORT:-8080}:8080"
+      - "${SAMADCON_BIND:-127.0.0.1}:${SAMADCON_HTTPS_PORT:-8443}:8443"
+      - "${SAMADCON_BIND:-127.0.0.1}:${SAMADCON_HTTP_PORT:-8080}:8080"
 
     # SAMADCON talks to the DCs over the network and needs no DNS for the domain
     # when SAMADCON_DC_HOSTS names them directly. For SRV discovery, add the DC

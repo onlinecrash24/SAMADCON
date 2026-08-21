@@ -245,6 +245,26 @@ def _acquire_via_bindings(
     return True
 
 
+def _krb5_env(ccache: Path | None = None) -> dict[str, str]:
+    """The environment every Kerberos command runs in.
+
+    TZ is pinned rather than assumed. klist prints local time, and
+    :func:`ticket_expiry` reads that output as UTC — an assumption that held
+    only while nobody set a timezone on the container. Forced here, the
+    condition is part of the call instead of a property of the deployment.
+    """
+    from samadcon.auth.krb5conf import get_krb5_configuration
+
+    env = dict(os.environ)
+    env["TZ"] = "UTC"
+    if ccache is not None:
+        env["KRB5CCNAME"] = ccache_url(ccache)
+    # The generated configuration knows every realm SAMADCON has been pointed
+    # at, including the KDC address for domains reached by IP.
+    env.update(get_krb5_configuration().environment())
+    return env
+
+
 def _acquire_via_kinit(
     principal: Principal, password: str, ccache: Path, settings: Settings
 ) -> None:
@@ -253,13 +273,7 @@ def _acquire_via_kinit(
     The password goes through a pipe, never through argv, so it does not show
     up in the process list.
     """
-    from samadcon.auth.krb5conf import get_krb5_configuration
-
-    env = dict(os.environ)
-    env["KRB5CCNAME"] = ccache_url(ccache)
-    # The generated configuration knows every realm SAMADCON has been pointed
-    # at, including the KDC address for domains reached by IP.
-    env.update(get_krb5_configuration().environment())
+    env = _krb5_env(ccache)
 
     try:
         result = subprocess.run(
@@ -351,10 +365,7 @@ def has_ticket(ccache: Path) -> bool | None:
     reliable check. Returns ``None`` when klist is unavailable — then the
     caller must not treat the outcome as a failure.
     """
-    from samadcon.auth.krb5conf import get_krb5_configuration
-
-    env = dict(os.environ)
-    env.update(get_krb5_configuration().environment())
+    env = _krb5_env()
 
     try:
         result = subprocess.run(
@@ -383,10 +394,7 @@ def ticket_expiry(ccache: Path) -> datetime | None:
     Returns ``None`` when it cannot be determined; the caller then falls back
     to its configured session lifetime.
     """
-    from samadcon.auth.krb5conf import get_krb5_configuration
-
-    env = dict(os.environ)
-    env.update(get_krb5_configuration().environment())
+    env = _krb5_env()
 
     try:
         result = subprocess.run(
@@ -412,7 +420,8 @@ def ticket_expiry(ccache: Path) -> datetime | None:
             naive = datetime.strptime(f"{date_part} {time_part}", fmt)
         except ValueError:
             continue
-        # klist prints local time; the container runs in UTC.
+        # klist prints local time, and _krb5_env pins TZ to UTC so that
+        # this reading is right whatever the deployment sets.
         return naive.replace(tzinfo=UTC)
     return None
 

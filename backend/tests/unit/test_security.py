@@ -12,44 +12,20 @@ import pytest
 
 from samadcon.core.errors import InvalidRequest
 from samadcon.gpo import security
+from tests.conftest import reference
 
 DOMAIN_ADMINS = "*S-1-5-21-1004336348-1177238915-682003330-512"
 ADMINISTRATORS = "*S-1-5-32-544"
 
-# Byte for byte the GptTmpl.inf of "Wegwerf-GPO" after setting a minimum
-# password length, a lockout threshold, logon auditing and one user right in
-# GPMC — read off the share with `od -c` and reassembled here. 752 bytes.
-GPMC_REFERENCE = b"\xff\xfe" + (
-    "[Unicode]\r\n"
-    "Unicode=yes\r\n"
-    "[Version]\r\n"
-    'signature="$CHICAGO$"\r\n'
-    "Revision=1\r\n"
-    "[System Access]\r\n"
-    "MinimumPasswordLength = 12\r\n"
-    "LockoutBadCount = 5\r\n"
-    "ResetLockoutCount = 10\r\n"
-    "LockoutDuration = 10\r\n"
-    "AllowAdministratorLockout = 1\r\n"
-    "[Event Audit]\r\n"
-    "AuditLogonEvents = 3\r\n"
-    "[Registry Values]\r\n"
-    "[Privilege Rights]\r\n"
-    f"SeSystemtimePrivilege = {DOMAIN_ADMINS},{ADMINISTRATORS}\r\n"
-).encode("utf-16-le")
+# The file GPMC wrote, read from tests/data rather than retyped here. See
+# tests/data/PROVENANCE.md for which GPO it came from, which settings were made
+# in it, and what was substituted for publication.
+GPMC_REFERENCE = reference("GptTmpl.inf")
 
 
-# The byte counts these fixtures were checked against are gone. They were the
-# sizes `od -c` reported on the domain controller, and they proved the strongest
-# thing a test here can prove: that the fixture *is* the file GPMC wrote, not a
-# tidied-up recollection of it. When the domain's own names, SIDs and hosts were
-# replaced with example ones for publication, that link broke — and a recomputed
-# number would only assert that the fixture equals itself.
-#
-# What the fixtures still carry is every structural detail they were transcribed
-# for: the preamble, the encoding, the line endings, the spacing around the
-# equals sign, the sections left empty. The round-trip tests below check all of
-# it.
+# The reference above is a file, not a literal, and the fixtures built from it
+# below are variations on it. Where a test needs something GPMC never wrote, it
+# says so in its own name.
 
 
 # ---------------------------------------------------------------------------

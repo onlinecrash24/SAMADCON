@@ -9,6 +9,7 @@ semicolon-separated SID lists, and the per-redirection sections named
 from __future__ import annotations
 
 from samadcon.gpo import folders
+from tests.conftest import reference
 
 DOCUMENTS = "{FDD39AD0-238F-46AF-ADB4-6C85480369C7}"
 DESKTOP = "{B4BFCC3A-DB2C-424C-B029-7FE99A87C641}"
@@ -107,38 +108,21 @@ def test_an_empty_file_reads_as_nothing_redirected():
 SAVED_GAMES = "{4C5C32FF-BB9D-43B0-B5B4-2D72E54EAAA4}"
 EVERYONE = "s-1-1-0"
 
-# Byte for byte the fdeploy1.ini of a GPO created in GPMC — "Wegwerf-GPO" in
-# the domain this is verified against, Saved Games redirected under a root
-# path — read off the share with `od -c` and reassembled here. 460 bytes.
+# The file GPMC wrote, read from tests/data rather than retyped here. What it
+# is, which GPO it came from and what was substituted for publication is in
+# tests/data/PROVENANCE.md — including the honest part: the substitution means
+# a byte count no longer proves anything about it.
 #
 # It settles three things no document would have: the file opens with a blank
 # line, a line of five spaces and another blank line; [version] is lower case
 # beside [Folder_Redirection] in mixed case; and each redirection carries a
 # Flags number beside its path.
-GPMC_REFERENCE = b"\xff\xfe" + (
-    "\r\n"
-    "     \r\n"
-    "[version]\r\n"
-    "version=100\r\n"
-    "[Folder_Redirection]\r\n"
-    f"{SAVED_GAMES}={EVERYONE};\r\n"
-    f"[{SAVED_GAMES}_{EVERYONE}]\r\n"
-    "Flags=1211\r\n"
-    "FullPath=\\\\dc1.example.lan\\home\\%USERNAME%\\Saved Games\r\n"
-).encode("utf-16-le")
+GPMC_REFERENCE = reference("fdeploy1.ini")
 
 
-# The byte counts these fixtures were checked against are gone. They were the
-# sizes `od -c` reported on the domain controller, and they proved the strongest
-# thing a test here can prove: that the fixture *is* the file GPMC wrote, not a
-# tidied-up recollection of it. When the domain's own names, SIDs and hosts were
-# replaced with example ones for publication, that link broke — and a recomputed
-# number would only assert that the fixture equals itself.
-#
-# What the fixtures still carry is every structural detail they were transcribed
-# for: the preamble, the encoding, the line endings, the spacing around the
-# equals sign, the sections left empty. The round-trip tests below check all of
-# it.
+# The reference above is a file, not a literal, and the fixtures built from it
+# below are variations on it. Where a test needs something GPMC never wrote, it
+# says so in its own name.
 
 
 def test_the_reference_reads_as_one_redirected_folder():

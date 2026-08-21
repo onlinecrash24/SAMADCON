@@ -60,6 +60,22 @@ jobs:
       - name: Unit tests
         run: docker run --rm --entrypoint python samadcon:test -m pytest tests/unit -q
 
+      # The opposite of the step above: this one runs the start-up and
+      # nothing else. `nginx -t` as the command means the entrypoint does its
+      # whole job first — certificate, krb5.conf, the real-ip snippet, the
+      # templating — and nginx then judges the result. A template that no
+      # longer parses used to reach a user's container before anyone noticed.
+      - name: The rendered nginx configuration parses
+        run: |
+          docker run --rm samadcon:test nginx -t -c /etc/samadcon/nginx.conf
+
+      # Again with a proxy named, because that path emits directives the
+      # empty one does not — including one that needs a module to exist.
+      - name: ... and still parses with a trusted proxy configured
+        run: |
+          docker run --rm -e SAMADCON_TRUSTED_PROXIES='10.0.0.0/8, 192.168.1.2' \
+            samadcon:test nginx -t -c /etc/samadcon/nginx.conf
+
   lint:
     name: Lint
     runs-on: ubuntu-latest

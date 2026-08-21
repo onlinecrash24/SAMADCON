@@ -12,6 +12,13 @@ Dockerfile      text eol=lf
 # Normalise everything else on commit, check out per platform.
 *               text=auto
 
+# The GPMC reference files are UTF-16LE with CRLF, and that is the thing
+# they exist to prove. git's own heuristic already spots the NUL bytes and
+# leaves them alone — but a heuristic is the wrong thing to rest this on,
+# because normalising one would break it silently and completely.
+backend/tests/data/*.ini    binary
+backend/tests/data/*.inf    binary
+
 # Never touch these.
 *.png           binary
 *.jpg           binary

@@ -18,6 +18,23 @@ os.environ.setdefault("SAMADCON_REALM", "SAMADCON.TEST")
 os.environ.setdefault("SAMADCON_WORKGROUP", "SAMADCON")
 os.environ.setdefault("SAMADCON_AUDIT_FILE", "")
 
+DATA = Path(__file__).parent / "data"
+
+
+def reference(name: str) -> bytes:
+    """A file GPMC wrote, read from disk rather than retyped in a test.
+
+    These used to be byte literals in the test modules. A literal is a
+    transcription, and a transcription is a place for a slip that no test
+    can catch — every assertion would agree with the mistake. Read as files,
+    they can also be opened, hashed and compared by someone who did not
+    write them.
+
+    What they are, and what was changed for publication, is in
+    tests/data/PROVENANCE.md.
+    """
+    return (DATA / name).read_bytes()
+
 
 @pytest.fixture
 def settings(tmp_path: Path):

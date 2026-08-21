@@ -89,6 +89,10 @@ services:
       SAMADCON_PUBLIC_HOST: "samadcon.example.lan"
       # Must name the port the host publishes, not the one nginx listens on.
       SAMADCON_PUBLIC_HTTPS_PORT: "8443"
+      # The reverse proxy in front of this container, if there is one. Only an
+      # address named here is believed about who the caller is — see
+      # "Behind a reverse proxy" below. Empty means no proxy.
+      SAMADCON_TRUSTED_PROXIES: ""
 
       # Both may stay empty: the sign-in form then asks for a server address.
       # When set, use names that resolve — Kerberos needs the DC's own FQDN,
@@ -99,8 +103,15 @@ services:
       SAMADCON_LOG_LEVEL: "INFO"
 
     ports:
-      - "8443:8443"
-      - "8080:8080"
+      # Loopback. Docker publishes on every interface of the host when no
+      # address is given, and this is a sign-in form that issues Kerberos
+      # tickets for the domain. Reaching it from another machine is a
+      # decision — make it here, by naming the address it should answer on:
+      #
+      #   - "0.0.0.0:8443:8443"
+      #
+      - "127.0.0.1:8443:8443"
+      - "127.0.0.1:8080:8080"
 
     volumes:
       # A real certificate goes here as server.crt and server.key. Without one
@@ -143,6 +154,29 @@ docker compose up -d
 **Which tag.** `latest` follows the default branch, `DEV` names it explicitly, and every build
 also carries `sha-<short>`. For anything that matters, pin the `sha-` tag: `latest` moves under
 you on the next push.
+
+### Behind a reverse proxy
+
+The ports above bind to loopback, which is what most installations want: a proxy on the same
+host terminates TLS and forwards to `127.0.0.1:8443`. To reach the console directly from other
+machines instead, name the address in the `ports` lines — `0.0.0.0:8443:8443`, or better the
+one address it should answer on. (The `docker-compose.yml` in this repository reads it from
+`SAMADCON_BIND`, so there one `SAMADCON_BIND=0.0.0.0` does the same job.)
+
+A proxy has to be named, or the audit log loses the one thing it is for:
+
+```yaml
+SAMADCON_TRUSTED_PROXIES: "192.168.1.5"     # or "10.0.0.0/8, 192.168.1.5"
+```
+
+nginx sees only the machine that connected to it, which behind a proxy is the proxy. Without
+this, every audit entry records the proxy's address, and two administrators working through the
+same one become indistinguishable in exactly the record meant to tell them apart.
+
+It is a list and not a switch because `X-Forwarded-For` is a plain header that any client can
+send. Only a hop named here is believed; an address that is not on the list is treated as the
+caller, whatever it claims. Leave it empty when there is no proxy — a wrong entry is worse than
+none, since it lets that host claim to be anyone.
 
 ### Building from source
 
@@ -350,6 +384,19 @@ the policy under *Applied GPOs* with *Extensions Configured: Registry* and *Revi
 SYSVOL (9)*, reports the registry CSE under *Component Status* as **Success**, and shows the
 setting under *Administrative Templates* as **Enabled**. Formally correct files are not the same
 thing as applied policies — that is the difference only this test sees.
+
+**What of that is in this repository, and what is not.** The reference files GPMC produced are:
+`backend/tests/data/` holds `fdeploy1.ini`, `scripts.ini` and `GptTmpl.inf`, and the unit tests
+read them rather than a transcription of them. Their domain names, host names and SIDs were
+replaced with example ones before publication, which is stated in
+[`backend/tests/data/PROVENANCE.md`](backend/tests/data/PROVENANCE.md) along with what that
+costs: a byte count no longer proves a file is what GPMC wrote.
+
+The `gpresult` and `samba-gpupdate --rsop` reports are **not** here. Sanitising one is a great
+deal harder than sanitising an INI file — a `gpresult` report carries the entire applied policy
+set of a real machine. So that half of the proof rests on this description of it, and anyone who
+wants it first-hand can reproduce it: create the policy in SAMADCON, run `gpresult /h` on a
+joined client, and compare.
 
 Two format details, cross-checked against a policy GPMC produced rather than derived from the
 specification: an "off" that ADMX expresses as `<delete/>` writes a **real entry** `**del.<name>`

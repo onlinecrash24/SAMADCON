@@ -135,7 +135,13 @@ def as_filetime(message: Any, attr: str) -> datetime | None:
 
 
 def generalized_time_to_datetime(value: str | None) -> datetime | None:
-    """Parse AD's whenCreated/whenChanged format (``20240517103000.0Z``)."""
+    """Parse AD's whenCreated/whenChanged format (``20240517103000.0Z``).
+
+    The trailing Z is not decoration: generalized time is UTC by protocol,
+    so stamping the parsed value UTC states what the wire already said. It
+    looks like the klist reading in :mod:`samadcon.auth.kerberos`, which had
+    to be pinned to be true — this one needs nothing.
+    """
     if not value:
         return None
     match = _GENERALIZED_TIME_RE.match(value.strip())
