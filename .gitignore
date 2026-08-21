@@ -28,6 +28,10 @@ venv/
 __pycache__/
 *.py[cod]
 *.egg-info/
+# setuptools builds in-tree: `pip install ./backend` leaves a second copy of
+# the whole source under backend/build. It reached a commit once, because
+# egg-info was listed here and this was not.
+build/
 
 # --- Caches ---
 .pytest_cache/
