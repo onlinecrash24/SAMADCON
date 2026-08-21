@@ -691,6 +691,30 @@ Tests without a DC — these run without `python3-samba` and without a container
 .venv/bin/pytest backend/tests/unit -q
 ```
 
+### Raising the version
+
+It is written in **one** place, `backend/samadcon/__init__.py`. `pyproject.toml`
+declares `dynamic = ["version"]` and reads the attribute from there, so the two
+cannot disagree. Everything that names a version to anyone — `/api/v1/health`,
+the sign-in screen, `samadconctl --version`, the OpenAPI description — reads it
+through that module.
+
+`frontend/package.json` has to carry one too, because npm requires the field.
+Nothing reads it at runtime, which is exactly why it drifts, so it is checked
+rather than remembered:
+
+```bash
+python scripts/check_versions.py
+```
+
+The lint job runs it on every push, and on a tag build it compares against the
+tag as well. That last part catches what no single-source arrangement can: a
+tag pushed without the version being raised at all.
+
+This exists because v0.5.2 shipped reporting itself as 0.5.1 — three files
+carried the number, a release raised two of them, and a reader found it rather
+than the project.
+
 ## Licence
 
 AGPL-3.0-or-later.

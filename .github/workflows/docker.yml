@@ -95,6 +95,23 @@ jobs:
         working-directory: backend
         run: ruff check samadcon tests
 
+      # scripts/ sits outside backend/ and would otherwise go unlinted. The
+      # config has to be named: ruff looks upward from the file, and the
+      # repository root holds no [tool.ruff].
+      - name: ... and the scripts beside it
+        run: ruff check --config backend/pyproject.toml scripts
+
+      # v0.5.2 shipped reporting itself as 0.5.1, because three files carried
+      # the number and the release raised two. Two of them cannot disagree any
+      # more — pyproject reads the attribute — and this covers what is left,
+      # including the case no structural fix reaches: a tag pushed without the
+      # version being raised at all. EXPECTED_TAG is empty on every build that
+      # is not a tag, and the check then skips that comparison.
+      - name: The version is stated once and agrees everywhere
+        run: python scripts/check_versions.py
+        env:
+          EXPECTED_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+
   publish:
     name: Publish to ghcr.io
     runs-on: ubuntu-latest

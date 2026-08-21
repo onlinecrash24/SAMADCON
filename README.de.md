@@ -726,6 +726,29 @@ Tests ohne DC — laufen auch ohne `python3-samba` und ohne Container:
 .venv/bin/pytest backend/tests/unit -q
 ```
 
+### Die Version anheben
+
+Sie steht an **einer** Stelle: `backend/samadcon/__init__.py`. `pyproject.toml`
+deklariert `dynamic = ["version"]` und liest das Attribut von dort, die beiden
+können sich also nicht widersprechen. Alles, was irgendjemandem eine Version
+nennt — `/api/v1/health`, der Anmeldebildschirm, `samadconctl --version`, die
+OpenAPI-Beschreibung — liest sie durch dieses Modul.
+
+`frontend/package.json` muss ebenfalls eine tragen, weil npm das Feld verlangt.
+Zur Laufzeit liest sie niemand, und genau deshalb driftet sie ab — sie wird
+darum geprüft statt erinnert:
+
+```bash
+python scripts/check_versions.py
+```
+
+Der Lint-Job führt das bei jedem Push aus und vergleicht bei einem Tag-Bau
+zusätzlich gegen den Tag. Dieser letzte Teil fängt, was keine Ein-Quellen-Lösung
+erreicht: einen Tag, der gesetzt wurde, ohne die Version überhaupt anzuheben.
+
+Das gibt es, weil v0.5.2 sich als 0.5.1 meldete — drei Dateien trugen die Zahl,
+ein Release hob zwei davon, und gefunden hat es ein Leser, nicht das Projekt.
+
 ## Lizenz
 
 AGPL-3.0-or-later.

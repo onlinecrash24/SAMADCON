@@ -4,7 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "samadcon"
-version = "0.5.2"
+# Stated once, in samadcon/__init__.py, and read from there. Three files
+# carried it and a release raised two of them, so every v0.5.2 install
+# reported itself as 0.5.1 — on its sign-in screen, at /health, and to the
+# CLI. setuptools reads the attribute statically, so nothing is imported at
+# build time and the samba bindings stay out of it.
+dynamic = ["version"]
 description = "SAMADCON — Samba AD Console: RSAT replacement for Samba AD DC, including a Group Policy editor"
 requires-python = ">=3.11"
 license = { text = "AGPL-3.0-or-later" }
@@ -37,6 +42,8 @@ dev = [
 [project.scripts]
 samadconctl = "samadcon.cli:main"
 
+[tool.setuptools.dynamic]
+version = {attr = "samadcon.__version__"}
 [tool.setuptools.packages.find]
 include = ["samadcon*"]
 
