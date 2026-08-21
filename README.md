@@ -85,124 +85,55 @@ A `docker-compose.yml` for that image, complete as it stands — put it in an em
 ```yaml
 services:
   samadcon:
-    # `latest` follows the default branch. Pin `sha-<short>` for anything that
-    # matters — see "Which tag" below.
     image: ghcr.io/onlinecrash24/samadcon:latest
-    # A fixed name, so `docker logs samadcon` and `docker exec samadcon …`
-    # work without looking up what compose generated.
     container_name: samadcon
-    # Comes back after a host reboot, stays down when you stopped it yourself.
     restart: unless-stopped
-
     environment:
-      # The name the console is reached under. It becomes the CN and the SAN of
-      # the self-signed certificate and the target of the HTTP-to-HTTPS
-      # redirect — the one value practically every installation must change.
+      # The name people type. Becomes the CN and SAN of the self-signed certificate.
       SAMADCON_PUBLIC_HOST: "samadcon.example.lan"
-      # Must name the port the host publishes, not the one nginx listens on.
-      # They differ as soon as a proxy or a port mapping sits in between, and
-      # the redirect then points somewhere nobody can reach.
-      SAMADCON_PUBLIC_HTTPS_PORT: "8443"
-      # The reverse proxy in front of this container, if there is one. Only an
-      # address named here is believed about who the caller is — see
-      # "Behind a reverse proxy" below. Empty means no proxy.
-      #
-      # Never 0.0.0.0/0: that trusts every host, so any client may name
-      # its own address and the audit log records what it was told.
-      SAMADCON_TRUSTED_PROXIES: ""
-
-      # Both may stay empty: the sign-in form then asks for a server address.
-      # An IP is fine here. Kerberos needs the DC's own FQDN — there is no
-      # principal for a bare address — but SAMADCON reads the rootDSE of
-      # whatever is configured and learns the name from the DC itself. A name
-      # that resolves reads better in logs; it is not a requirement.
-      SAMADCON_REALM: ""
-      SAMADCON_DC_HOSTS: ""
-
-      # INFO names what happens; DEBUG is for tracking a problem down and not
-      # for running. Writes are recorded separately in the audit log either
-      # way — that does not depend on this.
+      # The Kerberos realm, upper case.
+      SAMADCON_REALM: "EXAMPLE.LAN"
+      # The domain controller. An IP is fine: its own name is read from the rootDSE.
+      SAMADCON_DC_HOSTS: "192.168.1.1"
+      # INFO names what happens; DEBUG is for tracking a problem down.
       SAMADCON_LOG_LEVEL: "INFO"
-
-      # The KI-Manager's model service. Empty means off — nothing is sent
-      # anywhere and the reports show only what the rules found. The address
-      # belongs here and not in the interface: the container makes the call,
-      # so an address a user could type would reach hosts their browser
-      # cannot. From in here, localhost is this container — name the Ollama
-      # host's own address:
-      #
-      #   SAMADCON_OLLAMA_URL: "http://192.168.1.20:11434"
-      #
-      SAMADCON_OLLAMA_URL: ""
-
+      # The KI-Manager's model service. The scheme is required. Empty means off.
+      SAMADCON_OLLAMA_URL: "http://192.168.1.100:11434"
+      # The reverse proxy, so the audit log records the browser and not the proxy.
+      # Its host's address, not its container's. Never 0.0.0.0/0.
+      SAMADCON_TRUSTED_PROXIES: 192.168.1.200
     ports:
-      # Loopback. Docker publishes on every interface of the host when no
-      # address is given, and this is a sign-in form that issues Kerberos
-      # tickets for the domain. Reaching it from another machine is a
-      # decision — make it here, by naming the address it should answer on:
-      #
-      #   - "0.0.0.0:8443:8443"
-      #
-      - "127.0.0.1:8443:8443"
-      # HTTP, and it serves exactly two things: a redirect to HTTPS and the
-      # health check. Nothing is answered here that could be worth reading.
-      - "127.0.0.1:8080:8080"
-
-    # How the container reaches the domain. With SAMADCON_DC_HOSTS naming the
-    # controllers, nothing here is needed. Left empty, SAMADCON finds a DC
-    # through SRV records — and that needs a resolver which serves the domain,
-    # which in practice is the DC itself. Without one, signing in fails with
-    # NT_STATUS_NO_LOGON_SERVERS and nothing on the way there says why:
-    #
-    #   dns: ["192.168.1.10"]
-    #   dns_search: ["example.lan"]
-    #
-    # Kerberos also has to resolve the DC's own FQDN. Where DNS does not give
-    # it, name it directly — this provides an address and no SRV records, so
-    # it complements `dns:` rather than replacing it:
-    #
-    #   extra_hosts: ["dc1.example.lan:192.168.1.10"]
-
+      # Every interface, which is what a proxy on another machine needs.
+      # Use "127.0.0.1:8443:8443" when the proxy runs on this host.
+      - "8443:8443"
+    # Only needed without SAMADCON_DC_HOSTS: finding a DC through SRV records
+    # takes a resolver that serves the domain, which is the DC itself.
+#    dns: ["192.168.1.1"]
+#    dns_search: ["example.lan"]
+#    extra_hosts: ["smb-dc.example.lan:192.168.1.1"]
     volumes:
-      # A real certificate goes here as server.crt and server.key. Without one
-      # the container generates a self-signed certificate on first start. The
-      # container runs as uid 1000 and a bind mount belongs to root, so this
-      # directory has to be writable for it — see below.
+      # Your own certificate goes here; without one a self-signed one is made.
       - ./tls:/etc/samadcon/tls
-      # CA bundles for validating the DCs' LDAPS certificates. Read-only: the
-      # container has no business changing what it validates against.
+      # CA bundles for validating the DCs' LDAPS certificates.
       - ./ca:/etc/samadcon/ca:ro
-      # Samba's cache and lock directory. Losing it costs nothing but a little
-      # speed; it is a volume so the container does not write into its own
-      # image layer.
+      # Samba's cache and lock directory.
       - samadcon-cache:/var/cache/samadcon
-      # The samadcon user's home, and Samba's private and state directory.
-      # Also where a generated certificate lands if ./tls is not writable —
-      # which is why losing this one means a new self-signed certificate.
+      # The samadcon user's home and Samba's state directory.
       - samadcon-data:/var/lib/samadcon
-      # The audit trail should outlive the container. Who did what, to which
-      # DN, with which attribute changed — the record you need when someone
-      # asks months later.
+      # The audit trail should outlive the container.
       - samadcon-logs:/var/log/samadcon
-
-    # Kerberos credential caches live in /dev/shm and must never hit a disk.
+    # Kerberos credential caches live in /dev/shm and never reach a disk.
     shm_size: 64m
     tmpfs:
-      # uid/gid are required: a tmpfs mount belongs to root by default, and
-      # nginx and supervisor run as uid 1000.
+      # uid/gid are required: a tmpfs mount belongs to root by default.
       - /run/samadcon:mode=0700,uid=1000,gid=1000,size=8m
-
-    # Nothing in here needs to become more privileged than it starts, and
-    # setuid binaries are the usual way that happens.
+    # Nothing here needs to become more privileged than it starts.
     security_opt:
       - no-new-privileges:true
-    # No capability at all. nginx listens on 8443, above the privileged range,
-    # so not even NET_BIND_SERVICE is wanted.
+    # nginx listens on 8443, above the privileged range — no capability needed.
     cap_drop:
       - ALL
 
-# Named volumes, so docker keeps them where it keeps such things and they
-# survive `docker compose down`. Only `docker compose down -v` removes them.
 volumes:
   samadcon-cache:
   samadcon-data:
@@ -224,11 +155,10 @@ you on the next push.
 
 ### Behind a reverse proxy
 
-The ports above bind to loopback, which is what most installations want: a proxy on the same
-host terminates TLS and forwards to `127.0.0.1:8443`. To reach the console directly from other
-machines instead, name the address in the `ports` lines — `0.0.0.0:8443:8443`, or better the
-one address it should answer on. (The `docker-compose.yml` in this repository reads it from
-`SAMADCON_BIND`, so there one `SAMADCON_BIND=0.0.0.0` does the same job.)
+The block above publishes on every interface, because a proxy on another machine has to be able
+to reach it. With the proxy on this host, bind to loopback instead — `127.0.0.1:8443:8443` — and
+then nothing outside the host can reach the console at all. (The `docker-compose.yml` in this
+repository reads the address from `SAMADCON_BIND` and defaults to loopback.)
 
 **A proxy on another machine** needs the opposite of loopback: SAMADCON has to answer on an
 address the proxy host can reach. Everything else follows from four settings, and each of the

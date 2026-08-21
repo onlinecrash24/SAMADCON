@@ -88,134 +88,55 @@ Verzeichnis legen:
 ```yaml
 services:
   samadcon:
-    # `latest` folgt dem Standardbranch. Für alles, woran etwas hängt, den
-    # `sha-<kurz>`-Tag festnageln — siehe „Welcher Tag" weiter unten.
     image: ghcr.io/onlinecrash24/samadcon:latest
-    # Fester Name, damit `docker logs samadcon` und `docker exec samadcon …`
-    # funktionieren, ohne nachzusehen, was compose vergeben hat.
     container_name: samadcon
-    # Kommt nach einem Neustart des Hosts wieder hoch, bleibt aber unten, wenn
-    # Sie ihn selbst gestoppt haben.
     restart: unless-stopped
-
     environment:
-      # Der Name, unter dem die Konsole erreichbar ist. Landet als CN und SAN
-      # im selbstsignierten Zertifikat und als Ziel der HTTP-nach-HTTPS-
-      # Weiterleitung — der eine Wert, den praktisch jede Installation
-      # ändern muss.
+      # Der Name, den die Leute eintippen. Wird CN und SAN des selbstsignierten Zertifikats.
       SAMADCON_PUBLIC_HOST: "samadcon.example.lan"
-      # Muss den Port benennen, den der Host veröffentlicht, nicht den, auf
-      # dem nginx lauscht. Die beiden unterscheiden sich, sobald ein Proxy
-      # oder eine Portabbildung dazwischenliegt — und die Weiterleitung zeigt
-      # dann irgendwohin, wo niemand ankommt.
-      SAMADCON_PUBLIC_HTTPS_PORT: "8443"
-      # Der Reverse Proxy vor diesem Container, falls es einen gibt. Nur einer
-      # hier genannten Adresse wird geglaubt, wer der Aufrufer ist — siehe
-      # „Hinter einem Reverse Proxy" weiter unten. Leer heißt: kein Proxy.
-      #
-      # Niemals 0.0.0.0/0: Das vertraut jedem Host, jeder Client darf dann
-      # seine Adresse selbst benennen, und das Audit-Log schreibt auf, was
-      # man ihm gesagt hat.
-      SAMADCON_TRUSTED_PROXIES: ""
-
-      # Beide dürfen leer bleiben: Die Anmeldemaske fragt dann nach einer
-      # Serveradresse. Eine IP ist hier in Ordnung. Kerberos braucht zwar den
-      # FQDN des DCs — für eine nackte Adresse gibt es kein Principal —, aber
-      # SAMADCON liest die rootDSE des Konfigurierten und erfährt den Namen
-      # vom DC selbst. Ein auflösbarer Name liest sich in Protokollen besser,
-      # nötig ist er nicht.
-      SAMADCON_REALM: ""
-      SAMADCON_DC_HOSTS: ""
-
-      # INFO benennt, was geschieht; DEBUG dient dazu, einem Problem
-      # nachzugehen, nicht dem Betrieb. Schreibende Zugriffe stehen ohnehin im
-      # Audit-Log — das hängt an dieser Einstellung nicht.
+      # Der Kerberos-Realm, in Großbuchstaben.
+      SAMADCON_REALM: "EXAMPLE.LAN"
+      # Der Domänencontroller. Eine IP genügt: Sein Name kommt aus der rootDSE.
+      SAMADCON_DC_HOSTS: "192.168.1.1"
+      # INFO benennt, was geschieht; DEBUG dient dem Nachgehen eines Problems.
       SAMADCON_LOG_LEVEL: "INFO"
-
-      # Der Modelldienst des KI-Managers. Leer heißt aus — es wird nichts
-      # irgendwohin gesendet, und die Berichte zeigen nur, was die Regeln
-      # gefunden haben. Die Adresse gehört hierher und nicht in die Oberfläche:
-      # Der Container führt den Aufruf aus, eine eintippbare Adresse würde also
-      # Hosts erreichen, an die der Browser nicht herankommt. Von hier drinnen
-      # ist localhost dieser Container — die Adresse des Ollama-Hosts angeben:
-      #
-      #   SAMADCON_OLLAMA_URL: "http://192.168.1.20:11434"
-      #
-      SAMADCON_OLLAMA_URL: ""
-
+      # Der Modelldienst des KI-Managers. Das Schema ist Pflicht. Leer heißt aus.
+      SAMADCON_OLLAMA_URL: "http://192.168.1.100:11434"
+      # Der Reverse Proxy, damit im Audit-Log der Browser steht und nicht er.
+      # Die Adresse seines Hosts, nicht die seines Containers. Niemals 0.0.0.0/0.
+      SAMADCON_TRUSTED_PROXIES: 192.168.1.200
     ports:
-      # Nur Loopback. Ohne Adressangabe veröffentlicht Docker auf jeder
-      # Schnittstelle des Hosts, und das hier ist eine Anmeldemaske, die
-      # Kerberos-Tickets für die Domäne ausstellt. Von einer anderen Maschine
-      # aus erreichbar zu sein ist eine Entscheidung — die trifft man hier,
-      # indem man die Adresse benennt, auf der geantwortet werden soll:
-      #
-      #   - "0.0.0.0:8443:8443"
-      #
-      - "127.0.0.1:8443:8443"
-      # HTTP, und es liefert genau zwei Dinge: die Weiterleitung auf HTTPS und
-      # den Health-Check. Hier wird nichts beantwortet, das zu lesen lohnt.
-      - "127.0.0.1:8080:8080"
-
-    # Wie der Container die Domäne erreicht. Sind die Controller in
-    # SAMADCON_DC_HOSTS benannt, braucht es hier nichts. Bleibt das leer, sucht
-    # SAMADCON einen DC über SRV-Records — und dafür braucht es einen Resolver,
-    # der die Domäne bedient, in der Praxis also den DC selbst. Ohne ihn
-    # scheitert die Anmeldung mit NT_STATUS_NO_LOGON_SERVERS, und nichts auf
-    # dem Weg dorthin sagt, warum:
-    #
-    #   dns: ["192.168.1.10"]
-    #   dns_search: ["example.lan"]
-    #
-    # Kerberos muss außerdem den FQDN des DCs auflösen können. Wo DNS ihn nicht
-    # liefert, direkt benennen — das gibt eine Adresse und keine SRV-Records,
-    # ergänzt `dns:` also, statt es zu ersetzen:
-    #
-    #   extra_hosts: ["dc1.example.lan:192.168.1.10"]
-
+      # Jede Schnittstelle — das braucht ein Proxy auf einer anderen Maschine.
+      # Läuft der Proxy auf diesem Host, "127.0.0.1:8443:8443" nehmen.
+      - "8443:8443"
+    # Nur ohne SAMADCON_DC_HOSTS nötig: Einen DC über SRV-Records zu finden
+    # verlangt einen Resolver, der die Domäne bedient — also den DC selbst.
+#    dns: ["192.168.1.1"]
+#    dns_search: ["example.lan"]
+#    extra_hosts: ["smb-dc.example.lan:192.168.1.1"]
     volumes:
-      # Ein echtes Zertifikat kommt hier als server.crt und server.key hinein.
-      # Ohne eins erzeugt der Container beim ersten Start ein selbstsigniertes.
-      # Der Container läuft als uid 1000, ein Bind-Mount gehört root — dieses
-      # Verzeichnis muss für ihn also beschreibbar sein, siehe unten.
+      # Ein eigenes Zertifikat kommt hierher; ohne eines wird eines erzeugt.
       - ./tls:/etc/samadcon/tls
-      # CA-Bündel zum Prüfen der LDAPS-Zertifikate der DCs. Nur lesend: Der
-      # Container hat nichts daran zu ändern, wogegen er prüft.
+      # CA-Bündel zum Prüfen der LDAPS-Zertifikate der DCs.
       - ./ca:/etc/samadcon/ca:ro
-      # Sambas Cache- und Lock-Verzeichnis. Es zu verlieren kostet nichts außer
-      # etwas Geschwindigkeit; es ist ein Volume, damit der Container nicht in
-      # seine eigene Image-Schicht schreibt.
+      # Sambas Cache- und Lock-Verzeichnis.
       - samadcon-cache:/var/cache/samadcon
-      # Das Home des samadcon-Benutzers und Sambas private- und
-      # state-Verzeichnis. Hier landet auch ein erzeugtes Zertifikat, wenn
-      # ./tls nicht beschreibbar ist — weshalb dieses Volume zu verlieren ein
-      # neues selbstsigniertes Zertifikat bedeutet.
+      # Das Home des samadcon-Benutzers und Sambas state-Verzeichnis.
       - samadcon-data:/var/lib/samadcon
-      # Die Audit-Spur sollte den Container überleben. Wer was an welchem DN
-      # mit welcher Attributänderung getan hat — die Aufzeichnung, die man
-      # braucht, wenn Monate später jemand fragt.
+      # Die Audit-Spur sollte den Container überleben.
       - samadcon-logs:/var/log/samadcon
-
-    # Kerberos-Credential-Caches liegen in /dev/shm und dürfen nie auf eine
-    # Platte gelangen.
+    # Kerberos-Credential-Caches liegen in /dev/shm und erreichen nie eine Platte.
     shm_size: 64m
     tmpfs:
-      # uid/gid sind nötig: Ein tmpfs-Mount gehört standardmäßig root, und
-      # nginx und supervisor laufen als uid 1000.
+      # uid/gid sind nötig: Ein tmpfs-Mount gehört standardmäßig root.
       - /run/samadcon:mode=0700,uid=1000,gid=1000,size=8m
-
-    # Nichts hier drin muss privilegierter werden, als es startet, und
-    # setuid-Programme sind der übliche Weg, auf dem das passiert.
+    # Nichts hier drin muss privilegierter werden, als es startet.
     security_opt:
       - no-new-privileges:true
-    # Gar keine Capability. nginx lauscht auf 8443, oberhalb des privilegierten
-    # Bereichs — nicht einmal NET_BIND_SERVICE wird gebraucht.
+    # nginx lauscht auf 8443, oberhalb des privilegierten Bereichs — keine Capability nötig.
     cap_drop:
       - ALL
 
-# Benannte Volumes, damit Docker sie dort verwahrt, wo es solche Dinge
-# verwahrt, und sie ein `docker compose down` überstehen. Erst
-# `docker compose down -v` entfernt sie.
 volumes:
   samadcon-cache:
   samadcon-data:
@@ -237,12 +158,11 @@ wandert beim nächsten Push unter Ihnen weg.
 
 ### Hinter einem Reverse Proxy
 
-Die Ports oben binden auf Loopback, was die meisten Installationen wollen: Ein Proxy auf demselben
-Host terminiert TLS und leitet an `127.0.0.1:8443` weiter. Wer die Konsole stattdessen direkt von
-anderen Maschinen aus erreichen will, benennt die Adresse in den `ports`-Zeilen —
-`0.0.0.0:8443:8443`, oder besser die eine Adresse, auf der geantwortet werden soll. (Die
-`docker-compose.yml` in diesem Repository liest sie aus `SAMADCON_BIND`; dort genügt ein
-`SAMADCON_BIND=0.0.0.0`.)
+Der Block oben veröffentlicht auf jeder Schnittstelle, weil ein Proxy auf einer anderen Maschine
+herankommen muss. Läuft der Proxy auf diesem Host, stattdessen auf Loopback binden —
+`127.0.0.1:8443:8443` — dann erreicht die Konsole von außerhalb des Hosts überhaupt niemand. (Die
+`docker-compose.yml` in diesem Repository liest die Adresse aus `SAMADCON_BIND` und steht
+standardmäßig auf Loopback.)
 
 **Ein Proxy auf einer anderen Maschine** braucht das Gegenteil von Loopback: SAMADCON muss auf
 einer Adresse antworten, die der Proxy-Host erreicht. Alles Weitere folgt aus vier Einstellungen,
