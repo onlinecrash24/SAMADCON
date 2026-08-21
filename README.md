@@ -239,10 +239,12 @@ was not exported.
 | `SAMADCON_PUBLIC_HOST` | The name the console is reached under. It becomes the CN and the SAN of the self-signed certificate and the target of the HTTPS redirect. **The one value practically every installation must change.** |
 | `SAMADCON_REALM`, `SAMADCON_DC_HOSTS` | Pre-fills the sign-in form. **Names that resolve, not bare IP addresses** — Kerberos needs the DC's FQDN. |
 | `SAMADCON_LDAP_CA_FILE` | The DC's CA, when the LDAPS certificate is to be validated. |
+| `SAMADCON_TRUSTED_PROXIES` | The reverse proxy in front of the container, if there is one. Without it every audit entry records the proxy instead of the administrator — see [Behind a reverse proxy](#behind-a-reverse-proxy). Empty when there is none. |
 
 What belongs to the machine rather than to the project stays as `${VAR:-default}` and comes from
-the shell: the ports, if 8443 or 8080 are taken; `SAMADCON_TARGET=test` for the test image; and
-the `TEST_*` values of the integration tests. **A password never belongs in the compose file** —
+the shell: the ports, if 8443 or 8080 are taken; `SAMADCON_BIND`, which is `127.0.0.1` unless the
+console should answer on another address; `SAMADCON_TARGET=test` for the test image; and the
+`TEST_*` values of the integration tests. **A password never belongs in the compose file** —
 that file is in version control.
 
 ### Steps
@@ -288,6 +290,10 @@ docker compose up -d --build
 The credentials come from the shell, not from a file — a domain administrator's password has no
 business in a file that can be backed up by accident.
 
+Unit tests need no domain and run anywhere. Three of them compare against files GPMC itself
+produced, kept in `backend/tests/data/` with a note on
+[where they came from](backend/tests/data/PROVENANCE.md) and what was changed to publish them.
+
 The tests live in the image rather than in a mount, which is what the `test` build target is for:
 
 ```bash
@@ -326,7 +332,7 @@ docker compose exec samadcon samadconctl check --server 192.168.1.10 --insecure
 | 1 | Foundation, auth, users/groups/computers/OUs (the ADUC replacement) | done, verified against a real domain |
 | 2 | DNS, Sites & Services, diagnostics (FSMO, replication, password policies) | done, verified against a real domain |
 | 3 | GPMC basics: GPOs, links, filtering, backup/restore, report | done, verified against a real domain |
-| 4 | Group policy editor: ADMX → security settings → Linux/VGP → preferences → scripts/folder redirection | complete; each of the five parts proven **applied** on a real client (4c through `samba-gpupdate --rsop`), preferences in all three waves |
+| 4 | Group policy editor: ADMX → security settings → Linux/VGP → preferences → scripts/folder redirection | complete; each of the five parts proven **applied** on a real client (4c through `samba-gpupdate --rsop`), preferences in all three waves. [What of that proof is in this repository](#the-policy-editor) — and what is not |
 
 Milestone 1 covers: Kerberos sessions, tree navigation, object lists and search (ANR), users
 (create, edit, account options, password reset, unlock, expiry), groups (scope/type, members
