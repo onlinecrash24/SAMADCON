@@ -24,6 +24,7 @@ import type {
   DnsRecordListing,
   DnsRecordTypeInfo,
   DnsZone,
+  DomainMembers,
   DomainReport,
   FindingArea,
   FindingsReport,
@@ -617,6 +618,9 @@ export const api = {
       `/assistant/report?model=${encodeURIComponent(model)}` +
         `&language=${language}&area=${area}&deep=${deep}`,
     ),
+  // The computer accounts and what their trust with the domain permits.
+  domainMembers: (limit = 500) =>
+    http.get<DomainMembers>(`/diagnostics/members?limit=${limit}`),
   passwordPolicy: () => http.get<PasswordPolicy>('/diagnostics/policy'),
   problemAccounts: (limit = 200) =>
     http.get<AccountProblems>(`/diagnostics/accounts?limit=${limit}`),

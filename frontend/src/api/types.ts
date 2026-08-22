@@ -598,6 +598,39 @@ export interface PasswordPolicy {
   password_settings_objects: PasswordSettingsObject[]
 }
 
+/** Which Kerberos ciphers a computer says it supports. */
+export interface MemberEncryption {
+  /** False when the attribute is absent — the KDC decides, which is not a weakness. */
+  configured: boolean
+  value: number | null
+  types: string[]
+  /** DES only. Present means broken, not merely dated. */
+  weak: string[]
+  has_aes: boolean | null
+}
+
+export interface DomainMember {
+  dn: string
+  name: string | null
+  dns_host_name: string | null
+  operating_system: string | null
+  operating_system_version: string | null
+  enabled: boolean
+  is_domain_controller: boolean
+  last_logon: string | null
+  encryption: MemberEncryption
+  /** 'unconstrained' takes any ticket; 'constrained' only for the named services. */
+  delegation: 'unconstrained' | 'constrained' | null
+  delegates_to: string[]
+}
+
+export interface DomainMembers {
+  members: DomainMember[]
+  count: number
+  /** The search hit its ceiling; what is shown is not all of it. */
+  truncated: boolean
+}
+
 export interface ProblemAccount {
   dn: string
   name: string

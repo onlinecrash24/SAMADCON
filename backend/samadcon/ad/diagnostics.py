@@ -539,6 +539,104 @@ def domain_facts(conn: DirectoryConnection) -> dict[str, Any]:
     }
 
 
+# msDS-SupportedEncryptionTypes, bit by bit. From MS-KILE 2.2.7; the names are
+# the ones the KDC and every diagnostic tool use, so they are kept rather than
+# rephrased.
+ENCRYPTION_BITS: tuple[tuple[int, str, bool], ...] = (
+    (0x01, "des-cbc-crc", True),
+    (0x02, "des-cbc-md5", True),
+    (0x04, "rc4-hmac", False),
+    (0x08, "aes128-cts-hmac-sha1-96", False),
+    (0x10, "aes256-cts-hmac-sha1-96", False),
+    (0x20, "aes256-cts-hmac-sha1-96-sk", False),
+)
+
+MEMBER_ATTRS = [
+    "distinguishedName",
+    "name",
+    "sAMAccountName",
+    "dNSHostName",
+    "operatingSystem",
+    "operatingSystemVersion",
+    "userAccountControl",
+    "lastLogonTimestamp",
+    "msDS-SupportedEncryptionTypes",
+    "msDS-AllowedToDelegateTo",
+]
+
+
+def _encryption(entry: Any) -> dict[str, Any]:
+    """Which Kerberos ciphers this computer says it supports.
+
+    ``configured`` is false when the attribute is absent, and that is not the
+    same as supporting nothing. An absent value leaves the choice to the KDC,
+    which on a current Samba or Windows includes AES — so it is reported as
+    unset rather than as a weakness, and no rule fires on it.
+    """
+    raw = values.as_int(entry, "msDS-SupportedEncryptionTypes")
+    if raw is None:
+        return {"configured": False, "value": None, "types": [], "weak": [], "has_aes": None}
+
+    types = [name for bit, name, _ in ENCRYPTION_BITS if raw & bit]
+    weak = [name for bit, name, broken in ENCRYPTION_BITS if raw & bit and broken]
+    has_aes = any(name.startswith("aes") for name in types)
+    return {
+        "configured": True,
+        "value": raw,
+        "types": types,
+        "weak": weak,
+        "has_aes": has_aes,
+    }
+
+
+def domain_members(conn: DirectoryConnection, *, limit: int = 500) -> dict[str, Any]:
+    """Every computer account, with what its trust with the domain permits.
+
+    One search. Domain controllers are included and marked rather than left
+    out: unconstrained delegation on a DC is expected and on a member is not,
+    and a list that hid the DCs would leave a reader wondering where they went.
+    """
+    result = conn.search(
+        conn.info.base_dn,
+        scope=SCOPE_SUBTREE,
+        expression="(objectCategory=computer)",
+        attrs=MEMBER_ATTRS,
+        max_results=limit,
+    )
+
+    members: list[dict[str, Any]] = []
+    for entry in result:
+        flags = values.as_int(entry, "userAccountControl", 0) or 0
+        delegate_to = values.as_list(entry, "msDS-AllowedToDelegateTo")
+        members.append(
+            {
+                "dn": values.as_str(entry, "distinguishedName"),
+                "name": values.as_str(entry, "name"),
+                "dns_host_name": values.as_str(entry, "dNSHostName"),
+                "operating_system": values.as_str(entry, "operatingSystem"),
+                "operating_system_version": values.as_str(entry, "operatingSystemVersion"),
+                "enabled": not (flags & uac.ACCOUNTDISABLE),
+                "is_domain_controller": bool(flags & uac.SERVER_TRUST_ACCOUNT),
+                "last_logon": values.as_filetime(entry, "lastLogonTimestamp"),
+                "encryption": _encryption(entry),
+                # Unconstrained takes any ticket; constrained takes one for the
+                # services named in msDS-AllowedToDelegateTo. Different risks,
+                # so they are different words rather than one flag.
+                "delegation": (
+                    "unconstrained"
+                    if flags & uac.TRUSTED_FOR_DELEGATION
+                    else "constrained"
+                    if delegate_to or flags & uac.TRUSTED_TO_AUTH_FOR_DELEGATION
+                    else None
+                ),
+                "delegates_to": delegate_to,
+            }
+        )
+
+    members.sort(key=lambda member: (member["name"] or "").lower())
+    return {"members": members, "count": len(members), "truncated": len(members) >= limit}
+
+
 def overview(conn: DirectoryConnection) -> dict[str, Any]:
     """The diagnosis page in one call."""
     return {

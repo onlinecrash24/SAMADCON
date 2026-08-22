@@ -24,7 +24,7 @@ import { useI18n } from '../../i18n'
 import type { MessageKey } from '../../i18n/messages'
 import { useSession } from '../../state/session'
 
-type Tab = 'overview' | 'replication' | 'policy' | 'accounts'
+type Tab = 'overview' | 'replication' | 'policy' | 'accounts' | 'members'
 
 export function DiagnosticsView() {
   const { t } = useI18n()
@@ -42,7 +42,8 @@ export function DiagnosticsView() {
     <>
       <div className="pane__header">
         <div className="tabs">
-          {(['overview', 'replication', 'policy', 'accounts'] as Tab[]).map((id) => (
+          {(['overview', 'replication', 'policy', 'accounts', 'members'] as Tab[]).map(
+            (id) => (
             <button
               key={id}
               type="button"
@@ -51,7 +52,8 @@ export function DiagnosticsView() {
             >
               {t(`diag.tab.${id}` as MessageKey)}
             </button>
-          ))}
+            ),
+          )}
         </div>
       </div>
 
@@ -67,7 +69,108 @@ export function DiagnosticsView() {
       {tab === 'replication' && <ReplicationCard status={data.replication} />}
       {tab === 'policy' && <PolicyCard policy={data.policy} />}
       {tab === 'accounts' && <AccountsCard />}
+      {tab === 'members' && <MembersCard />}
     </>
+  )
+}
+
+
+/**
+ * The computer accounts, and what their trust with the domain is worth.
+ *
+ * Not who is connected right now — a live session and whether it is signed
+ * live in smbstatus on the controller, which nothing reaches over the wire.
+ * This answers the harder half: what each machine is able to negotiate, and
+ * which of them could impersonate a user if it were taken.
+ */
+function MembersCard() {
+  const { t } = useI18n()
+  const formatDate = useDateFormat()
+  const members = useQuery({
+    queryKey: ['domain-members'],
+    queryFn: () => api.domainMembers(),
+  })
+
+  if (members.isLoading) return <Spinner label={t('status.loading')} />
+  if (members.error) return <ErrorMessage error={members.error} />
+
+  const data = members.data
+  if (!data) return null
+
+  return (
+    <section className="card">
+      <h3>{t('diag.members')}</h3>
+      <p className="muted small">{t('diag.membersHint')}</p>
+
+      {data.truncated && (
+        // Said outright rather than left to be inferred from a round number:
+        // a list that quietly stops is read as a complete one.
+        <div className="alert alert--warning">
+          {t('diag.membersTruncated', { count: data.count })}
+        </div>
+      )}
+
+      {data.members.length === 0 && <p className="muted">{t('diag.noMembers')}</p>}
+
+      {data.members.length > 0 && (
+        <div className="table-wrap">
+          <table className="table table--compact">
+            <thead>
+              <tr>
+                <th>{t('sites.name')}</th>
+                <th>{t('diag.operatingSystem')}</th>
+                <th>{t('diag.lastLogon')}</th>
+                <th>{t('diag.delegation')}</th>
+                <th>{t('diag.encryption')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.members.map((member) => (
+                <tr key={member.dn}>
+                  <td>
+                    {member.name}
+                    {member.is_domain_controller && (
+                      <> <Badge tone="muted">{t('diag.isDc')}</Badge></>
+                    )}
+                    {!member.enabled && (
+                      <> <Badge tone="muted">{t('diag.memberDisabled')}</Badge></>
+                    )}
+                  </td>
+                  <td className="muted small">{member.operating_system ?? '—'}</td>
+                  <td className="muted small">{formatDate(member.last_logon)}</td>
+                  <td>
+                    {member.delegation === 'unconstrained' ? (
+                      // Expected on a controller, alarming anywhere else — the
+                      // colour follows that rather than the flag alone.
+                      <Badge tone={member.is_domain_controller ? 'muted' : 'danger'}>
+                        {t('diag.delegationUnconstrained')}
+                      </Badge>
+                    ) : member.delegation === 'constrained' ? (
+                      <Badge tone="muted">{t('diag.delegationConstrained')}</Badge>
+                    ) : (
+                      <span className="muted">—</span>
+                    )}
+                  </td>
+                  <td>
+                    {!member.encryption.configured ? (
+                      // Unset is not weak: the KDC decides, and on anything
+                      // current that includes AES.
+                      <span className="muted small">{t('diag.encryptionUnset')}</span>
+                    ) : member.encryption.weak.length > 0 ? (
+                      <Badge tone="danger">{member.encryption.weak.join(', ')}</Badge>
+                    ) : (
+                      <span className="mono small">
+                        {member.encryption.types.join(', ') || '—'}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   )
 }
 

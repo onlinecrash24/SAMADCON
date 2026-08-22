@@ -81,6 +81,7 @@ def evaluate(
     policy: dict[str, Any] | None = None,
     replication: dict[str, Any] | None = None,
     connection: dict[str, Any] | None = None,
+    members: dict[str, Any] | None = None,
 ) -> list[Finding]:
     """Every finding these inputs support, worst first.
 
@@ -95,6 +96,8 @@ def evaluate(
         found.extend(_replication(replication))
     if connection is not None:
         found.extend(_connection(connection))
+    if members is not None:
+        found.extend(_members(members))
 
     order = {name: index for index, name in enumerate(SEVERITIES)}
     found.sort(key=lambda finding: (order.get(finding.severity, len(order)), finding.id))
@@ -275,6 +278,56 @@ def _replication(replication: dict[str, Any]) -> list[Finding]:
         )
     ]
 
+
+
+def _members(members: dict[str, Any]) -> list[Finding]:
+    """What a computer account's trust with the domain is worth.
+
+    Two rules, one per machine, and both about something the machine can do
+    rather than something it happens to be doing.
+
+    Everything else this listing carries — operating system, last logon, an
+    unset encryption list — is context and not a finding. In particular an
+    absent msDS-SupportedEncryptionTypes is not a weakness: it leaves the
+    choice to the KDC, which on a current Samba or Windows includes AES. A
+    rule on it would mark most healthy domains.
+    """
+    found: list[Finding] = []
+
+    for member in members.get("members") or []:
+        name = member.get("name") or member.get("dn") or ""
+
+        # Expected on a domain controller and alarming on anything else, so
+        # the DCs are skipped rather than explained away in the text.
+        if member.get("delegation") == "unconstrained" and not member.get(
+            "is_domain_controller"
+        ):
+            found.append(
+                Finding(
+                    id="member_unconstrained_delegation",
+                    severity="high",
+                    area="members",
+                    subject=name,
+                    evidence={
+                        "operating_system": member.get("operating_system"),
+                        "enabled": member.get("enabled"),
+                    },
+                )
+            )
+
+        weak = (member.get("encryption") or {}).get("weak") or []
+        if weak:
+            found.append(
+                Finding(
+                    id="member_weak_encryption",
+                    severity="high",
+                    area="members",
+                    subject=name,
+                    evidence={"ciphers": ", ".join(weak)},
+                )
+            )
+
+    return found
 
 def _connection(connection: dict[str, Any]) -> list[Finding]:
     # Only LDAPS involves a certificate. Under Kerberos the DC proves itself by

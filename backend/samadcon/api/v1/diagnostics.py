@@ -70,6 +70,24 @@ async def account_problems(
     )
 
 
+@router.get("/members")
+async def domain_members(
+    worker: Worker,
+    session: CurrentSession,
+    limit: Annotated[int, Query(ge=1, le=5000)] = 500,
+) -> dict[str, Any]:
+    """The computer accounts, and what their trust with the domain permits.
+
+    Not who is connected this second — that lives in smbstatus on the
+    controller and never reaches the wire. What the directory holds is the
+    harder half of the question anyway: what each machine is able to
+    negotiate, and which of them could impersonate a user if it were taken.
+    """
+    return await ad_read(
+        worker, session, diagnostics.domain_members, limit=limit, label="diag.members"
+    )
+
+
 @router.get("/findings")
 async def security_findings(
     worker: Worker,

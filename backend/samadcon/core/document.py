@@ -58,6 +58,7 @@ def build(conn: Any, *, deep: bool = False) -> dict[str, Any]:
         "security": {
             "policy": security["policy"],
             "replication": security["replication"],
+            "members": security["members"],
             "findings": security["findings"],
             "unreadable": security["unreadable"] + unreadable,
         },

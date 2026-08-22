@@ -60,6 +60,10 @@ def _security(conn: Any) -> dict[str, Any]:
     for name, read in (
         ("policy", diagnostics.password_policy),
         ("replication", diagnostics.replication),
+        # The computer accounts, for what their trust with the domain
+        # permits — unconstrained delegation and broken ciphers. One more
+        # search, and it answers a question nothing else here does.
+        ("members", diagnostics.domain_members),
     ):
         try:
             gathered[name] = read(conn)
@@ -72,6 +76,7 @@ def _security(conn: Any) -> dict[str, Any]:
         policy=gathered.get("policy"),
         replication=gathered.get("replication"),
         connection=connection,
+        members=gathered.get("members"),
     )
 
     return {
@@ -80,6 +85,7 @@ def _security(conn: Any) -> dict[str, Any]:
         "policy": gathered.get("policy"),
         "replication": gathered.get("replication"),
         "connection": connection,
+        "members": gathered.get("members"),
     }
 
 

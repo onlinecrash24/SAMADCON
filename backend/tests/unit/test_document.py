@@ -36,6 +36,7 @@ def collected(**overrides: Any) -> dict[str, Any]:
         "policy": {"min_length": 7},
         "replication": {"failing": 0},
         "connection": {"transport": "ldap", "encrypted": True},
+        "members": {"members": [], "count": 0, "truncated": False},
         "gpos": [],
         "links": {},
         "status": {},

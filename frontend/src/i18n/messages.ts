@@ -477,6 +477,21 @@ export const de = {
   'diag.tab.overview': 'Übersicht',
   'diag.tab.replication': 'Replikation',
   'diag.tab.policy': 'Kennwortrichtlinie',
+  'diag.tab.members': 'Mitglieder',
+  'diag.members': 'Rechner in der Domäne',
+  'diag.membersHint':
+    'Nicht wer gerade verbunden ist — das steht in smbstatus auf dem Domänencontroller und verlässt ihn nicht. Hier steht, was jeder Rechner darf: welche Kerberos-Verschlüsselung er aushandeln kann, und ob er sich bei der Anmeldung anderer für sie ausgeben könnte.',
+  'diag.membersTruncated':
+    'Die Liste wurde bei {count} Einträgen abgeschnitten — es sind mehr, als hier stehen.',
+  'diag.noMembers': 'In dieser Domäne ist kein Rechnerkonto angelegt.',
+  'diag.isDc': 'DC',
+  'diag.memberDisabled': 'deaktiviert',
+  'diag.delegation': 'Delegierung',
+  'diag.delegationUnconstrained': 'uneingeschränkt',
+  'diag.delegationConstrained': 'eingeschränkt',
+  'diag.encryption': 'Verschlüsselung',
+  'diag.encryptionUnset': 'nicht gesetzt — der KDC entscheidet',
+
   'diag.tab.accounts': 'Konten',
 
   'report.open': 'Bericht',
@@ -524,6 +539,13 @@ export const de = {
     'Jede Zeile hier stammt aus einer Regel über Werte, die dieses Werkzeug selbst liest, und trägt die Werte mit, aus denen sie entschieden wurde. Kein Sprachmodell ist daran beteiligt.',
   'findings.intro.policies':
     'Gruppenrichtlinien, die nicht das tun, wonach sie aussehen. Eine Richtlinie, die niemanden erreicht, sieht in jeder Konsole aus wie eine funktionierende — Einstellungen, Versionen und Verknüpfungen stehen da, nur passiert nichts.',
+
+  'findings.member_unconstrained_delegation': 'Uneingeschränkte Delegierung',
+  'findings.member_unconstrained_delegation.why':
+    'Dieser Rechner erhält von jedem, der sich bei ihm anmeldet, ein weiterreichbares Kerberos-Ticket — auch von einem Domänenadministrator. Wer die Maschine übernimmt, übernimmt damit die Domäne. Auf einem Domänencontroller ist das erwartbar und wird nicht gemeldet; auf allem anderen braucht es heute fast nichts mehr.',
+  'findings.member_weak_encryption': 'Gebrochene Verschlüsselung erlaubt',
+  'findings.member_weak_encryption.why':
+    'Der Rechner verlangt vom KDC ein DES-Verfahren. DES gilt seit 1998 öffentlich als gebrochen. Die betroffenen Verfahren stehen unten.',
 
   'findings.gpo_not_linked': 'Nirgends verknüpft',
   'findings.gpo_not_linked.why':
@@ -1738,6 +1760,21 @@ export const en: Record<MessageKey, string> = {
   'diag.tab.overview': 'Overview',
   'diag.tab.replication': 'Replication',
   'diag.tab.policy': 'Password policy',
+  'diag.tab.members': 'Members',
+  'diag.members': 'Computers in the domain',
+  'diag.membersHint':
+    'Not who is connected right now — that lives in smbstatus on the domain controller and never leaves it. This is what each machine may do: which Kerberos ciphers it can negotiate, and whether it could impersonate other people as they authenticate to it.',
+  'diag.membersTruncated':
+    'The list stopped at {count} entries — there are more than are shown here.',
+  'diag.noMembers': 'This domain has no computer account.',
+  'diag.isDc': 'DC',
+  'diag.memberDisabled': 'disabled',
+  'diag.delegation': 'Delegation',
+  'diag.delegationUnconstrained': 'unconstrained',
+  'diag.delegationConstrained': 'constrained',
+  'diag.encryption': 'Encryption',
+  'diag.encryptionUnset': 'unset — the KDC decides',
+
   'diag.tab.accounts': 'Accounts',
 
   'report.open': 'Report',
@@ -1785,6 +1822,13 @@ export const en: Record<MessageKey, string> = {
     'Every line here comes from a rule over values this tool reads itself, and carries the values it was decided from. No language model is involved.',
   'findings.intro.policies':
     'Group policies that do not do what they look like they do. A policy reaching nobody looks exactly like one that works — the settings, the versions and the links are all there, and nothing happens.',
+
+  'findings.member_unconstrained_delegation': 'Unconstrained delegation',
+  'findings.member_unconstrained_delegation.why':
+    'This machine receives a forwardable Kerberos ticket from everyone who authenticates to it, a domain administrator included. Whoever holds the machine holds the domain. Expected on a domain controller and not reported there; almost nothing else needs it any more.',
+  'findings.member_weak_encryption': 'A broken cipher is permitted',
+  'findings.member_weak_encryption.why':
+    'The machine asks the KDC for a DES cipher. DES has been publicly broken since 1998. The ciphers concerned are listed below.',
 
   'findings.gpo_not_linked': 'Linked nowhere',
   'findings.gpo_not_linked.why':
