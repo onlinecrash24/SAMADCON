@@ -56,8 +56,12 @@ export function ObjectPropertiesWindow({
   if (object.error || !object.data) {
     return (
       <div className="sheet-window">
-        <ErrorMessage error={object.error} />
-        {!object.error && <p className="muted">{t('window.gone')}</p>}
+        {/* A panel here too: a directory error can run to several lines, and
+            without one it pushes the close button out of the window. */}
+        <div className="sheet-window__panel">
+          <ErrorMessage error={object.error} />
+          {!object.error && <p className="muted">{t('window.gone')}</p>}
+        </div>
         <div className="sheet-window__footer">
           <button type="button" className="button" onClick={onClose}>
             {t('action.close')}

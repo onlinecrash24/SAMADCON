@@ -648,8 +648,14 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 .menu__separator { height: 1px; margin: 4px 0; background: var(--border); }
 .menu__empty { padding: 5px 12px; color: var(--text-muted); font-size: 0.88em; }
 
-/* One level deep, opening to the right of its parent row. */
-.menu--sub { top: -5px; left: 100%; margin-left: 2px; }
+/* One level deep, opening to the right of its parent row.
+
+   position:absolute is the whole rule. The submenu also carries .menu, which
+   is position:fixed — and on a fixed box `left: 100%` measures against the
+   viewport, so it opened at the right-hand edge of the screen with thirteen
+   pixels of itself visible. Absolute makes it measure against .menu__row,
+   which is position:relative for exactly this. */
+.menu--sub { position: absolute; top: -5px; left: 100%; margin-left: 2px; }
 
 /* --------------------------------------------------------------------- */
 /* Tree                                                                  */
@@ -843,9 +849,6 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 /* Modal                                                                 */
 /* --------------------------------------------------------------------- */
 
-/* Only the topmost overlay tints the page; the rest are just a positioning
-   layer. Two dialogs each at 45% black made the lower one unreadable. */
-.modal__backdrop--stacked { background: none; }
 .modal__backdrop {
   position: fixed;
   inset: 0;
@@ -856,6 +859,13 @@ body.is-resizing { cursor: col-resize; user-select: none; }
   padding: 16px;
   z-index: 50;
 }
+/* Only the topmost overlay tints the page; the rest are just a positioning
+   layer. Two dialogs each at 45% black made the lower one unreadable.
+
+   After the rule it overrides, not before. Both are one class, so specificity
+   is equal and source order is all there is — declared first, as it was, it
+   lost every time and the second dialog darkened the page anyway. */
+.modal__backdrop--stacked { background: none; }
 .modal {
   width: 100%;
   max-width: 480px;
