@@ -11,7 +11,7 @@ from samadcon.ad.access import ad_read, ad_write
 from samadcon.api.common import Audit, DnQuery
 from samadcon.auth.deps import CurrentSession, VerifiedSession, VerifiedWorker, Worker
 from samadcon.core.errors import InvalidRequest
-from samadcon.gpo import container, gpmc, report, transfer, wmi
+from samadcon.gpo import container, cse, gpmc, report, transfer, wmi
 from samadcon.schemas.requests import (
     AddGpoLinkRequest,
     AssignWmiFilterRequest,
@@ -68,6 +68,66 @@ async def gpo_status(worker: Worker, session: CurrentSession, dn: DnQuery) -> di
         return status
 
     return await ad_read(worker, session, _run, label="gpo.status")
+
+
+@router.get("/registration")
+async def registration(worker: Worker, session: CurrentSession, dn: DnQuery) -> dict[str, Any]:
+    """What would have to change for registration to match the content.
+
+    Read-only, and offered separately from applying it. These attributes are
+    what decides whether a client runs a policy at all — someone should see
+    the change before making it, not learn what it was afterwards.
+    """
+
+    def _run(conn: Any) -> dict[str, Any]:
+        gpo = container.get_gpo(conn, dn)
+        built = report.build_report(conn, dn)
+        return {"halves": report.registration_differences(gpo, built)}
+
+    return await ad_read(worker, session, _run, label="gpo.registration")
+
+
+@router.post("/registration")
+async def reconcile_registration(
+    worker: VerifiedWorker, session: VerifiedSession, audit: Audit, dn: DnQuery
+) -> dict[str, Any]:
+    """Register what the content asks for, and drop what applies nothing.
+
+    Recomputed here rather than taken from the request. A client that sent the
+    difference back would be sending one measured before whatever else has
+    happened since, and this writes the attribute that decides whether the
+    policy runs.
+    """
+    with audit.operation("gpo.reconcile_registration", target=dn) as record:
+
+        def _run(conn: Any) -> dict[str, Any]:
+            gpo = container.get_gpo(conn, dn)
+            differences = report.registration_differences(gpo, report.build_report(conn, dn))
+
+            changed: dict[str, Any] = {}
+            for half in ("Machine", "User"):
+                half_id = half.lower()
+                missing = [(pair[0], pair[1]) for pair in differences[half_id]["missing"]]
+                surplus = [entry[0] for entry in differences[half_id]["surplus"]]
+
+                if missing:
+                    # One write for the half, not one per pair: a second write
+                    # that failed would leave the attribute half done.
+                    cse.register_pairs(conn, dn, half, missing, present=True)
+                for guid in surplus:
+                    cse.register(conn, dn, half, guid.strip("{}"), "", present=False)
+
+                if missing or surplus:
+                    changed[half_id] = {
+                        "registered": [cse.braced(pair[0]) for pair in missing],
+                        "unregistered": surplus,
+                    }
+
+            return {"changed": changed, "reconciled": bool(changed)}
+
+        result = await ad_write(worker, session, _run, label="gpo.reconcile_registration")
+        record["changes"] = result["changed"]
+    return result
 
 
 @router.post("")

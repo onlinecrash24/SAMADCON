@@ -162,6 +162,98 @@ def _applies_anything(half: dict[str, Any]) -> bool:
 REGISTRATION_ATTRIBUTE = {"Machine": "machine_extensions", "User": "user_extensions"}
 
 
+# Which extension pair each bucket of understood content asks for. The two
+# absent keys are deliberate and documented in required_pairs.
+_CONTENT_PAIRS = {
+    "registry": (cse.REGISTRY_CSE, cse.REGISTRY_TOOL),
+    "security": (cse.SECURITY_CSE, cse.SECURITY_TOOL),
+    "scripts": (cse.SCRIPTS_CSE, cse.SCRIPTS_TOOL),
+    "redirection": (cse.REDIRECTION_CSE, cse.REDIRECTION_TOOL),
+}
+
+
+def required_pairs(half: dict[str, Any]) -> list[tuple[str, str]]:
+    """The extension/tool pairs this half's content asks a client to run.
+
+    Per extension rather than per half, which is what
+    :func:`registration_problems` says it needs and does not have. Order is
+    stable so a caller can compare two calls without sorting.
+
+    Two buckets map to nothing on purpose. ``vgp`` registers no extension —
+    Windows ignores those policies and samba-gpupdate runs its extensions
+    against every applicable policy anyway — and ``other_files`` is content
+    this module did not understand, which is no basis for choosing an
+    extension that would claim to apply it.
+    """
+    pairs: list[tuple[str, str]] = []
+
+    for bucket, pair in _CONTENT_PAIRS.items():
+        if half[bucket]:
+            pairs.append(pair)
+
+    for group in half["preferences"]:
+        found = _preference_type(group)
+        if found is None:
+            # An unknown directory under Preferences\. Same reasoning as
+            # other_files: not understood is not a licence to guess.
+            logger.warning("no preference type for %r", group.get("type"))
+            continue
+        if group["items"]:
+            pairs.extend(found.pairs)
+
+    seen: set[tuple[str, str]] = set()
+    return [pair for pair in pairs if not (pair in seen or seen.add(pair))]
+
+
+def _preference_type(group: dict[str, Any]) -> Any:
+    """The catalogue entry a report group belongs to, matched on its file.
+
+    The filename is the stronger key: two types could conceivably share a
+    directory name across versions, but Drives.xml is Drives.xml.
+    """
+    from samadcon.gpo.preferences import catalogue
+
+    filename = (group.get("file") or "").lower()
+    directory = (group.get("type") or "").lower()
+    for found in catalogue.TYPES.values():
+        if found.filename.lower() == filename and found.directory.lower() == directory:
+            return found
+    return None
+
+
+def registration_differences(
+    gpo: dict[str, Any], report: dict[str, Any]
+) -> dict[str, dict[str, list[list[str]]]]:
+    """Per half, what registration would have to change to match the content.
+
+    ``missing`` is content no registered extension would apply. Adding those is
+    the safe direction: it makes a policy do what it already says it does.
+
+    ``surplus`` is the other way round — an extension registered with nothing
+    behind it, so every client in scope fetches the policy each refresh and
+    finds it empty. Extensions Windows keeps on purpose are excluded, because
+    removing them would undo a state GPMC produces deliberately; see
+    :data:`samadcon.gpo.cse.KEEPS_REGISTRATION`.
+
+    Pairs come back as lists so this survives a trip through JSON unchanged.
+    """
+    differences: dict[str, dict[str, list[list[str]]]] = {}
+
+    for half, attribute in REGISTRATION_ATTRIBUTE.items():
+        content = required_pairs(report[half.lower()])
+        registered = cse.registered_extensions(gpo.get(attribute))
+        wanted = {cse.braced(pair[0]) for pair in content}
+
+        missing = [list(pair) for pair in content if cse.braced(pair[0]) not in registered]
+        surplus = sorted(registered - wanted - cse.KEEPS_REGISTRATION)
+
+        differences[half.lower()] = {
+            "missing": missing,
+            "surplus": [[guid] for guid in surplus],
+        }
+    return differences
+
+
 def registration_problems(gpo: dict[str, Any], report: dict[str, Any]) -> list[str]:
     """Where a policy's content and its extension registration disagree.
 
