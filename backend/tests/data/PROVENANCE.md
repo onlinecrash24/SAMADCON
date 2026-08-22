@@ -17,8 +17,9 @@ builds it from the loaded bytes.
 | `fdeploy1.ini` | Folder redirection: Saved Games, redirected under a root path for Everyone | GPMC, GPO "Wegwerf-GPO" |
 | `scripts.ini` | A machine startup script — PowerShell with an execution-policy argument | GPMC, GPO "Deploy Tactical RMM Agent" |
 | `GptTmpl.inf` | Security settings: minimum password length, lockout threshold, logon auditing, one user right | GPMC, GPO "Wegwerf-GPO" |
+| `fdeploy1-cleared.ini` | The same file after the last redirected folder was set back to *Not configured* | GPMC, GPO "Wegwerf-GPO" |
 
-All three are UTF-16LE with a `FF FE` byte-order mark and CRLF line endings.
+All four are UTF-16LE with a `FF FE` byte-order mark and CRLF line endings.
 That is not incidental — a client ignores the file if the encoding is wrong,
 and says nothing about it.
 
@@ -28,6 +29,21 @@ section; the preamble of `fdeploy1.ini`, which is a blank line, a line of five
 spaces and another blank line, and its lower-case `[version]` beside
 mixed-case `[Folder_Redirection]`; the spacing around the equals sign in
 `GptTmpl.inf`, which differs from section to section.
+
+### The one that needed no sanitising
+
+`fdeploy1-cleared.ini` is unmodified. It is what GPMC leaves behind when the
+last redirected folder goes back to *Not configured*, and what it leaves is a
+preamble and nothing else: the byte-order mark, a blank line, a line of five
+spaces, `[version]`, `version=100`, `[Folder_Redirection]`. No folder, no
+SID, no path — so there was nothing in it to replace, and the 112 bytes here
+are the 112 bytes on the share.
+
+That makes it the only reference in this directory a third party can check
+against their own GPMC exactly. It also settles two questions that had been
+guessed at: GPMC does **not** delete the file, and it does **not** leave the
+redirection behind marked as off. A note in the working list had it that a
+cleared redirection keeps its section with `Flags=4`. It does not.
 
 ## What was changed, and what that costs
 

@@ -125,6 +125,46 @@ GPMC_REFERENCE = reference("fdeploy1.ini")
 # says so in its own name.
 
 
+
+# ---------------------------------------------------------------------------
+# What GPMC leaves when the last redirection goes
+# ---------------------------------------------------------------------------
+
+# Unmodified, unlike every other reference here: a cleared file holds no
+# domain name, no SID and no path, so there was nothing in it to replace.
+# 112 bytes on the share, 112 bytes in tests/data.
+CLEARED = reference("fdeploy1-cleared.ini")
+
+
+def test_a_cleared_file_is_the_preamble_and_nothing_else():
+    """Setting the last folder back to "Not configured" in GPMC does not
+    delete fdeploy1.ini and does not leave the redirection behind marked as
+    off. It rewrites the file down to what it opens with.
+
+    A note in the working list had it that a cleared redirection keeps its
+    section with Flags=4. Measured, it does not."""
+    parsed = folders.parse(CLEARED.decode("utf-16"))
+
+    assert parsed["folders"] == []
+    assert parsed["other"] == {}
+    assert parsed["version"] == {"version": "100"}
+
+
+def test_clearing_leaves_the_same_preamble_the_populated_file_opens_with():
+    """Which is why our own writer can render one: the two references agree
+    on every byte up to the first folder."""
+    populated = GPMC_REFERENCE.decode("utf-16")
+    cleared = CLEARED.decode("utf-16")
+    shared = cleared[: cleared.index("[Folder_Redirection]") + len("[Folder_Redirection]")]
+
+    assert populated.startswith(shared)
+
+
+def test_our_own_render_of_nothing_matches_what_gpmc_wrote():
+    """The strongest thing this file can say. If these differ, a policy we
+    cleared reads differently from one GPMC cleared."""
+    assert folders.render([], version="100") == CLEARED
+
 def test_the_reference_reads_as_one_redirected_folder():
     parsed = folders.parse(GPMC_REFERENCE.decode("utf-16"))
 
