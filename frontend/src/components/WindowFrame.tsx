@@ -75,6 +75,10 @@ export function WindowFrame({
   const dragTitle = usePointerDrag({
     onStart: (event) => {
       if (event.button !== 0 || maximised) return false
+      // Minimise, maximise and close live in this bar. Starting a drag would
+      // capture the pointer to the bar, so the release never reaches the
+      // button and no click is ever produced — the three of them were dead.
+      if ((event.target as HTMLElement).closest('button')) return false
       onFocus()
       from.current = { px: event.clientX, py: event.clientY, x, y, w, h }
       return true

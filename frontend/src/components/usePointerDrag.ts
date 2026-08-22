@@ -84,6 +84,9 @@ export function usePointerDrag({
       // elements, and text under it must not select.
       document.body.classList.add('is-resizing')
       document.addEventListener('keydown', onKey, true)
+      // Stops the browser starting a text or image drag of its own from under
+      // the handle. It does not stop the click: measured in a browser, a
+      // double-click on a captured handle still arrives.
       event.preventDefault()
     },
 
