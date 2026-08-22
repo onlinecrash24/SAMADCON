@@ -74,20 +74,37 @@ export function ContextMenu({ request, onClose }: { request: MenuRequest; onClos
     // Capture phase, so the click that dismisses the menu does not also
     // activate whatever it landed on. Scroll counts too: a menu anchored to a
     // row that has moved is pointing at the wrong thing.
-    const dismiss = () => onClose()
-    document.addEventListener('pointerdown', dismiss, true)
-    document.addEventListener('scroll', dismiss, true)
-    window.addEventListener('resize', dismiss)
-    window.addEventListener('blur', dismiss)
+    //
+    // Which is why this has to ask where the press landed. A press on the
+    // menu's own item is not an outside click, and the guard for that cannot
+    // live on the menu: a React handler runs in the bubble phase from a
+    // listener on the portal container, long after a capture listener on the
+    // document has already fired. stopPropagation() there stops nothing that
+    // has already run — the menu closed on pointerdown, the item was gone
+    // before pointerup, and no click was ever produced. Every command in the
+    // menu was dead to the mouse; only arrowing to an item and pressing Enter
+    // worked, which is why a keyboard check passed it.
+    const dismissOutside = (event: Event) => {
+      const target = event.target
+      if (target instanceof Node && ref.current?.contains(target)) return
+      onClose()
+    }
+    // resize and blur have no target inside the menu to speak of.
+    const dismissAlways = () => onClose()
+
+    document.addEventListener('pointerdown', dismissOutside, true)
+    document.addEventListener('scroll', dismissOutside, true)
+    window.addEventListener('resize', dismissAlways)
+    window.addEventListener('blur', dismissAlways)
 
     ref.current?.querySelector<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])')?.focus()
 
     return () => {
       popOverlay(token)
-      document.removeEventListener('pointerdown', dismiss, true)
-      document.removeEventListener('scroll', dismiss, true)
-      window.removeEventListener('resize', dismiss)
-      window.removeEventListener('blur', dismiss)
+      document.removeEventListener('pointerdown', dismissOutside, true)
+      document.removeEventListener('scroll', dismissOutside, true)
+      window.removeEventListener('resize', dismissAlways)
+      window.removeEventListener('blur', dismissAlways)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, per menu
   }, [])
@@ -176,8 +193,6 @@ export function ContextMenu({ request, onClose }: { request: MenuRequest; onClos
       role="menu"
       aria-label={t('nav.actions')}
       style={{ left: at.x, top: at.y }}
-      // The menu's own clicks must not reach the dismissal listener above.
-      onPointerDown={(event) => event.stopPropagation()}
     >
       {request.items.map((node, index) =>
         node === 'separator' ? (
