@@ -619,6 +619,10 @@ export const de = {
   'diag.certNotInvolved': 'keines beteiligt',
   'diag.certTrusted': 'geprüft',
   'diag.certUntrusted': 'ungeprüft',
+  'diag.permitted': 'Erlaubt',
+  'diag.permittedHint':
+    'Beide Wege verschlüsseln. LDAP tut es mit dem Kerberos-Sitzungsschlüssel — Signieren und Versiegeln sind verlangt, nicht erbeten —, LDAPS mit TLS, was nur dann etwas beweist, wenn das Zertifikat geprüft wird. Wer sich auf einen festlegen muss, benennt ihn in SAMADCON_LDAP_TRANSPORTS; danach wird der andere nicht mehr versucht.',
+
   'diag.identityByKerberos':
     'Der DC weist sich über Kerberos aus: ein Ticket für ldap/<Host> kann nur er entschlüsseln. Ein Zertifikat ist dabei nicht im Spiel.',
   'diag.identityByTls':
@@ -1876,6 +1880,10 @@ export const en: Record<MessageKey, string> = {
   'diag.certNotInvolved': 'none involved',
   'diag.certTrusted': 'verified',
   'diag.certUntrusted': 'unverified',
+  'diag.permitted': 'Permitted',
+  'diag.permittedHint':
+    'Both encrypt. LDAP does it with the Kerberos session key — signing and sealing are required rather than requested — and LDAPS with TLS, which proves something only when the certificate is validated. A deployment that has to settle on one names it in SAMADCON_LDAP_TRANSPORTS, and the other stops being tried.',
+
   'diag.identityByKerberos':
     'The DC proves itself through Kerberos: only it can decrypt a ticket for ldap/<host>. No certificate is involved.',
   'diag.identityByTls':

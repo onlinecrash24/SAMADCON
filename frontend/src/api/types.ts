@@ -443,6 +443,8 @@ export interface ServerInfo {
   dc_hosts: string[] | null
   dc_discovery: 'dns' | 'static'
   ldap_insecure: boolean
+  /** Transports this deployment permits, in the order they are tried. */
+  ldap_transports: string[]
   sessions: { active: number; workers: number; idle_timeout_minutes: number }
 }
 

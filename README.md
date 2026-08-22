@@ -267,6 +267,7 @@ was not exported.
 | `SAMADCON_PUBLIC_HOST` | The name the console is reached under. It becomes the CN and the SAN of the self-signed certificate and the target of the HTTPS redirect. **The one value practically every installation must change.** |
 | `SAMADCON_REALM`, `SAMADCON_DC_HOSTS` | Pre-fills the sign-in form. **Names that resolve, not bare IP addresses** — Kerberos needs the DC's FQDN. |
 | `SAMADCON_LDAP_CA_FILE` | The DC's CA, when the LDAPS certificate is to be validated. |
+| `SAMADCON_LDAP_TRANSPORTS` | Which transports may be tried, in order. Default `ldap,ldaps`. Both encrypt — settling on one is a policy decision rather than a hardening step, and it removes the fallback. |
 | `SAMADCON_TRUSTED_PROXIES` | The reverse proxy in front of the container, if there is one. Without it every audit entry records the proxy instead of the administrator — see [Behind a reverse proxy](#behind-a-reverse-proxy). Empty when there is none. |
 
 What belongs to the machine rather than to the project stays as `${VAR:-default}` and comes from

@@ -17,9 +17,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
-from samadcon.ad.connection import TRANSPORTS
+from samadcon.ad.connection import DEFAULT_TRANSPORTS, PROTECTION
 from samadcon.auth.kerberos import apply_transport_settings
+from samadcon.config import Settings
 
 
 class FakeLoadParm:
@@ -113,16 +115,42 @@ def test_ldaps_insecure_configures_no_trust_anchor(lp: FakeLoadParm):
 # ---------------------------------------------------------------------------
 
 
-def test_sealed_ldap_is_tried_before_ldaps():
-    """The certificate-free path first — it is the one that works everywhere."""
-    assert [transport for transport, _ in TRANSPORTS] == ["ldap", "ldaps"]
+def test_sealed_ldap_is_tried_before_ldaps_by_default():
+    """The certificate-free path first — it is the one that works everywhere.
+
+    Now a default rather than the only order: SAMADCON_LDAP_TRANSPORTS can
+    reverse it or drop one. This is what a deployment gets for saying nothing."""
+    assert list(DEFAULT_TRANSPORTS) == ["ldap", "ldaps"]
+    assert Settings().ldap_transports == ["ldap", "ldaps"]
 
 
 def test_every_transport_is_encrypted():
     """No entry may be plain LDAP without protection."""
-    for transport, protection in TRANSPORTS:
+    for transport, protection in PROTECTION.items():
         assert protection, f"{transport} declares no protection"
         assert transport in ("ldap", "ldaps")
+
+
+def test_a_restriction_is_honoured_and_nothing_else_is_tried():
+    """The point of the setting. A deployment that permits one transport
+    must not quietly fall back to the other."""
+    assert Settings(ldap_transports="ldaps").ldap_transports == ["ldaps"]
+    assert Settings(ldap_transports="ldaps,ldap").ldap_transports == ["ldaps", "ldap"]
+
+
+def test_a_transport_that_does_not_exist_is_refused_by_name():
+    """Dropping it silently would leave someone believing they had
+    restricted something."""
+    with pytest.raises(ValidationError) as raised:
+        Settings(ldap_transports="ldaps,smb")
+    assert "smb" in str(raised.value)
+
+
+def test_permitting_nothing_is_refused():
+    """An empty list allows no way of reaching a domain controller, which is
+    the failure this setting exists to prevent rather than cause."""
+    with pytest.raises(ValidationError):
+        Settings(ldap_transports="")
 
 
 # ---------------------------------------------------------------------------

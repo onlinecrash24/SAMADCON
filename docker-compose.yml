@@ -76,6 +76,12 @@ services:
       SAMADCON_ALLOW_CUSTOM_SERVERS: "1"
 
       # --- LDAP ----------------------------------------------------------
+      # Which transports may be tried, in the order they are tried. Both
+      # encrypt: ldap with the Kerberos session key (sign-and-seal required,
+      # not requested), ldaps with TLS. Restricting to one is a policy
+      # decision, not an upgrade — and a deployment that permits only ldaps
+      # and cannot reach port 636 has no other way in.
+      SAMADCON_LDAP_TRANSPORTS: "${SAMADCON_LDAP_TRANSPORTS:-ldap,ldaps}"
       # CA that signed the DCs' certificates. A Samba DC keeps its own at
       # /var/lib/samba/private/tls/ca.pem — copy it into docker/ca/.
       SAMADCON_LDAP_CA_FILE: ""

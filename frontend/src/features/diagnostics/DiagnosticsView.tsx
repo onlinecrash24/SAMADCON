@@ -108,12 +108,16 @@ export function DomainCard({ domain }: { domain: DomainSummary }) {
 export function ConnectionCard({ state: given }: { state?: ConnectionState | null }) {
   const { t } = useI18n()
   const { session } = useSession()
+  // What the deployment permits, which is a different question from what
+  // this session got. Cheap and cached: /info touches no domain controller.
+  const info = useQuery({ queryKey: ['server-info'], queryFn: () => api.info() })
   // The report passes the connection it was gathered over; the
   // diagnosis page has none to pass and means the live one.
   const state = given ?? session?.connection
   if (!state) return null
 
   const yes = <Badge tone="ok">{t('common.yes')}</Badge>
+  const permitted = info.data?.ldap_transports ?? []
 
   return (
     <section className="card">
@@ -146,10 +150,24 @@ export function ConnectionCard({ state: given }: { state?: ConnectionState | nul
             )
           }
         />
+        {permitted.length > 0 && (
+          <Fact
+            label={t('diag.permitted')}
+            value={permitted
+              .map((name) =>
+                t(name === 'ldaps' ? 'diag.transport.ldaps' : 'diag.transport.ldap'),
+              )
+              .join(', ')}
+          />
+        )}
       </dl>
       <p className="muted small">
         {t(state.transport === 'ldaps' ? 'diag.identityByTls' : 'diag.identityByKerberos')}
       </p>
+      {/* Said once, plainly, and without implying the current state is
+          wrong: both transports encrypt, and which one a policy requires
+          is not something this console should have an opinion about. */}
+      <p className="muted small">{t('diag.permittedHint')}</p>
     </section>
   )
 }

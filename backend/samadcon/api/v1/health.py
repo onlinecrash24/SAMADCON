@@ -35,6 +35,10 @@ def info() -> dict[str, Any]:
         "allow_custom_servers": settings.allow_custom_servers,
         "has_server_profiles": bool(settings.servers_file),
         "ldap_insecure": settings.ldap_insecure,
+        # What this deployment permits, in the order it tries them. Shown
+        # beside what the session actually got, because the two answer
+        # different questions: one is policy, the other is what happened.
+        "ldap_transports": list(settings.ldap_transports),
         "sessions": {
             "active": get_store().count(),
             "workers": get_registry().active_sessions(),

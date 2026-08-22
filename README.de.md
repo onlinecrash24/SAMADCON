@@ -275,6 +275,7 @@ zurückfällt, weil eine Variable nicht exportiert war.
 | `SAMADCON_PUBLIC_HOST` | Der Name, unter dem die Konsole erreichbar ist. Landet als CN und SAN im selbstsignierten Zertifikat und in der HTTPS-Weiterleitung. **Der einzige Wert, den praktisch jede Installation ändern muss.** |
 | `SAMADCON_REALM`, `SAMADCON_DC_HOSTS` | Vorbelegung der Anmeldemaske. **Auflösbare Namen, keine nackten IP-Adressen** — Kerberos braucht den FQDN des DCs. |
 | `SAMADCON_LDAP_CA_FILE` | Die CA des DCs, wenn das LDAPS-Zertifikat geprüft werden soll. |
+| `SAMADCON_LDAP_TRANSPORTS` | Welche Transporte versucht werden dürfen, in dieser Reihenfolge. Vorgabe `ldap,ldaps`. Beide verschlüsseln — sich auf einen festzulegen ist eine Richtlinienentscheidung und keine Härtung, und nimmt den Rückfallweg. |
 | `SAMADCON_TRUSTED_PROXIES` | Der Reverse Proxy vor dem Container, falls es einen gibt. Ohne ihn steht in jedem Audit-Eintrag der Proxy statt des Administrators — siehe [Hinter einem Reverse Proxy](#hinter-einem-reverse-proxy). Leer, wo keiner steht. |
 
 Was zur Maschine gehört statt zum Projekt, bleibt als `${VAR:-Vorgabe}` stehen und kommt aus der

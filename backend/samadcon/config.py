@@ -97,6 +97,18 @@ class Settings(BaseSettings):
         default=False,
         description="Lab only: skip LDAPS certificate validation",
     )
+    # Which transports may be tried, in the order they are tried. The default
+    # is what the connection did before this was configurable.
+    #
+    # Not a "secure/insecure" switch: both entries encrypt. ldap does it with
+    # the Kerberos session key, with sign-and-seal required rather than
+    # requested, and the DC proves itself by decrypting the ticket. ldaps does
+    # it with TLS, which only proves anything when the certificate is
+    # validated. Restricting to one is a policy decision, not an upgrade.
+    ldap_transports: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["ldap", "ldaps"],
+        description="Transports to try, in order; comma-separated",
+    )
     ldap_timeout_seconds: int = 30
 
     # Samba's own administrative templates, unpacked into the image from the
@@ -166,6 +178,39 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             return [host.strip() for host in value.split(",") if host.strip()]
         return value
+
+    @field_validator("ldap_transports", mode="before")
+    @classmethod
+    def _split_transports(cls, value: object) -> object:
+        if isinstance(value, str):
+            return [name.strip().lower() for name in value.split(",") if name.strip()]
+        return value
+
+    @field_validator("ldap_transports", mode="after")
+    @classmethod
+    def _known_transports(cls, value: list[str]) -> list[str]:
+        """Refuse a name we cannot honour, at startup, by name.
+
+        Silently dropping an unknown entry would leave someone believing they
+        had restricted something. Silently keeping the default when the whole
+        list is unusable would be worse — that is the failure this setting
+        exists to prevent.
+        """
+        known = ("ldap", "ldaps")
+        wrong = [name for name in value if name not in known]
+        if wrong:
+            raise ValueError(
+                f"SAMADCON_LDAP_TRANSPORTS: {', '.join(wrong)} is not a transport. "
+                f"Use {' and/or '.join(known)}."
+            )
+        if not value:
+            raise ValueError(
+                "SAMADCON_LDAP_TRANSPORTS is empty, which permits no way of reaching "
+                "a domain controller. Name at least one of ldap, ldaps."
+            )
+        # Order is meaningful and duplicates are not, so the first mention wins.
+        seen: set[str] = set()
+        return [name for name in value if not (name in seen or seen.add(name))]
 
     @field_validator("log_level", mode="after")
     @classmethod

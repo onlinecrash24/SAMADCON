@@ -358,16 +358,24 @@ def discover_dcs(target: ConnectionTarget) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
-# How SAMADCON tries to reach a DC, in order.
+# What each transport protects the traffic with.
 #
-# LDAP with GSSAPI sign-and-seal comes first: the Kerberos session key encrypts
-# the traffic, no certificate is involved, and it is the path samba-tool and
-# the Windows tools use — the best-supported one through Samba's client stack.
-# LDAPS follows for environments where port 389 is closed.
-TRANSPORTS: tuple[tuple[str, str], ...] = (
-    ("ldap", "GSSAPI seal"),
-    ("ldaps", "TLS"),
-)
+# LDAP with GSSAPI sign-and-seal is the default first choice: the Kerberos
+# session key encrypts the traffic, no certificate is involved, and it is the
+# path samba-tool and the Windows tools use — the best supported one through
+# Samba's client stack. LDAPS follows for environments where port 389 is
+# closed.
+#
+# Which of them may be tried, and in what order, is SAMADCON_LDAP_TRANSPORTS.
+# The default is both, in this order, which is what this was before it could
+# be configured.
+PROTECTION: dict[str, str] = {
+    "ldap": "GSSAPI seal",
+    "ldaps": "TLS",
+}
+
+# Kept for the one thing a dict cannot say: what the default order is.
+DEFAULT_TRANSPORTS: tuple[str, ...] = ("ldap", "ldaps")
 
 
 def _build_loadparm(settings: Settings, target: ConnectionTarget, transport: str) -> Any:
@@ -514,7 +522,8 @@ def connect(target: ConnectionTarget, settings: Settings, ccache: Path) -> Direc
 
     failures: list[str] = []
     for host in candidates:
-        for transport, protection in TRANSPORTS:
+        for transport in settings.ldap_transports:
+            protection = PROTECTION[transport]
             url = f"{transport}://{host}"
             try:
                 # A fresh LoadParm per transport: the SASL wrapping and TLS
@@ -610,13 +619,37 @@ def connect(target: ConnectionTarget, settings: Settings, ccache: Path) -> Direc
         "No domain controller could be reached.",
         code="dc_unreachable",
         detail="; ".join(failures),
-        hint=(
-            "SAMADCON tried LDAP with Kerberos encryption (port 389) and LDAPS "
-            "(port 636). Check that one of them is reachable, that the clock "
-            "difference to the DC is under five minutes, and that the account "
-            "exists in this domain."
-        ),
-        context={"realm": target.realm, "hosts": list(target.hosts)},
+        hint=_unreachable_hint(settings),
+        context={
+            "realm": target.realm,
+            "hosts": list(target.hosts),
+            "transports": list(settings.ldap_transports),
+        },
+    )
+
+
+def _unreachable_hint(settings: Settings) -> str:
+    """Why nothing answered — and whether we declined to ask.
+
+    A deployment that permits one transport and cannot reach it produces the
+    same failure as one that tried both, and the usual advice sends the reader
+    to check a port SAMADCON was never going to open. So the restriction names
+    itself, and only when there is one: saying "you allow both" on every
+    ordinary failure would be noise.
+    """
+    tried = ", ".join(
+        f"{name.upper()} ({PROTECTION[name]}, port {389 if name == 'ldap' else 636})"
+        for name in settings.ldap_transports
+    )
+    common = (
+        "Check that it is reachable, that the clock difference to the DC is "
+        "under five minutes, and that the account exists in this domain."
+    )
+    if list(settings.ldap_transports) == list(DEFAULT_TRANSPORTS):
+        return f"SAMADCON tried {tried}. {common}"
+    return (
+        f"SAMADCON tried {tried}, and nothing else: SAMADCON_LDAP_TRANSPORTS "
+        f"restricts this deployment to that. {common}"
     )
 
 
