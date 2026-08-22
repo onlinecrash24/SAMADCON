@@ -23,7 +23,7 @@ import { useState } from 'react'
 
 import { ApiError } from '../../api/client'
 import { api } from '../../api/endpoints'
-import type { TreeNode } from '../../api/types'
+import type { LinkableNode } from '../../api/types'
 import { ErrorMessage, Modal, Spinner } from '../../components/primitives'
 import { useI18n } from '../../i18n'
 import type { DraggedPolicy } from './policyDrag'
@@ -31,6 +31,8 @@ import type { DraggedPolicy } from './policyDrag'
 interface Target {
   dn: string
   name: string
+  /** Whether a policy may be linked here, as the server decides it. */
+  linkable: boolean
 }
 
 type Outcome = { kind: 'linked' } | { kind: 'already' } | { kind: 'failed'; message: string }
@@ -38,7 +40,12 @@ type Outcome = { kind: 'linked' } | { kind: 'already' } | { kind: 'failed'; mess
 /** The domain a DN belongs to, spelled the way people say it. */
 function domainOf(dn: string): Target {
   const parts = dn.split(',').filter((part) => /^DC=/i.test(part))
-  return { dn: parts.join(','), name: parts.map((part) => part.slice(3)).join('.') }
+  return {
+    dn: parts.join(','),
+    name: parts.map((part) => part.slice(3)).join('.'),
+    // The domain always is: it is where Default Domain Policy sits.
+    linkable: true,
+  }
 }
 
 export function LinkPolicyDialog({
@@ -89,13 +96,18 @@ export function LinkPolicyDialog({
     node.links.some((link) => linksThis(link.guid)),
   )
 
+  // Deliberately the wide form: everything that can hold children, each one
+  // carrying the server's verdict on whether it can hold a link. The tree
+  // beside this dialog shows only the linkable ones, which is what was asked
+  // of it — but a picker that cannot walk past a plain container cannot reach
+  // whatever is under it, and nothing here can show that nothing ever is.
   const children = useQuery({
     queryKey: ['gpo-link-target', here.dn],
-    queryFn: () => api.tree(here.dn),
+    queryFn: () => api.gpoTree(here.dn, false),
     enabled: picking,
   })
 
-  const containersHere = (children.data?.nodes ?? []).filter((node: TreeNode) => node.is_container)
+  const containersHere = children.data?.nodes ?? []
 
   const add = (candidate: Target) => {
     setTargets((current) =>
@@ -236,12 +248,20 @@ export function LinkPolicyDialog({
               <button
                 type="button"
                 className="button"
-                disabled={targets.some((item) => item.dn.toLowerCase() === here.dn.toLowerCase())}
+                disabled={
+                  !here.linkable ||
+                  targets.some((item) => item.dn.toLowerCase() === here.dn.toLowerCase())
+                }
                 onClick={() => add(here)}
               >
                 + {here.name}
               </button>
             </div>
+
+            {/* Said rather than left to a greyed-out button. Somewhere to
+                stand that is not somewhere to link is exactly the case a
+                disabled control explains badly. */}
+            {!here.linkable && <p className="muted small">{t('gpo.notLinkable')}</p>}
 
             {children.isLoading && <Spinner label={t('status.loading')} />}
             {children.error && <ErrorMessage error={children.error} />}
@@ -249,7 +269,7 @@ export function LinkPolicyDialog({
             <ul className="plain-list">
               {/* Only what can hold a link. Listing every user under a
                   container would bury the handful of places worth picking. */}
-              {containersHere.map((node: TreeNode) => (
+              {containersHere.map((node: LinkableNode) => (
                 <li key={node.dn}>
                   <button
                     type="button"

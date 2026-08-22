@@ -732,6 +732,18 @@ export interface ContainerLink {
   enforced: boolean
 }
 
+/**
+ * A tree node as the group policy console sees it.
+ *
+ * `linkable` is decided on the server, from the one list of classes that can
+ * carry a gPLink. Deciding it here would be a second copy of that list, in a
+ * vocabulary — object types — that is a translation of it rather than the
+ * thing itself.
+ */
+export interface LinkableNode extends TreeNode {
+  linkable: boolean
+}
+
 export interface LinkedContainer {
   dn: string
   name: string

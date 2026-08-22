@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from samadcon.ad import sacl, values
+from samadcon.ad import directory, sacl, values
 from samadcon.ad.connection import SCOPE_SUBTREE, DirectoryConnection
 from samadcon.core.errors import Conflict, InvalidRequest, NotFound
 from samadcon.gpo import container, links
@@ -20,6 +20,22 @@ logger = logging.getLogger(__name__)
 
 # Containers that can carry a gPLink.
 LINKABLE_CLASSES = ("domainDNS", "organizationalUnit", "site")
+
+# The same statement in the two other vocabularies it has to be made in, both
+# derived rather than written out again. A list of classes here and a list of
+# types in the browser drift apart silently: nothing fails, a container simply
+# stops being offered, or starts being offered where a link would do nothing.
+LINKABLE_TYPES = frozenset(directory.type_for_class(name) for name in LINKABLE_CLASSES)
+
+# What the management tree searches for one level down. Wider than
+# LINKABLE_CLASSES on purpose: a container that already carries a link is part
+# of the answer to "what applies where", whether or not a link belongs there.
+# This tree is the only view that reports links by location, so a row dropped
+# here is a live link nothing else would mention — the same reason a link whose
+# policy is gone keeps its row. (gPLink=*) is the filter link_map already uses.
+LINK_TREE_FILTER = (
+    "(|" + "".join(f"(objectClass={name})" for name in LINKABLE_CLASSES) + "(gPLink=*))"
+)
 
 # Applying a GPO needs both of these on the object; GPMC calls the pair
 # "security filtering".

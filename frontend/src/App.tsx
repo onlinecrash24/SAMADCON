@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { ApiError } from './api/client'
 import { api } from './api/endpoints'
@@ -24,6 +24,7 @@ import { DnsView } from './features/dns/DnsView'
 import { GpoView } from './features/gpo/GpoView'
 import { SitesView } from './features/sites/SitesView'
 import { useI18n } from './i18n'
+import { readConsoleLocation, writeConsoleLocation } from './state/consoleLocation'
 import { useSession } from './state/session'
 
 type NewObjectKind = 'user' | 'group' | 'computer' | 'ou' | null
@@ -64,19 +65,34 @@ function Console() {
   const queryClient = useQueryClient()
 
   const baseDn = session!.domain.base_dn
-  const [currentDn, setCurrentDn] = useState(baseDn)
+
+  // Read once, at mount. This component only exists while there is a session
+  // (see App above), so the domain to validate the stored DNs against is
+  // available right here — no effect, and nothing to undo if it turns out to
+  // be nonsense.
+  const [restored] = useState(() => readConsoleLocation(baseDn))
+
+  // The stored selection, until the object behind it has been fetched. Held
+  // because the two effects below both run on mount and the writer runs
+  // first: without it, the very first write would store "nothing selected"
+  // and a second refresh arriving inside that window would lose the pane.
+  const pendingSelection = useRef(restored.selectedDn)
+
+  const [currentDn, setCurrentDn] = useState(restored.dn)
   const [selected, setSelected] = useState<DirectoryObject | null>(null)
-  const [showAdvanced, setShowAdvanced] = useState(false)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [activeSearch, setActiveSearch] = useState('')
+  const [showAdvanced, setShowAdvanced] = useState(restored.showAdvanced)
+  // Both from the same stored value: the box should show the words that
+  // produced the results on screen, not sit empty above them.
+  const [searchTerm, setSearchTerm] = useState(restored.search)
+  const [activeSearch, setActiveSearch] = useState(restored.search)
   const [newObject, setNewObject] = useState<NewObjectKind>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [navigationError, setNavigationError] = useState<unknown>(null)
-  const [snapin, setSnapin] = useState<SnapinId>('directory')
+  const [snapin, setSnapin] = useState<SnapinId>(restored.snapin)
   const [dnsZone, setDnsZone] = useState<DnsZone | null>(null)
   // Which container the policy tree points at. null is GPMC's "all
   // policies" node, and the state the console opens in.
-  const [gpoContainerDn, setGpoContainerDn] = useState<string | null>(null)
+  const [gpoContainerDn, setGpoContainerDn] = useState<string | null>(restored.gpoContainerDn)
 
   const children = useQuery({
     queryKey: ['children', currentDn, showAdvanced],
@@ -99,6 +115,42 @@ function Console() {
     const error = active.error
     if (error instanceof ApiError && error.isUnauthenticated) expire()
   }, [active.error, expire])
+
+  // Remember where this tab is, so that a refresh returns to it. Only the
+  // identity of things is stored — a DN, a console — never the objects
+  // themselves, which are fetched again and may well have changed.
+  useEffect(() => {
+    writeConsoleLocation({
+      snapin,
+      dn: currentDn,
+      selectedDn: selected?.dn ?? pendingSelection.current,
+      showAdvanced,
+      search: activeSearch,
+      gpoContainerDn,
+      zoneDn: dnsZone?.dn ?? null,
+    })
+  }, [snapin, currentDn, selected?.dn, showAdvanced, activeSearch, gpoContainerDn, dnsZone?.dn])
+
+  // The detail pane held an object, and only its name was stored. Fetch it
+  // back once.
+  useEffect(() => {
+    const dn = restored.selectedDn
+    if (!dn) return
+
+    void api
+      .object(dn)
+      // Only if nothing has been picked in the meantime: this arrives after a
+      // round trip, and whoever is already clicking outranks it.
+      .then((object) => setSelected((current) => current ?? object))
+      .catch(() => {
+        // Moved, deleted, or no longer permitted. Silently — nobody performed
+        // this navigation, so an error banner on load would be noise about a
+        // request the user did not make.
+      })
+      .finally(() => {
+        pendingSelection.current = null
+      })
+  }, [restored.selectedDn])
 
   // Transient success messages should not linger.
   useEffect(() => {
@@ -215,6 +267,7 @@ function Console() {
               setGpoContainerDn(dn)
             }}
             onChanged={onChanged}
+            restoredZoneDn={restored.zoneDn}
             selectedZoneDn={dnsZone?.dn ?? null}
             onSelectZone={(zone) => {
               setSnapin('dns')

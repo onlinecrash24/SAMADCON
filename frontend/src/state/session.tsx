@@ -12,6 +12,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { ApiError, setCsrfToken } from '../api/client'
 import { api } from '../api/endpoints'
 import type { LoginOptions, SessionInfo } from '../api/types'
+import { forgetConsoleLocation } from './consoleLocation'
 import { rememberServer } from './recentServers'
 
 interface SessionState {
@@ -85,6 +86,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       // server-side session expires on its own.
       if (!(error instanceof ApiError)) throw error
     }
+    // A deliberate ending: the console position goes with it, rather than
+    // leaving the previous person's OU and account names in a shared browser.
+    // expire() does not do this — a lapsed ticket is usually the same person
+    // signing straight back in.
+    forgetConsoleLocation()
     expire()
   }, [expire])
 

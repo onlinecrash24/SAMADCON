@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+
+import { isAtOrBelow } from '../dn'
 
 import { api } from '../api/endpoints'
 import type { DnsZone, TreeNode } from '../api/types'
@@ -23,6 +25,8 @@ interface TreePaneProps {
   onSelectGpoContainer: (dn: string | null) => void
   /** A policy dropped onto a container in the tree reports back through this. */
   onChanged: (message: string) => void
+  /** A zone remembered from before a reload, still to be matched to a zone. */
+  restoredZoneDn: string | null
 }
 
 /**
@@ -42,8 +46,17 @@ export function TreePane({
   gpoContainerDn,
   onSelectGpoContainer,
   onChanged,
+  restoredZoneDn,
 }: TreePaneProps) {
   const { t } = useI18n()
+
+  // Where the directory selection was when this pane mounted, which after a
+  // reload is where the person left off. Captured rather than followed: this
+  // tree is only ever hidden, never unmounted, so mounting happens exactly
+  // once — at load — and that is the only moment branches should open by
+  // themselves. Following it live would expand the tree under people as they
+  // navigate from the detail pane, which nobody asked for.
+  const [revealDn] = useState(selectedDn)
 
   // A selection inside a console only marks a row while that console is the
   // active one. The selected DN and zone deliberately survive a switch to
@@ -104,13 +117,18 @@ export function TreePane({
                   selectedDn={directoryDn}
                   onSelect={onSelect}
                   showAdvanced={showAdvanced}
+                  revealDn={revealDn}
                   initiallyOpen
                 />
               </div>
             )}
 
             {snapin.available && snapin.id === 'dns' && activeSnapin === 'dns' && (
-              <ZoneList selectedZoneDn={zoneDn} onSelectZone={onSelectZone} />
+              <ZoneList
+                selectedZoneDn={zoneDn}
+                onSelectZone={onSelectZone}
+                restoredZoneDn={restoredZoneDn}
+              />
             )}
 
             {snapin.available && snapin.id === 'gpo' && activeSnapin === 'gpo' && (
@@ -120,6 +138,11 @@ export function TreePane({
                 selectedDn={gpoContainerDn}
                 onSelect={onSelectGpoContainer}
                 onChanged={onChanged}
+                // Followed live, unlike the directory tree above: the policy
+                // tree is unmounted whenever another console is open, so it
+                // mounts again on every visit and has to open toward wherever
+                // the selection is now — not toward where a reload found it.
+                revealDn={gpoContainerDn}
               />
             )}
           </div>
@@ -138,9 +161,11 @@ export function TreePane({
 function ZoneList({
   selectedZoneDn,
   onSelectZone,
+  restoredZoneDn,
 }: {
   selectedZoneDn: string | null
   onSelectZone: (zone: DnsZone) => void
+  restoredZoneDn: string | null
 }) {
   const { t } = useI18n()
 
@@ -149,6 +174,22 @@ function ZoneList({
     queryFn: () => api.dnsZones(),
     staleTime: 60_000,
   })
+
+  // A remembered zone is a name, and the console holds a zone. Matched here
+  // rather than in the shell because this is where the list already is —
+  // there is no endpoint for a single zone, and fetching the list a second
+  // time would undo the reason it is only fetched once this console opens.
+  //
+  // A zone that is gone simply does not match, and the view says "pick a
+  // zone", which is a correct state rather than a broken one.
+  const restored = useRef(false)
+  useEffect(() => {
+    if (restored.current || !restoredZoneDn || selectedZoneDn) return
+    const found = zones.data?.zones.find((zone) => zone.dn === restoredZoneDn)
+    if (!found) return
+    restored.current = true
+    onSelectZone(found)
+  }, [zones.data, restoredZoneDn, selectedZoneDn, onSelectZone])
 
   if (zones.isLoading) {
     return (
@@ -196,6 +237,8 @@ interface TreeNodeRowProps {
   selectedDn: string | null
   onSelect: (dn: string) => void
   showAdvanced: boolean
+  /** A DN to make visible: every branch on the way to it starts open. */
+  revealDn: string | null
   initiallyOpen?: boolean
 }
 
@@ -205,10 +248,15 @@ function TreeNodeRow({
   selectedDn,
   onSelect,
   showAdvanced,
+  revealDn,
   initiallyOpen,
 }: TreeNodeRowProps) {
   const { t } = useI18n()
-  const [open, setOpen] = useState(initiallyOpen ?? false)
+  // Read once, when this row first appears. Children only mount once their
+  // parent is open, so the path unfolds one level at a time — each new row
+  // asking the same question of itself — and stops at the branch that holds
+  // the DN. Nothing below it is fetched.
+  const [open, setOpen] = useState(initiallyOpen ?? isAtOrBelow(revealDn, node.dn))
 
   const children = useQuery({
     queryKey: ['tree', node.dn, showAdvanced],
@@ -280,6 +328,7 @@ function TreeNodeRow({
               selectedDn={selectedDn}
               onSelect={onSelect}
               showAdvanced={showAdvanced}
+              revealDn={revealDn}
             />
           ))}
         </div>

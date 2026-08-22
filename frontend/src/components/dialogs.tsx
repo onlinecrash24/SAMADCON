@@ -6,6 +6,7 @@ import { useState, type FormEvent } from 'react'
 import { ApiError } from '../api/client'
 import { api } from '../api/endpoints'
 import type { TreeNode } from '../api/types'
+import { isAtOrBelow } from '../dn'
 import { useI18n } from '../i18n'
 import { ErrorMessage, Field, Modal, Spinner } from './primitives'
 
@@ -335,9 +336,7 @@ export function MoveDialog({
   // A container cannot be moved into itself or into anything below it. The
   // server would let rename fail with a bare LDAP error; saying it here means
   // the button is simply not available for a move that cannot work.
-  const inside = (candidate: string) =>
-    candidate.toLowerCase() === dn.toLowerCase() ||
-    candidate.toLowerCase().endsWith(',' + dn.toLowerCase())
+  const inside = (candidate: string) => isAtOrBelow(candidate, dn)
 
   const parentOf = (child: string) => child.slice(child.indexOf(',') + 1)
   const canAscend = target.toLowerCase() !== baseDn.toLowerCase()

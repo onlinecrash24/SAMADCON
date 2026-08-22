@@ -36,6 +36,7 @@ import type {
   GpoPreferences,
   GpoInheritance,
   GpoLinkListing,
+  LinkableNode,
   LinkedContainer,
   GpoLinkLocation,
   GpoRedirection,
@@ -358,6 +359,16 @@ export const api = {
   deleteGpo: (dn: string, force = false) =>
     http.delete<{ dn: string; name: string }>(`/gpos?dn=${dnParam(dn)}&force=${force}`),
 
+  // The tree of places a policy can go. Not api.tree: that one answers the
+  // wider question the directory console asks, and its answer includes Users,
+  // Computers and Builtin, which a policy cannot be linked to.
+  //
+  // onlyLinkable=false widens it back out while keeping the flag, for a picker
+  // that has to walk past a container to reach what is under it.
+  gpoTree: (dn: string, onlyLinkable = true) =>
+    http.get<{ parent: string; nodes: LinkableNode[] }>(
+      `/gpos/tree?dn=${dnParam(dn)}&only_linkable=${onlyLinkable}`,
+    ),
   gpoLinks: (dn: string) => http.get<GpoLinkListing>(`/gpos/links?dn=${dnParam(dn)}`),
   // Every link in the domain, for the management tree. Two searches for the
   // whole thing, so opening a branch never asks about links again.

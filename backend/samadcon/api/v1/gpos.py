@@ -7,6 +7,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, File, Query, UploadFile
 from fastapi.responses import HTMLResponse, Response
 
+from samadcon.ad import directory
 from samadcon.ad.access import ad_read, ad_write
 from samadcon.api.common import Audit, DnQuery
 from samadcon.auth.deps import CurrentSession, VerifiedSession, VerifiedWorker, Worker
@@ -296,6 +297,47 @@ async def remove_link(
         )
         record["changes"] = {"gPLink": {"removed": payload.gpo_dn}}
     return result
+
+
+@router.get("/tree")
+async def linkable_tree(
+    worker: Worker,
+    session: CurrentSession,
+    dn: DnQuery,
+    only_linkable: Annotated[
+        bool, Query(description="Leave out containers a policy cannot be linked to")
+    ] = True,
+) -> dict[str, Any]:
+    """Containers one level below *dn*, for the group policy tree.
+
+    The directory tree's own endpoint answers a wider question — everything
+    that can hold children — and answering it here would list Users, Computers
+    and Builtin as places to link a policy, which they are not. Which classes
+    those are is stated once, in the group policy layer that knows it, and both
+    the search and the flag below come from that one statement.
+
+    ``only_linkable=false`` widens the search back out while keeping the flag.
+    A picker has to be able to walk past a container to reach whatever is
+    under it; only the choosing needs to be restricted, and we cannot show
+    from here that nothing linkable ever sits below a plain container.
+
+    The expander probe uses the same filter as the listing, so a branch that
+    opens onto nothing is not offered in the first place.
+    """
+    nodes = await ad_read(
+        worker,
+        session,
+        directory.list_tree_children,
+        dn,
+        container_filter=gpmc.LINK_TREE_FILTER if only_linkable else directory.CONTAINER_FILTER,
+        label="gpo.tree",
+    )
+    # Said by the server because the server is where the answer is defined. A
+    # browser deciding this for itself would be a second copy of
+    # LINKABLE_CLASSES, in a third vocabulary.
+    for node in nodes:
+        node["linkable"] = node["type"] in gpmc.LINKABLE_TYPES
+    return {"parent": dn, "nodes": nodes}
 
 
 @router.get("/links/map")

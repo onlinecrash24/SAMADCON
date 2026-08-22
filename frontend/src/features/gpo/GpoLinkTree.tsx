@@ -25,8 +25,9 @@ import { useState, type DragEvent } from 'react'
 import { createPortal } from 'react-dom'
 
 import { api } from '../../api/endpoints'
-import type { LinkedContainer, TreeNode } from '../../api/types'
+import type { LinkableNode, LinkedContainer } from '../../api/types'
 import { Badge, Spinner } from '../../components/primitives'
+import { isAtOrBelow } from '../../dn'
 import { useI18n } from '../../i18n'
 import { LinkPolicyDialog } from './LinkPolicyDialog'
 import { isPolicyDrag, readPolicyDrag, type DraggedPolicy } from './policyDrag'
@@ -37,11 +38,15 @@ interface GpoLinkTreeProps {
   selectedDn: string | null
   onSelect: (dn: string | null) => void
   onChanged: (message: string) => void
+  /** A container to make visible after a reload; branches on the way open. */
+  revealDn: string | null
 }
 
 interface DropTarget {
   dn: string
   name: string
+  /** Always true here: a row that cannot be linked to refuses the drop. */
+  linkable: boolean
 }
 
 export function GpoLinkTree({
@@ -50,6 +55,7 @@ export function GpoLinkTree({
   selectedDn,
   onSelect,
   onChanged,
+  revealDn,
 }: GpoLinkTreeProps) {
   const { t } = useI18n()
 
@@ -88,6 +94,10 @@ export function GpoLinkTree({
         selectedDn={selectedDn}
         onSelect={onSelect}
         onDropPolicy={(target, policy) => setDropped({ target, policy })}
+        // The domain itself, and a policy may always be linked to it — that is
+        // where Default Domain Policy sits.
+        linkable
+        revealDn={revealDn}
         initiallyOpen
       />
 
@@ -133,6 +143,8 @@ function ContainerNode({
   selectedDn,
   onSelect,
   onDropPolicy,
+  linkable,
+  revealDn,
   initiallyOpen = false,
 }: {
   dn: string
@@ -142,15 +154,20 @@ function ContainerNode({
   selectedDn: string | null
   onSelect: (dn: string | null) => void
   onDropPolicy: (target: DropTarget, policy: DraggedPolicy) => void
+  /** Whether a policy may be linked here, as the server decides it. */
+  linkable: boolean
+  revealDn: string | null
   initiallyOpen?: boolean
 }) {
   const { t } = useI18n()
-  const [open, setOpen] = useState(initiallyOpen)
+  // Read once, when this row first appears: the branches between the domain
+  // and a remembered container open themselves, and nothing reopens later.
+  const [open, setOpen] = useState(initiallyOpen || isAtOrBelow(revealDn, dn))
   const [over, setOver] = useState(false)
 
   const children = useQuery({
     queryKey: ['gpo-tree', dn],
-    queryFn: () => api.tree(dn),
+    queryFn: () => api.gpoTree(dn),
     // Only once the branch is open. A closed branch is a question nobody asked.
     enabled: open,
     staleTime: 30_000,
@@ -174,6 +191,9 @@ function ContainerNode({
       // selection from another page — has to keep falling through, and the
       // media type is the one thing readable while a drag is in the air.
       if (!isPolicyDrag(event)) return
+      // A container that is on screen only because a link already sits on it.
+      // Showing the link is the point; offering to add another is not.
+      if (!linkable) return
       // Without this the browser refuses the drop and the row never becomes a
       // target at all.
       event.preventDefault()
@@ -191,7 +211,7 @@ function ContainerNode({
       event.preventDefault()
       setOver(false)
       const policy = readPolicyDrag(event)
-      if (policy) onDropPolicy({ dn, name }, policy)
+      if (policy && linkable) onDropPolicy({ dn, name, linkable }, policy)
     },
   }
 
@@ -206,8 +226,13 @@ function ContainerNode({
         >
           {open ? '▾' : '▸'}
         </button>
-        <button type="button" className="tree__label" onClick={() => onSelect(dn)}>
-          <span>{name}</span>
+        <button
+          type="button"
+          className="tree__label"
+          onClick={() => onSelect(dn)}
+          title={linkable ? dn : t('gpo.notLinkable')}
+        >
+          <span className={linkable ? undefined : 'muted'}>{name}</span>
           {linked.length > 0 && <span className="muted small"> {linked.length}</span>}
         </button>
       </div>
@@ -243,22 +268,24 @@ function ContainerNode({
             </div>
           )}
 
-          {(children.data?.nodes ?? [])
-            // Only what can hold a link. A tree of every user would bury the
-            // handful of containers this view is about.
-            .filter((node: TreeNode) => node.is_container)
-            .map((node: TreeNode) => (
-              <ContainerNode
-                key={node.dn}
-                dn={node.dn}
-                name={node.name}
-                depth={depth + 1}
-                byContainer={byContainer}
-                selectedDn={selectedDn}
-                onSelect={onSelect}
-                onDropPolicy={onDropPolicy}
-              />
-            ))}
+          {/* No filtering here. Which containers belong in this tree is
+              decided by the endpoint, from the one list of classes that can
+              carry a gPLink — a second opinion in the browser is how the two
+              start disagreeing. */}
+          {(children.data?.nodes ?? []).map((node: LinkableNode) => (
+            <ContainerNode
+              key={node.dn}
+              dn={node.dn}
+              name={node.name}
+              depth={depth + 1}
+              byContainer={byContainer}
+              selectedDn={selectedDn}
+              onSelect={onSelect}
+              onDropPolicy={onDropPolicy}
+              linkable={node.linkable}
+              revealDn={revealDn}
+            />
+          ))}
         </div>
       )}
     </div>

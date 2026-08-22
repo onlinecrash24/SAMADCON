@@ -83,6 +83,22 @@ _FILTER_BY_TYPE: dict[str, str] = {
 }
 
 
+def type_for_class(class_name: str) -> str:
+    """The type a single objectClass maps to, without an entry to inspect.
+
+    :func:`object_type` answers this for a directory entry. Callers that hold
+    a class name rather than an object — anything declaring "these classes
+    matter to me" and then comparing against the type a node reports — need
+    the same table, and reimplementing the lookup is how the two answers start
+    to disagree.
+    """
+    lowered = class_name.lower()
+    for name, type_name in _TYPE_BY_CLASS:
+        if name.lower() == lowered:
+            return type_name
+    return "object"
+
+
 def object_type(entry: Any) -> str:
     classes = {c.lower() for c in values.as_list(entry, "objectClass")}
     for class_name, type_name in _TYPE_BY_CLASS:
@@ -204,20 +220,29 @@ CONTAINER_FILTER = (
 MAX_EXPANDER_PROBES = 60
 
 
-def _tree_filter(include_advanced: bool) -> str:
+def _tree_filter(include_advanced: bool, container_filter: str = CONTAINER_FILTER) -> str:
     if include_advanced:
-        return CONTAINER_FILTER
-    return f"(&{CONTAINER_FILTER}(!(showInAdvancedViewOnly=TRUE)))"
+        return container_filter
+    return f"(&{container_filter}(!(showInAdvancedViewOnly=TRUE)))"
 
 
 def has_container_children(
-    conn: DirectoryConnection, dn: str, *, include_advanced: bool = False
+    conn: DirectoryConnection,
+    dn: str,
+    *,
+    include_advanced: bool = False,
+    container_filter: str = CONTAINER_FILTER,
 ) -> bool:
-    """Whether *dn* holds anything the tree would show below it."""
+    """Whether *dn* holds anything the tree would show below it.
+
+    The filter is a parameter because "anything the tree would show" is not
+    one answer: the group policy tree shows a narrower set than the directory
+    tree does. An expander drawn from the wrong question opens onto nothing.
+    """
     result = conn.search(
         dn,
         scope=SCOPE_ONELEVEL,
-        expression=_tree_filter(include_advanced),
+        expression=_tree_filter(include_advanced, container_filter),
         attrs=["1.1"],
         max_results=1,
     )
@@ -225,7 +250,11 @@ def has_container_children(
 
 
 def list_tree_children(
-    conn: DirectoryConnection, dn: str, *, include_advanced: bool = False
+    conn: DirectoryConnection,
+    dn: str,
+    *,
+    include_advanced: bool = False,
+    container_filter: str = CONTAINER_FILTER,
 ) -> list[dict[str, Any]]:
     """Container objects below *dn*, for the navigation tree.
 
@@ -236,7 +265,7 @@ def list_tree_children(
     result = conn.search(
         dn,
         scope=SCOPE_ONELEVEL,
-        expression=_tree_filter(include_advanced),
+        expression=_tree_filter(include_advanced, container_filter),
         attrs=["distinguishedName", "objectClass", "name", "description", "objectGUID",
                "showInAdvancedViewOnly"],
     )
@@ -246,7 +275,10 @@ def list_tree_children(
     if len(nodes) <= MAX_EXPANDER_PROBES:
         for node in nodes:
             node["has_children"] = has_container_children(
-                conn, node["dn"], include_advanced=include_advanced
+                conn,
+                node["dn"],
+                include_advanced=include_advanced,
+                container_filter=container_filter,
             )
     else:
         for node in nodes:
