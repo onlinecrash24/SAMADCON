@@ -140,19 +140,16 @@ export function Modal({
   onClose,
   children,
   footer,
-  size = 'normal',
 }: {
   title: string
   onClose: () => void
   children: ReactNode
   footer?: ReactNode
-  /**
-   * A form asking for one name wants to stay small. A console window — a tree
-   * beside a list of settings — wants the screen, because the alternative is
-   * scrolling two panes inside a box.
-   */
-  size?: 'normal' | 'console'
 }) {
+  // There used to be a `size` for the one dialog that wanted the screen — a
+  // tree beside a list of settings. That is a window now, with a title bar and
+  // a position, so the option described a shape this component no longer has.
+  // Every dialog here is a form or a confirmation.
   const ref = useRef<HTMLDivElement>(null)
   const token = useRef(0)
 
@@ -224,7 +221,7 @@ export function Modal({
     // console is read against those.
     <div className={isTop ? 'modal__backdrop' : 'modal__backdrop modal__backdrop--stacked'}>
       <div
-        className={size === 'console' ? 'modal modal--console' : 'modal'}
+        className="modal"
         role="dialog"
         aria-modal="true"
         aria-label={title}

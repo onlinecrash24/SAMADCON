@@ -103,7 +103,7 @@ export function GpoDetail({ gpo, onClose, onChanged, onDeleted }: GpoDetailProps
       {/* Everything below the tabs scrolls; the tabs themselves do not. A tab
           with a long list — the settings report, the folder table — otherwise
           pushes the row out of the window, and there is no way back to it. */}
-      <div className="modal__panel">
+      <div className="sheet-window__panel sheet-window__panel--fill">
         <ErrorMessage error={error} onDismiss={() => setError(null)} />
 
         {tab === 'general' && (

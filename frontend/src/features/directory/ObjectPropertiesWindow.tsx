@@ -69,15 +69,20 @@ export function ObjectPropertiesWindow({
 
   return (
     <div className="sheet-window">
-      <ObjectDetail
-        object={object.data}
-        onChanged={onChanged}
-        onNavigate={onNavigate}
-        // The editable fields, the way the original opens its properties —
-        // rather than the overview already visible in the pane behind.
-        initialTab="edit"
-        onRetarget={onRetarget}
-      />
+      {/* The scrolling half. Without it the sheet is cut off wherever the
+          window ends, because the body around it deliberately does not
+          scroll — the footer below has to stay reachable. */}
+      <div className="sheet-window__panel">
+        <ObjectDetail
+          object={object.data}
+          onChanged={onChanged}
+          onNavigate={onNavigate}
+          // The editable fields, the way the original opens its properties —
+          // rather than the overview already visible in the pane behind.
+          initialTab="edit"
+          onRetarget={onRetarget}
+        />
+      </div>
       <div className="sheet-window__footer">
         <button type="button" className="button" onClick={onClose}>
           {t('action.close')}

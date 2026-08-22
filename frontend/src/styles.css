@@ -543,6 +543,22 @@ body.is-resizing { cursor: col-resize; user-select: none; }
    where this shape was proven. */
 .sheet-window { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 12px 14px 0; }
 .sheet-window > .tabs { margin-bottom: 10px; }
+
+/* Everything between the tab row and the footer, and the only thing in a
+   window that scrolls.
+
+   .window__body is overflow:hidden on purpose, so that the title bar and the
+   footer stay put however long the content is — which means the content in
+   between has to bring its own scrollbar. A sheet put straight into
+   .sheet-window is simply cut off at the bottom with no way down, which is
+   what happened to the property sheet. */
+.sheet-window__panel { flex: 1; min-height: 0; overflow: auto; }
+
+/* The policy editor's variant: its tab bodies ask for the leftover height, so
+   that one is a column. A property sheet is a stack of sections and wants
+   nothing but the scrollbar — making it a column too would be asking its
+   sections to negotiate for height they do not need. */
+.sheet-window__panel--fill { display: flex; flex-direction: column; }
 .sheet-window__footer {
   display: flex;
   justify-content: flex-end;
@@ -862,30 +878,6 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 .modal__close { background: none; border: none; font-size: 1.3em; color: var(--text-muted); cursor: pointer; }
 .modal__body { padding: 16px; overflow: auto; }
 
-/* A console window, not a form: a fixed height, so the panes inside can divide
-   it up instead of the dialog growing until the screen runs out. */
-.modal--console { max-width: min(1180px, 96vw); height: min(880px, 92vh); max-height: none; }
-/* A column, so a pane that asks for the leftover height gets the height left
-   *beside the tabs* rather than the whole body — the two differ by exactly the
-   tab row, which is enough to push the panes out through the bottom.
-
-   The body itself does not scroll: everything below the tabs lives in a panel
-   that scrolls on its own. Letting the body scroll takes the tab row with it,
-   and a tab holding a long list then leaves no way back to the others. */
-.modal--console .modal__body {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-.modal__panel {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  display: flex;
-  flex-direction: column;
-}
 .modal__footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--border); }
 
 .form__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
