@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 
 import { ApiError } from './api/client'
 import { api } from './api/endpoints'
@@ -9,6 +9,7 @@ import { LoginView } from './components/LoginView'
 import { LogoMark } from './components/Logo'
 import { ObjectList } from './components/ObjectList'
 import { TreePane } from './components/TreePane'
+import { Splitter } from './components/Splitter'
 import { ConsoleTabs } from './features/console/ConsoleTabs'
 import {
   NewComputerDialog,
@@ -26,6 +27,7 @@ import { GpoView } from './features/gpo/GpoView'
 import { SitesView } from './features/sites/SitesView'
 import { useI18n } from './i18n'
 import { readConsoleLocation, writeConsoleLocation } from './state/consoleLocation'
+import { readPaneWidths, writePaneWidths, type Boundary } from './state/paneWidths'
 import { useSession } from './state/session'
 
 type NewObjectKind = 'user' | 'group' | 'computer' | 'ou' | null
@@ -85,6 +87,22 @@ function Console() {
   // start meaning "when the pane last mounted" if it were ever rendered
   // conditionally — which is exactly what a console with no tree invites.
   const revealDn = useRef(restored.search ? null : restored.dn)
+
+  // Read once. Written back only when a drag is released, never per move —
+  // the drag itself writes straight to the DOM.
+  const [paneWidths, setPaneWidths] = useState(() => readPaneWidths())
+
+  const rememberWidth = (boundary: Boundary, px: number | null) => {
+    setPaneWidths((current) => {
+      const forConsole = { ...current[snapin] }
+      if (px === null) delete forConsole[boundary]
+      else forConsole[boundary] = px
+
+      const updated = { ...current, [snapin]: forConsole }
+      writePaneWidths(updated)
+      return updated
+    })
+  }
 
   const [currentDn, setCurrentDn] = useState(restored.dn)
   const [selected, setSelected] = useState<DirectoryObject | null>(null)
@@ -204,6 +222,15 @@ function Console() {
   const panes = panesFor(snapin)
   const shape = panes.detail ? 'full' : panes.tree ? 'tree' : 'list'
 
+  // Absent means "no preference", and the stylesheet's own minmax() applies.
+  // Written as values rather than as a grid-template-columns declaration,
+  // which would outrank both media queries.
+  const widths = paneWidths[snapin] ?? {}
+  const paneStyle = {
+    ...(widths.tree !== undefined && { '--tree-w': `${widths.tree}px` }),
+    ...(widths.detail !== undefined && { '--detail-w': `${widths.detail}px` }),
+  } as CSSProperties
+
   return (
     <div className="console">
       <header className="topbar">
@@ -261,7 +288,7 @@ function Console() {
       {notice && <div className="alert alert--success">{notice}</div>}
       <ErrorMessage error={navigationError} onDismiss={() => setNavigationError(null)} />
 
-      <div className={`console__panes console__panes--${shape}`}>
+      <div className={`console__panes console__panes--${shape}`} style={paneStyle}>
         {/* Always rendered, even for the three consoles that have no tree —
             the stylesheet hides it for those. Unmounting it would throw away
             every expanded branch on the way past Sites, and the pane is built
@@ -292,7 +319,7 @@ function Console() {
           />
         </div>
 
-        <div className="splitter splitter--tree" />
+        <Splitter boundary="tree" onCommit={(px) => rememberWidth('tree', px)} />
 
         {snapin === 'dns' ? (
           <div className="pane pane--list">
@@ -368,7 +395,7 @@ function Console() {
             now stated in snapins.ts rather than spelled out here. */}
         {panes.detail && (
           <>
-            <div className="splitter splitter--detail" />
+            <Splitter boundary="detail" onCommit={(px) => rememberWidth('detail', px)} />
             <div className="pane pane--detail">
               <DetailPane
                 object={selected}

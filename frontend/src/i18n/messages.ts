@@ -51,6 +51,9 @@ export const de = {
   'gpo.allPolicies': 'Alle Richtlinien',
   'gpo.linkMissingPolicy': '(Richtlinie existiert nicht mehr)',
 
+  'splitter.tree': 'Breite des Navigationsbereichs',
+  'splitter.detail': 'Breite des Eigenschaftenbereichs',
+  'splitter.hint': 'Ziehen zum Verstellen, Doppelklick setzt zurück',
   'nav.consoles': 'Konsolen',
   'nav.directory': 'Verzeichnis',
 
@@ -1371,6 +1374,9 @@ export const en: Record<MessageKey, string> = {
   'gpo.allPolicies': 'All policies',
   'gpo.linkMissingPolicy': '(the policy no longer exists)',
 
+  'splitter.tree': 'Width of the navigation pane',
+  'splitter.detail': 'Width of the properties pane',
+  'splitter.hint': 'Drag to resize, double-click to reset',
   'nav.consoles': 'Consoles',
   'nav.directory': 'Directory',
 
