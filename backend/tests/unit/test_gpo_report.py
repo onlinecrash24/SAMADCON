@@ -8,7 +8,7 @@ listing instead of relying on it.
 
 from __future__ import annotations
 
-from samadcon.gpo import report
+from samadcon.gpo import cse, report
 
 
 def entry(path: str, *, directory: bool = False) -> dict:
@@ -409,16 +409,26 @@ def test_an_extension_windows_keeps_is_not_reported_as_stale():
     assert problems == []
 
 
-def test_folder_redirection_is_treated_as_kept_until_established():
-    """Nothing has shown Windows clears it. Treating an unverified extension as
-    kept costs a finding we might have raised; the other way round would flag a
-    healthy policy."""
+def test_folder_redirection_clears_and_a_leftover_is_a_problem():
+    """This was the other way round while nothing had established it.
+
+    Removing the last redirected folder in GPMC and reading the attribute
+    back gave ``gPCUserExtensionNames:: IA==`` — a single space, the same
+    empty marker scripts and administrative templates leave behind. So the
+    extension clears, and one registered over nothing is stale like any
+    other rather than a state Windows produces on purpose."""
     problems = report.registration_problems(
         gpo(user="[{25537BA6-77A8-11D2-9B6C-0000F8080861}"
                  "{88E729D6-BDC1-11D1-BD2A-00C04FB9603F}]"),
         built(),
     )
-    assert problems == []
+    assert problems == ["user_extension_without_content"]
+
+
+def test_only_the_security_extension_is_kept():
+    """One member, and it is the measured one. Every addition to this set
+    stops a finding being raised, so it takes evidence and not a hunch."""
+    assert set(cse.KEEPS_REGISTRATION) == {cse.braced(cse.SECURITY_CSE)}
 
 
 def test_a_kept_extension_does_not_mask_a_stale_one_beside_it():

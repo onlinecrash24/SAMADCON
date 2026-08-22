@@ -213,15 +213,17 @@ EMPTY = " "
 # startup script, and with an administrative template, cleared the attribute to
 # a single space.
 #
-# Folder redirection is in this set because nothing has established otherwise.
-# Treating an unverified extension as "keeps" only costs a finding we might
-# have raised; treating it as "clears" would flag a healthy policy.
-KEEPS_REGISTRATION = frozenset(
-    {
-        braced(SECURITY_CSE),
-        braced(REDIRECTION_CSE),
-    }
-)
+# Folder redirection was in this set, on the grounds that nothing had
+# established otherwise — treating an unverified extension as "keeps" only
+# costs a finding, while treating it as "clears" would flag a healthy
+# policy. Something has established otherwise. Removing the last redirected
+# folder in GPMC and reading the attribute back gave
+# ``gPCUserExtensionNames:: IA==``: a single space, the same empty marker
+# scripts and administrative templates leave. So it clears, and a redirection
+# extension registered over nothing is a stale registration like any other.
+#
+# That leaves one member, and it is the one measured rather than assumed.
+KEEPS_REGISTRATION = frozenset({braced(SECURITY_CSE)})
 
 
 # A short name per extension, for the one place a GUID is shown to a person:
