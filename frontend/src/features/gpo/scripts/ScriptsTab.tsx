@@ -12,10 +12,10 @@
  */
 
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../../../api/endpoints'
-import type { Gpo, ScriptEngine, ScriptEntry, ScriptEvent } from '../../../api/types'
+import type { Gpo, ScriptEngine, ScriptEntry, ScriptEvent, ScriptFile } from '../../../api/types'
 import { ErrorMessage, Spinner } from '../../../components/primitives'
 import { useI18n } from '../../../i18n'
 import type { MessageKey } from '../../../i18n/messages'
@@ -232,10 +232,150 @@ export function ScriptsTab({ gpo, onChanged }: { gpo: Gpo; onChanged: (message: 
               {t('action.save')}
             </button>
           </div>
+
+          <Files dn={gpo.dn} half={half} event={event} onChanged={onChanged} />
         </section>
       </div>
     </div>
   )
+}
+
+
+/**
+ * The files in one event's directory on the share.
+ *
+ * Storing one does not schedule it. That separation is the point rather than
+ * an omission: a helper script another one calls belongs on the share and not
+ * in the list of things to run, and the console should not decide otherwise on
+ * someone's behalf.
+ */
+function Files({
+  dn,
+  half,
+  event,
+  onChanged,
+}: {
+  dn: string
+  half: Half
+  event: ScriptEvent
+  onChanged: (message: string) => void
+}) {
+  const { t } = useI18n()
+  const [error, setError] = useState<unknown>(null)
+  const picker = useRef<HTMLInputElement>(null)
+
+  const listing = useQuery({
+    // The directory is per half and per event, exactly as the endpoints are.
+    queryKey: ['gpo-script-files', dn, half, event],
+    queryFn: () => api.gpoScriptFiles(dn, half, event),
+  })
+
+  const upload = useMutation({
+    mutationFn: (file: File) => api.uploadGpoScriptFile(dn, half, event, file),
+    onSuccess: (result) => {
+      void listing.refetch()
+      onChanged(t('scripts.fileStored', { name: result.name }))
+    },
+    onError: setError,
+  })
+
+  const remove = useMutation({
+    mutationFn: (name: string) => api.deleteGpoScriptFile(dn, half, event, name),
+    onSuccess: (result) => {
+      void listing.refetch()
+      onChanged(t('scripts.fileRemoved', { name: result.removed }))
+    },
+    onError: setError,
+  })
+
+  const files: ScriptFile[] = listing.data?.files ?? []
+
+  return (
+    <section className="stack">
+      <h4>{t('scripts.files')}</h4>
+      <p className="muted small">{t('scripts.filesHint')}</p>
+
+      <ErrorMessage error={error} onDismiss={() => setError(null)} />
+
+      {listing.isLoading && <Spinner label={t('status.loading')} />}
+      {listing.error && <ErrorMessage error={listing.error} />}
+
+      {files.length === 0 && !listing.isLoading && (
+        <p className="muted">{t('scripts.noFiles')}</p>
+      )}
+
+      {files.length > 0 && (
+        <div className="table-wrap">
+          <table className="table table--compact">
+            <thead>
+              <tr>
+                <th>{t('scripts.fileName')}</th>
+                <th className="table__cell--narrow">{t('scripts.fileSize')}</th>
+                <th className="table__cell--narrow" />
+              </tr>
+            </thead>
+            <tbody>
+              {files.map((file) => (
+                <tr key={file.name}>
+                  <td className="mono small">{file.name}</td>
+                  <td className="muted small">{bytes(file.size)}</td>
+                  <td>
+                    <div className="pane__actions">
+                      <button
+                        type="button"
+                        className="button"
+                        onClick={() => void api.downloadGpoScriptFile(dn, half, event, file.name)}
+                      >
+                        {t('scripts.download')}
+                      </button>
+                      <button
+                        type="button"
+                        className="button button--danger"
+                        disabled={remove.isPending}
+                        onClick={() => remove.mutate(file.name)}
+                      >
+                        {t('action.remove')}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="pane__actions">
+        <button
+          type="button"
+          className="button"
+          disabled={upload.isPending}
+          onClick={() => picker.current?.click()}
+        >
+          {upload.isPending ? t('scripts.storing') : t('scripts.addFile')}
+        </button>
+        <input
+          ref={picker}
+          type="file"
+          hidden
+          onChange={(change) => {
+            const file = change.target.files?.[0]
+            // Cleared so the same file can be picked twice in a row — after a
+            // failed upload that is exactly what someone tries.
+            change.target.value = ''
+            if (file) upload.mutate(file)
+          }}
+        />
+      </div>
+    </section>
+  )
+}
+
+/** Sizes a reader can weigh, without pretending to more precision than matters. */
+function bytes(size: number): string {
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`
 }
 
 function Count({ entries }: { entries?: ScriptEntry[] }) {

@@ -1132,6 +1132,15 @@ export interface GpoRedirection {
   other: Record<string, Record<string, string>>
 }
 
+/** A file lying in one event's directory on SYSVOL. */
+export interface ScriptFile {
+  name: string
+  path: string
+  size: number
+  /** Whatever timestamp the SMB build offers, or null when it offers none. */
+  changed: string | null
+}
+
 export interface GpoScripts {
   dn: string
   half: string

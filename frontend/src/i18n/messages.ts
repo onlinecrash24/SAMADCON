@@ -1153,6 +1153,18 @@ export const de = {
     'Die Reihenfolge ist die Ausführungsreihenfolge. Gespeichert wird die ganze Liste.',
   'scripts.saved': 'Skripte gespeichert.',
   'scripts.unchanged': 'Nichts zu ändern — die Liste stand bereits so.',
+  'scripts.files': 'Dateien in diesem Ereignis',
+  'scripts.filesHint':
+    'Was hier liegt, wird nicht dadurch ausgeführt. Ablegen und Einplanen sind zwei Schritte — ein Hilfsskript, das ein anderes aufruft, gehört auf die Freigabe, aber nicht in die Liste oben. Umgekehrt bleibt ein Eintrag stehen, wenn Sie die Datei löschen, und zeigt dann ins Leere.',
+  'scripts.noFiles': 'In diesem Verzeichnis liegt keine Datei.',
+  'scripts.fileName': 'Datei',
+  'scripts.fileSize': 'Größe',
+  'scripts.download': 'Herunterladen',
+  'scripts.addFile': 'Datei ablegen',
+  'scripts.storing': 'Wird abgelegt …',
+  'scripts.fileStored': '{name} liegt jetzt auf der Freigabe.',
+  'scripts.fileRemoved': '{name} wurde entfernt.',
+
   'scripts.notRegistered':
     'Diese Richtlinie enthält Skripte, aber die zugehörige Client-Erweiterung ist nicht eingetragen — kein Client führt sie aus. Einmal speichern trägt sie nach.',
   'admx.machineHalf': 'Computerkonfiguration',
@@ -2358,6 +2370,18 @@ export const en: Record<MessageKey, string> = {
   'scripts.orderHint': 'The order is the order they run in. The whole list is saved at once.',
   'scripts.saved': 'Scripts saved.',
   'scripts.unchanged': 'Nothing to change — the list already read that way.',
+  'scripts.files': 'Files in this event',
+  'scripts.filesHint':
+    'Nothing here runs because it is here. Storing and scheduling are two steps — a helper script another one calls belongs on the share but not in the list above. The other way round, an entry stays when you remove the file it names, and then points at nothing.',
+  'scripts.noFiles': 'This directory holds no file.',
+  'scripts.fileName': 'File',
+  'scripts.fileSize': 'Size',
+  'scripts.download': 'Download',
+  'scripts.addFile': 'Store a file',
+  'scripts.storing': 'Storing …',
+  'scripts.fileStored': '{name} is on the share now.',
+  'scripts.fileRemoved': '{name} was removed.',
+
   'scripts.notRegistered':
     'This policy holds scripts but the client-side extension that runs them is not registered — no client runs them. Saving once registers it.',
   'admx.machineHalf': 'Computer configuration',

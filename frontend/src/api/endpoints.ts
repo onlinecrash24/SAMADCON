@@ -27,6 +27,7 @@ import type {
   DomainReport,
   FindingArea,
   FindingsReport,
+  ScriptFile,
   DirectoryObject,
   Gpo,
   GpoFiltering,
@@ -462,6 +463,31 @@ export const api = {
       expected_version?: number
     },
   ) => http.post<AdmxApplyResult>(`/gpos/scripts?dn=${dnParam(dn)}`, payload),
+
+  // The files themselves, which are not the same thing as the list of
+  // scripts to run: a helper another script calls belongs on the share
+  // without being scheduled.
+  gpoScriptFiles: (dn: string, half: string, event: string) =>
+    http.get<{ files: ScriptFile[] }>(
+      `/gpos/scripts/files?dn=${dnParam(dn)}&half=${half}&event=${event}`,
+    ),
+  uploadGpoScriptFile: (dn: string, half: string, event: string, file: File) =>
+    http.upload<{ name: string; size: number }>(
+      `/gpos/scripts/files?dn=${dnParam(dn)}&half=${half}&event=${event}`,
+      'file',
+      file,
+    ),
+  downloadGpoScriptFile: (dn: string, half: string, event: string, name: string) =>
+    http.download(
+      `/gpos/scripts/files/content?dn=${dnParam(dn)}&half=${half}&event=${event}` +
+        `&name=${encodeURIComponent(name)}`,
+      name,
+    ),
+  deleteGpoScriptFile: (dn: string, half: string, event: string, name: string) =>
+    http.delete<{ removed: string }>(
+      `/gpos/scripts/files?dn=${dnParam(dn)}&half=${half}&event=${event}` +
+        `&name=${encodeURIComponent(name)}`,
+    ),
 
   // -- Samba's own policies (VGP) -----------------------------------------
   // Windows clients ignore these; samba-gpupdate applies them on Linux
