@@ -11,4 +11,4 @@ built on the Samba python bindings (LDAP/LDAPS, Kerberos, SMB).
 # Keep it a plain string literal. setuptools parses this file rather than
 # importing it, which is what keeps the samba bindings out of the build —
 # anything it cannot evaluate statically sends it back to importing.
-__version__ = "0.5.3"
+__version__ = "0.5.4"
