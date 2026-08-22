@@ -223,7 +223,7 @@ def _preference_type(group: dict[str, Any]) -> Any:
 
 def registration_differences(
     gpo: dict[str, Any], report: dict[str, Any]
-) -> dict[str, dict[str, list[list[str]]]]:
+) -> dict[str, dict[str, list[dict[str, str]]]]:
     """Per half, what registration would have to change to match the content.
 
     ``missing`` is content no registered extension would apply. Adding those is
@@ -235,22 +235,29 @@ def registration_differences(
     removing them would undo a state GPMC produces deliberately; see
     :data:`samadcon.gpo.cse.KEEPS_REGISTRATION`.
 
-    Pairs come back as lists so this survives a trip through JSON unchanged.
+    Each entry carries the extension's short name beside its GUID, because
+    the preview built from this is read by a person.
     """
-    differences: dict[str, dict[str, list[list[str]]]] = {}
+    differences: dict[str, dict[str, list[dict[str, str]]]] = {}
 
     for half, attribute in REGISTRATION_ATTRIBUTE.items():
         content = required_pairs(report[half.lower()])
         registered = cse.registered_extensions(gpo.get(attribute))
         wanted = {cse.braced(pair[0]) for pair in content}
 
-        missing = [list(pair) for pair in content if cse.braced(pair[0]) not in registered]
-        surplus = sorted(registered - wanted - cse.KEEPS_REGISTRATION)
+        # Named, not just identified: this is shown to someone deciding
+        # whether to approve the write, and a GUID does not read.
+        missing = [
+            {"cse": cse.braced(pair[0]), "tool": cse.braced(pair[1]), "name": cse.name_for(pair[0])}
+            for pair in content
+            if cse.braced(pair[0]) not in registered
+        ]
+        surplus = [
+            {"cse": guid, "name": cse.name_for(guid)}
+            for guid in sorted(registered - wanted - cse.KEEPS_REGISTRATION)
+        ]
 
-        differences[half.lower()] = {
-            "missing": missing,
-            "surplus": [[guid] for guid in surplus],
-        }
+        differences[half.lower()] = {"missing": missing, "surplus": surplus}
     return differences
 
 

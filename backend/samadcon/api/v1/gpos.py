@@ -107,8 +107,10 @@ async def reconcile_registration(
             changed: dict[str, Any] = {}
             for half in ("Machine", "User"):
                 half_id = half.lower()
-                missing = [(pair[0], pair[1]) for pair in differences[half_id]["missing"]]
-                surplus = [entry[0] for entry in differences[half_id]["surplus"]]
+                missing = [
+                    (entry["cse"], entry["tool"]) for entry in differences[half_id]["missing"]
+                ]
+                surplus = [entry["cse"] for entry in differences[half_id]["surplus"]]
 
                 if missing:
                     # One write for the half, not one per pair: a second write

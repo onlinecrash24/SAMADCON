@@ -27,6 +27,7 @@ import type {
   DomainReport,
   FindingArea,
   FindingsReport,
+  RegistrationDifferences,
   ScriptFile,
   DirectoryObject,
   Gpo,
@@ -339,6 +340,14 @@ export const api = {
   gpos: () => http.get<{ gpos: Gpo[] }>('/gpos'),
   gpo: (dn: string) => http.get<Gpo>(`/gpos/gpo?dn=${dnParam(dn)}`),
   gpoStatus: (dn: string) => http.get<GpoStatus>(`/gpos/status?dn=${dnParam(dn)}`),
+  // Computing and applying are separate calls on purpose: these attributes
+  // decide whether a policy runs at all, so the change is shown first.
+  gpoRegistration: (dn: string) =>
+    http.get<RegistrationDifferences>(`/gpos/registration?dn=${dnParam(dn)}`),
+  reconcileGpoRegistration: (dn: string) =>
+    http.post<{ changed: Record<string, unknown>; reconciled: boolean }>(
+      `/gpos/registration?dn=${dnParam(dn)}`,
+    ),
   createGpo: (displayName: string) => http.post<Gpo>('/gpos', { display_name: displayName }),
   updateGpo: (
     dn: string,

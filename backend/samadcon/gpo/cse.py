@@ -224,6 +224,37 @@ KEEPS_REGISTRATION = frozenset(
 )
 
 
+# A short name per extension, for the one place a GUID is shown to a person:
+# the preview of what reconciling would change. An administrator asked to
+# approve a write should be able to read what it does, and
+# {35378EAC-683F-11D2-A89A-00C04FBBCFA2} is not that.
+#
+# Only the extensions this tool writes. Anything else keeps its GUID rather
+# than being given a name that guesses at what it is.
+NAMES = {
+    braced(REGISTRY_CSE): 'registry',
+    braced(SECURITY_CSE): 'security',
+    braced(SCRIPTS_CSE): 'scripts',
+    braced(REDIRECTION_CSE): 'redirection',
+    braced(PREFERENCES_NULL_CSE): 'preferences',
+    braced(DRIVES_CSE): 'drives',
+    braced(PREF_REGISTRY_CSE): 'pref_registry',
+    braced(FILES_CSE): 'files',
+    braced(FOLDERS_CSE): 'folders',
+    braced(SHORTCUTS_CSE): 'shortcuts',
+    braced(ENVIRONMENT_CSE): 'environment',
+    braced(PRINTERS_CSE): 'printers',
+    braced(GROUPS_CSE): 'groups',
+    braced(SERVICES_CSE): 'services',
+    braced(TASKS_CSE): 'tasks',
+}
+
+
+def name_for(guid: str) -> str:
+    """A readable name for an extension, or its GUID when we have none."""
+    return NAMES.get(braced(guid), braced(guid))
+
+
 def registered_extensions(value: str | None) -> set[str]:
     """The CSE GUIDs listed in one extension-names attribute."""
     return {group[0] for group in parse(value)}

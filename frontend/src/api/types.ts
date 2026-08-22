@@ -1132,6 +1132,26 @@ export interface GpoRedirection {
   other: Record<string, Record<string, string>>
 }
 
+/** One extension in a reconcile preview, named so a person can read it. */
+export interface RegistrationEntry {
+  cse: string
+  /** Only on entries to be added; removing does not need the tool. */
+  tool?: string
+  /** A short id like 'registry', or the GUID when we have no name for it. */
+  name: string
+}
+
+export interface RegistrationHalf {
+  /** Content no registered extension would apply. */
+  missing: RegistrationEntry[]
+  /** Registered with nothing behind it. Excludes the ones Windows keeps. */
+  surplus: RegistrationEntry[]
+}
+
+export interface RegistrationDifferences {
+  halves: { machine: RegistrationHalf; user: RegistrationHalf }
+}
+
 /** A file lying in one event's directory on SYSVOL. */
 export interface ScriptFile {
   name: string

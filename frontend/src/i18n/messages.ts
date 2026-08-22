@@ -760,6 +760,30 @@ export const de = {
     'Windows liest eine Richtlinie nur neu, wenn diese beiden Zahlen sich ändern — und vergleicht dabei die aus dem Verzeichnis mit der aus GPT.INI.',
   'gpo.directoryVersion': 'Verzeichnis (versionNumber)',
   'gpo.sysvolVersion': 'SYSVOL (GPT.INI)',
+  'gpo.reconcileCheck': 'Registrierung prüfen',
+  'gpo.reconcileApply': 'Abgleichen',
+  'gpo.reconciling': 'Wird abgeglichen …',
+  'gpo.reconcileHint':
+    'Das wird geschrieben: (+) eintragen, damit der Inhalt angewendet wird, (−) austragen, weil dazu nichts vorliegt. Erweiterungen, die Windows absichtlich stehen lässt, bleiben unangetastet.',
+  'gpo.reconcileNothing':
+    'An der Registrierung ist nichts abzugleichen. Was oben steht, hat eine andere Ursache — etwa abweichende Versionen oder Inhalt, dessen Erweiterung dieses Werkzeug nicht kennt.',
+
+  'gpo.extension.registry': 'Administrative Vorlagen',
+  'gpo.extension.security': 'Sicherheitseinstellungen',
+  'gpo.extension.scripts': 'Skripte',
+  'gpo.extension.redirection': 'Ordnerumleitung',
+  'gpo.extension.preferences': 'Preferences (gemeinsamer Eintrag)',
+  'gpo.extension.drives': 'Preferences: Laufwerke',
+  'gpo.extension.pref_registry': 'Preferences: Registrierung',
+  'gpo.extension.files': 'Preferences: Dateien',
+  'gpo.extension.folders': 'Preferences: Ordner',
+  'gpo.extension.shortcuts': 'Preferences: Verknüpfungen',
+  'gpo.extension.environment': 'Preferences: Umgebungsvariablen',
+  'gpo.extension.printers': 'Preferences: Drucker',
+  'gpo.extension.groups': 'Preferences: Lokale Benutzer und Gruppen',
+  'gpo.extension.services': 'Preferences: Dienste',
+  'gpo.extension.tasks': 'Preferences: Geplante Aufgaben',
+
   'gpo.consistent': 'Beide Hälften stimmen überein.',
   'gpo.problem.version_mismatch':
     'Die Versionen weichen voneinander ab. Clients lesen die Richtlinie entweder nie neu oder bei jeder Anmeldung.',
@@ -1981,6 +2005,30 @@ export const en: Record<MessageKey, string> = {
     'Windows re-reads a policy only when these two numbers change, and it compares the one in the directory with the one in GPT.INI.',
   'gpo.directoryVersion': 'Directory (versionNumber)',
   'gpo.sysvolVersion': 'SYSVOL (GPT.INI)',
+  'gpo.reconcileCheck': 'Check the registration',
+  'gpo.reconcileApply': 'Reconcile',
+  'gpo.reconciling': 'Reconciling …',
+  'gpo.reconcileHint':
+    'This is what gets written: (+) register, so the content is applied, (−) unregister, because there is nothing behind it. Extensions Windows keeps on purpose are left alone.',
+  'gpo.reconcileNothing':
+    'There is nothing to reconcile in the registration. What is reported above has another cause — versions that disagree, say, or content whose extension this tool does not know.',
+
+  'gpo.extension.registry': 'Administrative templates',
+  'gpo.extension.security': 'Security settings',
+  'gpo.extension.scripts': 'Scripts',
+  'gpo.extension.redirection': 'Folder redirection',
+  'gpo.extension.preferences': 'Preferences (shared entry)',
+  'gpo.extension.drives': 'Preferences: drive maps',
+  'gpo.extension.pref_registry': 'Preferences: registry',
+  'gpo.extension.files': 'Preferences: files',
+  'gpo.extension.folders': 'Preferences: folders',
+  'gpo.extension.shortcuts': 'Preferences: shortcuts',
+  'gpo.extension.environment': 'Preferences: environment variables',
+  'gpo.extension.printers': 'Preferences: printers',
+  'gpo.extension.groups': 'Preferences: local users and groups',
+  'gpo.extension.services': 'Preferences: services',
+  'gpo.extension.tasks': 'Preferences: scheduled tasks',
+
   'gpo.consistent': 'Both halves agree.',
   'gpo.problem.version_mismatch':
     'The versions disagree. Clients either never re-read the policy or re-read it at every logon.',

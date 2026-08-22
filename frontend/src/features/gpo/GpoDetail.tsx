@@ -651,14 +651,121 @@ function HealthTab({ gpo }: { gpo: Gpo }) {
       {data.consistent ? (
         <div className="alert alert--success">{t('gpo.consistent')}</div>
       ) : (
-        <div className="alert alert--warning">
-          <ul className="plain-list">
-            {data.problems.map((problem) => (
-              <li key={problem}>{t(`gpo.problem.${problem}` as MessageKey)}</li>
-            ))}
-          </ul>
-        </div>
+        <>
+          <div className="alert alert--warning">
+            <ul className="plain-list">
+              {data.problems.map((problem) => (
+                <li key={problem}>{t(`gpo.problem.${problem}` as MessageKey)}</li>
+              ))}
+            </ul>
+          </div>
+          <Reconcile dn={gpo.dn} onDone={() => void status.refetch()} />
+        </>
       )}
     </div>
+  )
+}
+
+/**
+ * Bring the registered extensions back in line with what the policy holds.
+ *
+ * Shown before applied. Registering an extension makes a policy start doing
+ * what it already claims to do, and dropping one stops every client in scope
+ * fetching it for nothing — but both are writes to the attribute that decides
+ * whether the policy runs, and nobody should approve one sight unseen.
+ *
+ * The apply call recomputes rather than sending this preview back. What is on
+ * screen was measured before whatever else has happened since.
+ */
+function Reconcile({ dn, onDone }: { dn: string; onDone: () => void }) {
+  const { t } = useI18n()
+  const [error, setError] = useState<unknown>(null)
+
+  const preview = useQuery({
+    queryKey: ['gpo-registration', dn],
+    queryFn: () => api.gpoRegistration(dn),
+    // Not on opening the tab: it walks the whole policy on the share, and the
+    // status above has just done that once already.
+    enabled: false,
+  })
+
+  const apply = useMutation({
+    mutationFn: () => api.reconcileGpoRegistration(dn),
+    onSuccess: () => {
+      void preview.refetch()
+      onDone()
+    },
+    onError: setError,
+  })
+
+  const halves = preview.data?.halves
+  const entries = halves
+    ? [
+        ...halves.machine.missing.map((entry) => ({ half: 'machine', add: true, entry })),
+        ...halves.machine.surplus.map((entry) => ({ half: 'machine', add: false, entry })),
+        ...halves.user.missing.map((entry) => ({ half: 'user', add: true, entry })),
+        ...halves.user.surplus.map((entry) => ({ half: 'user', add: false, entry })),
+      ]
+    : []
+
+  return (
+    <section className="stack-tight">
+      <ErrorMessage error={error} onDismiss={() => setError(null)} />
+
+      <div className="pane__actions">
+        <button
+          type="button"
+          className="button"
+          disabled={preview.isFetching}
+          onClick={() => void preview.refetch()}
+        >
+          {preview.isFetching ? t('status.loading') : t('gpo.reconcileCheck')}
+        </button>
+
+        {preview.isFetched && entries.length > 0 && (
+          <button
+            type="button"
+            className="button button--primary"
+            disabled={apply.isPending}
+            onClick={() => apply.mutate()}
+          >
+            {apply.isPending ? t('gpo.reconciling') : t('gpo.reconcileApply')}
+          </button>
+        )}
+      </div>
+
+      {preview.error && <ErrorMessage error={preview.error} />}
+
+      {preview.isFetched && entries.length === 0 && !preview.error && (
+        // The problems above are then ones this cannot answer — a version
+        // mismatch, say, or content whose extension we do not know.
+        <p className="muted small">{t('gpo.reconcileNothing')}</p>
+      )}
+
+      {entries.length > 0 && (
+        <>
+          <p className="muted small">{t('gpo.reconcileHint')}</p>
+          <ul className="plain-list">
+            {entries.map(({ half, add, entry }) => (
+              <li key={`${half}:${add}:${entry.cse}`}>
+                {add ? '+ ' : '− '}
+                {t(half === 'machine' ? 'admx.machineHalf' : 'admx.userHalf')}
+                {': '}
+                <strong>
+                  {/* name_for gives a short id, or the GUID when it has no
+                      name for the extension. Only the first can be looked up. */}
+                  {entry.name.startsWith('{')
+                    ? entry.name
+                    : t(`gpo.extension.${entry.name}` as MessageKey)}
+                </strong>
+                {!entry.name.startsWith('{') && (
+                  <span className="mono small muted"> {entry.cse}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </section>
   )
 }

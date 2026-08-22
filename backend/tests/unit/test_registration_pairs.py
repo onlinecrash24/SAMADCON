@@ -124,7 +124,13 @@ def test_content_without_its_extension_is_missing() -> None:
         gpo(), built(half(registry=[{"key": "Software", "values": []}]))
     )
 
-    assert found["machine"]["missing"] == [[cse.REGISTRY_CSE, cse.REGISTRY_TOOL]]
+    assert found["machine"]["missing"] == [
+        {
+            "cse": cse.braced(cse.REGISTRY_CSE),
+            "tool": cse.braced(cse.REGISTRY_TOOL),
+            "name": "registry",
+        }
+    ]
     assert found["machine"]["surplus"] == []
 
 
@@ -136,8 +142,17 @@ def test_the_case_the_whole_half_comparison_misses() -> None:
         gpo(machine=registered), built(half(security={"System Access": {}}))
     )
 
-    assert found["machine"]["missing"] == [[cse.SECURITY_CSE, cse.SECURITY_TOOL]]
-    assert found["machine"]["surplus"] == [[cse.braced(cse.REGISTRY_CSE)]]
+    assert found["machine"]["missing"] == [
+        {
+            "cse": cse.braced(cse.SECURITY_CSE),
+            "tool": cse.braced(cse.SECURITY_TOOL),
+            "name": "security",
+        }
+    ]
+    # Named, because this list is what a person approves.
+    assert found["machine"]["surplus"] == [
+        {"cse": cse.braced(cse.REGISTRY_CSE), "name": "registry"}
+    ]
 
 
 def test_an_extension_windows_keeps_is_not_surplus() -> None:
