@@ -22,7 +22,6 @@ import type { Finding, FindingArea } from '../../api/types'
 import { Badge, ErrorMessage, Spinner } from '../../components/primitives'
 import { useI18n } from '../../i18n'
 import type { MessageKey } from '../../i18n/messages'
-import { AssistantReport } from './AssistantReport'
 import { ReportView } from './ReportView'
 
 const AREAS: FindingArea[] = ['security', 'policies']
@@ -111,8 +110,6 @@ export function SecurityFindings() {
               <FindingCard key={`${finding.id}:${finding.subject}`} finding={finding} />
             ))}
 
-            {/* Below the findings, never among them. */}
-            <AssistantReport area={area} deep={deep} />
           </>
         )}
       </div>

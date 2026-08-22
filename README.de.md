@@ -100,8 +100,6 @@ services:
       SAMADCON_DC_HOSTS: "192.168.1.1"
       # INFO benennt, was geschieht; DEBUG dient dem Nachgehen eines Problems.
       SAMADCON_LOG_LEVEL: "INFO"
-      # Der Modelldienst des KI-Managers. Das Schema ist Pflicht. Leer heißt aus.
-      SAMADCON_OLLAMA_URL: "http://192.168.1.100:11434"
       # Der Reverse Proxy, damit im Audit-Log der Browser steht und nicht er.
       # Die Adresse seines Hosts, nicht die seines Containers. Niemals 0.0.0.0/0.
       SAMADCON_TRUSTED_PROXIES: 192.168.1.200
@@ -371,7 +369,7 @@ docker compose exec samadcon samadconctl check --server 192.168.1.10 --insecure
 | 2 | DNS, Sites & Services, Diagnose (FSMO, Replikation, Passwortrichtlinien) | steht, gegen eine echte Domäne verifiziert |
 | 3 | GPMC-Basis: GPOs, Verknüpfungen, Filterung, Backup/Restore, Report | steht, gegen eine echte Domäne verifiziert |
 | 4 | GPO-Editor: ADMX → Sicherheitseinstellungen → Linux/VGP → Preferences → Skripte/Ordnerumleitung | vollständig; jeder der fünf Teilbereiche auf einem echten Client als **angewendet** nachgewiesen (4c über `samba-gpupdate --rsop`), Preferences in allen drei Wellen. [Was von diesem Nachweis im Repository liegt](#der-richtlinien-editor) — und was nicht |
-| 5 | KI-Manager: Befunde zur Domäne und ihren Richtlinien, ein druckbarer Bericht, auf Wunsch von einem Modell aufbereitet | steht; die Regeln laufen gegen eine echte Domäne, die Modellhälfte ist [optional und als ungeprüft gekennzeichnet](#der-ki-manager) |
+| 5 | Berichte: Befunde zur Domäne und ihren Richtlinien, und ein druckbarer Bericht | steht; die [Regeln](#berichte) laufen gegen eine echte Domäne, und jeder Befund trägt die Werte, aus denen er entschieden wurde |
 
 Meilenstein 1 umfasst: Kerberos-Sitzungen, Baumnavigation, Objektlisten und Suche (ANR),
 Benutzer (anlegen, bearbeiten, Kontooptionen, Passwort-Reset, Entsperren, Ablauf),
@@ -600,15 +598,19 @@ differenzierter Richtlinien (PSOs) sowie gesperrte, deaktivierte und abgelaufene
 Rollen zu übernehmen oder Replikation zu erzwingen gehört bewusst nicht dazu — dafür gibt es
 `samba-tool fsmo seize` und `samba-tool drs replicate` auf dem DC.
 
-### Der KI-Manager
+### Berichte
 
-Zwei Berichte, und die Grenze zwischen ihnen ist der eigentliche Punkt.
-
-**Die verbindliche Hälfte** sind Regeln über Werte, die SAMADCON selbst liest, in
+Regeln über Werte, die SAMADCON selbst liest, in
 `core/findings.py`. Jeder Befund trägt die Werte mit, aus denen er entschieden wurde, und lässt
 sich damit bestreiten statt nur glauben: „Die Mindestlänge für Kennwörter ist 6, geprüft gegen 8"
-ist nachprüfbar, „die Kennwortrichtlinie ist schwach" nicht. Kein Modell ist daran beteiligt, und
-es braucht auch keins.
+ist nachprüfbar, „die Kennwortrichtlinie ist schwach" nicht.
+
+**Hier läuft nichts von selbst, und es wird kein Sprachmodell befragt.** Die Konsole liest, wenn
+man etwas öffnet, und schreibt, wenn man einen Knopf drückt — mehr ist es nicht. Es gab ein
+optionales Modell, das die Befunde ausformulieren konnte; es war nur lesend und als ungeprüft
+gekennzeichnet, und es ist weg — eine Konsole, die eine Domäne verwaltet, ist nicht der Ort dafür.
+Automatismen und alles, was ein Modell befragt, gehören in eine eigene Anwendung mit eigener
+Adresse und eigenem Konto.
 
 Die Richtlinienregeln suchen nach dem Fehler, für den Gruppenrichtlinien berüchtigt sind und den
 keine Konsole meldet: **Eine Richtlinie, die niemanden erreicht, sieht aus wie eine
@@ -623,19 +625,6 @@ Zwei Regeln fehlen **bewusst**, und Tests halten sie fern: erzwungener Kennworta
 zurückgezogen hat, weil geplante Wechsel Menschen zu vorhersehbaren Varianten eines Kennworts
 drängen; und das Auflisten gesperrter oder deaktivierter Konten, das die Diagnose ohnehin zeigt
 und das die Befunde begraben würde, die eine Entscheidung brauchen.
-
-**Die ungeprüfte Hälfte** ist optional und aus, solange `SAMADCON_OLLAMA_URL` keinen Modelldienst
-benennt. Sie ordnet die Befunde und formuliert sie aus; sie darf keinem widersprechen, keinen
-erfinden und keinen anders gewichten, als er gegeben ist. Was gesendet würde, lässt sich vorher
-ansehen — die exakte Anweisung, aus derselben Funktion, die auch die Anfrage baut. Denn
-Domänenkonfiguration, die zu einem anderen Dienst geht, ist eine Entscheidung, und eine
-Entscheidung braucht die Sache selbst statt einer Beschreibung davon. Die Antwort erscheint in
-einem Rahmen, der das Modell benennt und sagt, dass nichts darin nachgerechnet wurde.
-
-Die Adresse kommt aus der Bereitstellung und nie aus einer Anfrage: Der Container führt den Aufruf
-aus, eine eintippbare Adresse würde also jedem angemeldeten Konto Hosts öffnen, an die sein
-eigener Browser nicht herankommt. Der *Name* des Modells kommt aus der Oberfläche — ein Name ist
-keine Adresse.
 
 **Beide Berichte lassen sich drucken.** Es liegt keine PDF-Bibliothek im Image — der Browser
 schreibt bereits PDFs mit durchsuchbarem Text, und die Abhängigkeitsliste ist bewusst kurz. Das

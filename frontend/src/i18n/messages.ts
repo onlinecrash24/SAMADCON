@@ -66,7 +66,7 @@ export const de = {
   'snapin.directory': 'Benutzer und Computer',
   'snapin.dns': 'DNS-Verwaltung',
   'snapin.gpo': 'Gruppenrichtlinienverwaltung',
-  'snapin.assistant': 'KI-Manager',
+  'snapin.reports': 'Berichte',
   'snapin.sites': 'Standorte und Dienste',
   'snapin.diagnostics': 'Diagnose',
 
@@ -536,7 +536,6 @@ export const de = {
     'Ohne gründliche Prüfung erstellt. Einstellungen, die auf SYSVOL liegen, aber von keiner registrierten Erweiterung angewendet werden, kann dieser Bericht nicht sehen.',
   'report.print': 'Drucken / als PDF sichern',
   'report.gathering': 'Bericht wird zusammengetragen …',
-  'report.includeModel': 'Modelltext aufnehmen',
 
   'report.section.connection': 'Verbindung',
   'report.section.domain': 'Domäne',
@@ -545,9 +544,6 @@ export const de = {
   'report.section.securityFindings': 'Befunde: Sicherheit',
   'report.section.policies': 'Gruppenrichtlinien im Bestand',
   'report.section.policyFindings': 'Befunde: Gruppenrichtlinien',
-  'report.section.model': 'Aufbereitung durch ein Modell',
-  'report.modelWarning':
-    'Alles innerhalb dieses Rahmens stammt von einem Sprachmodell und wurde nicht nachgerechnet. Es ordnet und formuliert die Befunde oben, ersetzt sie aber nicht.',
 
   'report.column.links': 'Verknüpfungen',
   'report.column.halves': 'Konfiguration',
@@ -616,24 +612,6 @@ export const de = {
   'findings.severity.low': 'Niedrig',
   'findings.severity.info': 'Hinweis',
 
-  'assistant.title': 'Aufbereitung durch ein Modell',
-  'assistant.notConfigured':
-    'Nicht eingerichtet. Ohne Adresse eines Modelldienstes wird nichts gesendet und nichts abgerufen. Die Adresse gehört in die docker-compose.yml, nicht hierher: den Aufruf macht der Container, und eine hier eingebbare Adresse könnte er auf Hosts richten, die Ihr Browser gar nicht erreicht.',
-  'assistant.intro':
-    'Ein lokal betriebenes Modell formuliert die Befunde oben aus und schlägt eine Reihenfolge vor. Verbindlich bleiben die Befunde; alles aus dem Modell ist ungeprüft und unten als solches gekennzeichnet.',
-  'assistant.loadModels': 'Modelle laden',
-  'assistant.pickModel': '— Modell wählen —',
-  'assistant.noModels': 'Der Dienst ist erreichbar, hält aber kein Modell bereit.',
-  'assistant.ask': 'Bericht anfordern',
-  'assistant.asking': 'Modell antwortet …',
-  'assistant.showPayload': 'Zeigen, was gesendet wird',
-  'assistant.unverified':
-    'Ab hier: Ausgabe von {model}. Ungeprüft — nichts davon wurde nachgerechnet.',
-  'assistant.unstructured': 'Das Modell hat das angeforderte Format nicht eingehalten. Sein Text steht unverändert unten; eine Reihenfolge und getrennte Hinweise gibt es dadurch nicht.',
-  'assistant.order': 'Vorgeschlagene Reihenfolge',
-  'assistant.suggestions': 'Zusätzliche Hinweise',
-  'assistant.suggestionsHint':
-    'Diese Punkte stammen nicht aus einer Regel und wurden nicht geprüft. Behandeln Sie sie als Fragen, denen man nachgehen kann — nicht als Befunde.',
 
   'findings.password_reversible_encryption': 'Kennwörter werden umkehrbar gespeichert',
   'findings.password_reversible_encryption.why':
@@ -1398,7 +1376,7 @@ export const en: Record<MessageKey, string> = {
   'snapin.directory': 'Users and Computers',
   'snapin.dns': 'DNS Management',
   'snapin.gpo': 'Group Policy Management',
-  'snapin.assistant': 'AI manager',
+  'snapin.reports': 'Reports',
   'snapin.sites': 'Sites and Services',
   'snapin.diagnostics': 'Diagnostics',
 
@@ -1866,7 +1844,6 @@ export const en: Record<MessageKey, string> = {
     'Produced without the thorough check. Settings that sit on SYSVOL but no registered extension applies are invisible to this report.',
   'report.print': 'Print / save as PDF',
   'report.gathering': 'Gathering the report …',
-  'report.includeModel': 'Add the model’s text',
 
   'report.section.connection': 'Connection',
   'report.section.domain': 'Domain',
@@ -1875,9 +1852,6 @@ export const en: Record<MessageKey, string> = {
   'report.section.securityFindings': 'Findings: security',
   'report.section.policies': 'Group policies on record',
   'report.section.policyFindings': 'Findings: group policies',
-  'report.section.model': 'Written up by a model',
-  'report.modelWarning':
-    'Everything inside this frame came from a language model and was not checked. It orders and words the findings above; it does not replace them.',
 
   'report.column.links': 'Links',
   'report.column.halves': 'Configuration',
@@ -1946,24 +1920,6 @@ export const en: Record<MessageKey, string> = {
   'findings.severity.low': 'Low',
   'findings.severity.info': 'Note',
 
-  'assistant.title': 'Wording by a model',
-  'assistant.notConfigured':
-    'Not set up. Without the address of a model service nothing is sent and nothing is fetched. The address belongs in docker-compose.yml rather than here: the container makes the call, and an address typed here could point it at hosts your own browser cannot reach.',
-  'assistant.intro':
-    'A locally run model puts the findings above into words and proposes an order to work through. The findings stay binding; everything from the model is unverified and marked as such below.',
-  'assistant.loadModels': 'Load models',
-  'assistant.pickModel': '— pick a model —',
-  'assistant.noModels': 'The service answers but holds no model.',
-  'assistant.ask': 'Ask for a report',
-  'assistant.asking': 'The model is answering …',
-  'assistant.showPayload': 'Show what gets sent',
-  'assistant.unverified':
-    'From here on: output of {model}. Unverified — none of it was checked.',
-  'assistant.unstructured': 'The model did not keep to the requested format. Its text is below unchanged; there is no ordering and no separate hints as a result.',
-  'assistant.order': 'Suggested order',
-  'assistant.suggestions': 'Additional hints',
-  'assistant.suggestionsHint':
-    'These did not come from a rule and were not checked. Treat them as questions worth following up, not as findings.',
 
   'findings.password_reversible_encryption': 'Passwords are stored reversibly',
   'findings.password_reversible_encryption.why':

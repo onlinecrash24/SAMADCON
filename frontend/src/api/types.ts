@@ -296,42 +296,6 @@ export interface DomainReport {
   }
 }
 
-/** Whether a model service is configured at all. Answered without calling it. */
-export interface AssistantStatus {
-  configured: boolean
-}
-
-export interface OllamaModel {
-  name: string
-  size: number | null
-  family: string | null
-}
-
-/** Exactly what leaves the container if a report is asked for. */
-export interface AssistantPayload {
-  findings: Finding[]
-  prompt: string
-  /** The instructions that go with it — the other half of what is sent. */
-  system: string
-}
-
-/** The model's part. Never binding — the findings above it are. */
-export interface AssistantAnswer {
-  /** The explanation. When `structured` is false this is the model's whole reply. */
-  summary: string
-  /** Subject included: the same id can name several findings. */
-  order: { id: string; subject: string; reason: string }[]
-  suggestions: string[]
-  /** False when the model ignored the schema: text only, nothing read out of it. */
-  structured: boolean
-  model: string
-}
-
-export interface AssistantReport {
-  findings: Finding[]
-  answer: AssistantAnswer
-}
-
 // --- DNS -------------------------------------------------------------------
 
 export interface DnsZone {

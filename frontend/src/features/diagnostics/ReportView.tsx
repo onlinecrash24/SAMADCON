@@ -23,16 +23,14 @@
  * anyone pressed print.
  */
 
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
 import { api } from '../../api/endpoints'
-import type { AssistantAnswer, Finding, FindingArea, ReportedGpo } from '../../api/types'
+import type { Finding, ReportedGpo } from '../../api/types'
 import { Badge, ErrorMessage, Spinner, useDateFormat } from '../../components/primitives'
 import { useI18n } from '../../i18n'
-import type { MessageKey } from '../../i18n/messages'
-import { Answer } from './AssistantReport'
 import {
   ConnectionCard,
   ControllersCard,
@@ -43,15 +41,9 @@ import {
 } from './DiagnosticsView'
 import { FindingCard } from './SecurityFindings'
 
-type Answers = Partial<Record<FindingArea, AssistantAnswer>>
-
-const AREAS: FindingArea[] = ['security', 'policies']
-
 export function ReportView({ deep, onClose }: { deep: boolean; onClose: () => void }) {
-  const { t, language } = useI18n()
+  const { t } = useI18n()
   const formatDate = useDateFormat()
-  const [model, setModel] = useState('')
-  const [answers, setAnswers] = useState<Answers>({})
   const [error, setError] = useState<unknown>(null)
 
   const report = useQuery({
@@ -59,28 +51,6 @@ export function ReportView({ deep, onClose }: { deep: boolean; onClose: () => vo
     queryFn: () => api.domainReport(deep),
   })
 
-  const status = useQuery({ queryKey: ['assistant'], queryFn: () => api.assistant() })
-
-  const models = useQuery({
-    queryKey: ['assistant-models'],
-    queryFn: () => api.assistantModels(),
-    enabled: false,
-  })
-
-  const ask = useMutation({
-    // One area after the other rather than both at once: a model on a small
-    // host answers one request well and two badly, and there is nothing to
-    // gain from reaching both halves a few seconds sooner.
-    mutationFn: async (): Promise<Answers> => {
-      const security = await api.assistantReport(model, language, 'security', false)
-      const policies = await api.assistantReport(model, language, 'policies', deep)
-      return { security: security.answer, policies: policies.answer }
-    },
-    onSuccess: setAnswers,
-    onError: setError,
-  })
-
-  const available = models.data?.models ?? []
   const data = report.data
 
   return createPortal(
@@ -89,40 +59,6 @@ export function ReportView({ deep, onClose }: { deep: boolean; onClose: () => vo
         <button type="button" className="button" onClick={onClose}>
           {t('action.close')}
         </button>
-
-        {status.data?.configured && (
-          <>
-            <button
-              type="button"
-              className="button"
-              disabled={models.isFetching}
-              onClick={() => void models.refetch()}
-            >
-              {models.isFetching ? t('status.loading') : t('assistant.loadModels')}
-            </button>
-
-            {available.length > 0 && (
-              <select value={model} onChange={(event) => setModel(event.target.value)}>
-                <option value="">{t('assistant.pickModel')}</option>
-                {available.map((item) => (
-                  <option key={item.name} value={item.name}>
-                    {item.name}
-                    {item.family ? ' (' + item.family + ')' : ''}
-                  </option>
-                ))}
-              </select>
-            )}
-
-            <button
-              type="button"
-              className="button"
-              disabled={!model || ask.isPending}
-              onClick={() => ask.mutate()}
-            >
-              {ask.isPending ? t('assistant.asking') : t('report.includeModel')}
-            </button>
-          </>
-        )}
 
         <button
           type="button"
@@ -202,26 +138,6 @@ export function ReportView({ deep, onClose }: { deep: boolean; onClose: () => vo
               findings={data.policies.findings}
               unreadable={data.policies.unreadable}
             />
-
-            {(answers.security || answers.policies) && (
-              // Framed rather than filed at the back. A reader who tears
-              // off the last page should not be able to separate the
-              // unverified half from its marking by accident.
-              <section className="report__model">
-                <h2>{t('report.section.model')}</h2>
-                <p className="small">{t('report.modelWarning')}</p>
-
-                {AREAS.map((area) => {
-                  const found = answers[area]
-                  return found ? (
-                    <div key={area}>
-                      <h3>{t(('findings.area.' + area) as MessageKey)}</h3>
-                      <Answer answer={found} />
-                    </div>
-                  ) : null
-                })}
-              </section>
-            )}
           </article>
         )}
       </div>

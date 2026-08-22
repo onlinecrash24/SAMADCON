@@ -99,9 +99,9 @@ async def security_findings(
 ) -> dict[str, Any]:
     """What is worth telling an administrator about this domain.
 
-    The binding half of both reports: rules over values the tool already
-    reads, each finding carrying what it was decided from. Nothing is asked
-    of a language model here — see :mod:`samadcon.core.findings`.
+    Rules over values the tool already reads, each finding carrying what it
+    was decided from — see :mod:`samadcon.core.findings`. Nothing here is
+    guessed, and nothing is asked of anything outside this container.
 
     `deep` only means anything for the policies: it adds a walk of each
     policy's files, which is what finds settings no registered extension

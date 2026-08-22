@@ -11,9 +11,6 @@ import type {
   AdmxBundled,
   AdmxStore,
   AdmxTree,
-  AssistantPayload,
-  AssistantReport,
-  AssistantStatus,
   AttributeListing,
   ChildListing,
   ComputerDetail,
@@ -46,7 +43,6 @@ import type {
   GroupDetail,
   LoginOptions,
   MemberListing,
-  OllamaModel,
   OuDetail,
   PasswordPolicy,
   PolicyState,
@@ -628,20 +624,6 @@ export const api = {
   /** Both reports in full, gathered in one pass so the timestamp holds. */
   domainReport: (deep = false) =>
     http.get<DomainReport>(`/diagnostics/report?deep=${deep}`),
-
-  // -- the optional model service ----------------------------------------
-  assistant: () => http.get<AssistantStatus>('/assistant'),
-  assistantModels: () => http.get<{ models: OllamaModel[] }>('/assistant/models'),
-  /** What would be sent. Fetched before sending, not described. */
-  assistantPayload: (language: string, area: FindingArea, deep = false) =>
-    http.get<AssistantPayload>(
-      `/assistant/payload?language=${language}&area=${area}&deep=${deep}`,
-    ),
-  assistantReport: (model: string, language: string, area: FindingArea, deep = false) =>
-    http.post<AssistantReport>(
-      `/assistant/report?model=${encodeURIComponent(model)}` +
-        `&language=${language}&area=${area}&deep=${deep}`,
-    ),
   // The computer accounts and what their trust with the domain permits.
   domainMembers: (limit = 500) =>
     http.get<DomainMembers>(`/diagnostics/members?limit=${limit}`),

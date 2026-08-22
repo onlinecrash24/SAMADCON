@@ -141,17 +141,6 @@ class Settings(BaseSettings):
     operation_timeout_seconds: int = 120
     dev_mode: bool = False
 
-    # --- Model service (optional) ------------------------------------
-    # Empty means off: nothing is sent anywhere. The address belongs here
-    # rather than in a request — the container makes the call, so a URL
-    # taken from the interface would let any signed-in account reach
-    # addresses their own browser cannot.
-    ollama_url: str = Field(default="", description="Base URL of an Ollama instance")
-    ollama_timeout_seconds: int = Field(
-        default=120,
-        description="A local model answers in tens of seconds, not milliseconds",
-    )
-
     @field_validator("realm", mode="after")
     @classmethod
     def _upper_realm(cls, value: str) -> str:

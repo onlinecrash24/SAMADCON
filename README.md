@@ -97,8 +97,6 @@ services:
       SAMADCON_DC_HOSTS: "192.168.1.1"
       # INFO names what happens; DEBUG is for tracking a problem down.
       SAMADCON_LOG_LEVEL: "INFO"
-      # The KI-Manager's model service. The scheme is required. Empty means off.
-      SAMADCON_OLLAMA_URL: "http://192.168.1.100:11434"
       # The reverse proxy, so the audit log records the browser and not the proxy.
       # Its host's address, not its container's. Never 0.0.0.0/0.
       SAMADCON_TRUSTED_PROXIES: 192.168.1.200
@@ -362,7 +360,7 @@ docker compose exec samadcon samadconctl check --server 192.168.1.10 --insecure
 | 2 | DNS, Sites & Services, diagnostics (FSMO, replication, password policies) | done, verified against a real domain |
 | 3 | GPMC basics: GPOs, links, filtering, backup/restore, report | done, verified against a real domain |
 | 4 | Group policy editor: ADMX → security settings → Linux/VGP → preferences → scripts/folder redirection | complete; each of the five parts proven **applied** on a real client (4c through `samba-gpupdate --rsop`), preferences in all three waves. [What of that proof is in this repository](#the-policy-editor) — and what is not |
-| 5 | KI-Manager: findings about the domain and its policies, a printable report, optionally written up by a model | done; the rules run against a real domain, the model half is [optional and marked as unverified](#the-ki-manager) |
+| 5 | Reports: findings about the domain and its policies, and a printable report | done; the [rules](#reports) run against a real domain, and each finding carries the values it was decided from |
 
 Milestone 1 covers: Kerberos sessions, tree navigation, object lists and search (ANR), users
 (create, edit, account options, password reset, unlock, expiry), groups (scope/type, members
@@ -568,15 +566,20 @@ the password and lockout policy including fine-grained policies (PSOs), and lock
 expired accounts. Seizing a role or forcing replication is deliberately not part of it — that is
 what `samba-tool fsmo seize` and `samba-tool drs replicate` on the DC are for.
 
-### The KI-Manager
+### Reports
 
-Two reports, and the line between them is the point of the thing.
-
-**The binding half** is rules over values SAMADCON reads itself, in
+Rules over values SAMADCON reads itself, in
 `core/findings.py`. Each finding carries the values it was decided from, so it
 can be argued with rather than believed: "the minimum password length is 6,
-measured against 8" is checkable, "the password policy is weak" is not. No
-model is involved and none is needed.
+measured against 8" is checkable, "the password policy is weak" is not.
+
+**Nothing here runs on its own and nothing is asked of a language model.** The
+console reads when you open something and writes when you press a button, and
+that is the whole of it. There was an optional model that could word the
+findings; it was read-only and marked as unverified, and it is gone — a console
+that manages a domain is not the place for it. Automation, and anything asked
+of a model, belong in a separate application with its own address and its own
+account.
 
 The policy rules look for the failure group policy is famous for and no console
 reports: **a policy that reaches nobody looks exactly like one that works.** Its
@@ -592,20 +595,6 @@ passwords to expire, which NIST withdrew because scheduled changes push people
 towards predictable variations of one password; and listing locked or disabled
 accounts, which diagnostics already shows and which would bury the findings that
 need a decision.
-
-**The unverified half** is optional and off unless `SAMADCON_OLLAMA_URL` names a
-model service. It orders the findings and puts them in plain language; it may
-not contradict one, invent one, or restate its severity. What would be sent can
-be looked at before it goes — the exact prompt, from the same function that
-builds the request, because domain configuration leaving for another service is
-a decision and a decision needs the thing itself rather than a description of
-it. The answer appears in a frame that names the model and says nothing in it
-was checked.
-
-The address comes from the deployment and never from a request: the container
-makes the call, so an address a user could type would let any signed-in account
-reach hosts its own browser cannot. The model *name* comes from the interface,
-because a name is not an address.
 
 **Both reports print.** There is no PDF library in the image — the browser
 already writes PDFs with selectable text, and the dependency list is short on

@@ -46,15 +46,16 @@ dependencies = [
     # and four endpoints take uploads.
     "python-multipart>=0.0.32",
     "dnspython>=2.8.0",
-    # Only used to reach an optional, locally run model service. Nothing
-    # calls out without SAMADCON_OLLAMA_URL set.
-    "httpx>=0.28.1",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.2",
     "pytest-asyncio>=0.23",
+    # Not a runtime dependency: nothing under samadcon/ calls out over HTTP any
+    # more. It is here because fastapi's TestClient is built on it, and the
+    # whole suite fails to collect without it.
+    "httpx>=0.28.1",
     "ruff>=0.5",
     "mypy>=1.10",
     "lxml>=5.2",

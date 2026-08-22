@@ -465,7 +465,7 @@ function Console() {
               }
             />
           </div>
-        ) : snapin === 'assistant' ? (
+        ) : snapin === 'reports' ? (
           <div className="pane pane--list">
             <SecurityFindings />
           </div>

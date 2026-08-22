@@ -15,7 +15,7 @@
 
 import type { MessageKey } from '../../i18n/messages'
 
-export type SnapinId = 'directory' | 'dns' | 'sites' | 'diagnostics' | 'gpo' | 'assistant'
+export type SnapinId = 'directory' | 'dns' | 'sites' | 'diagnostics' | 'gpo' | 'reports'
 
 export interface Snapin {
   id: SnapinId
@@ -77,11 +77,13 @@ export const SNAPINS: Snapin[] = [
   },
 
   {
-    // A console of its own rather than a tab under diagnosis: it is the one
-    // place that reaches outside the domain, and burying that two levels
-    // down would understate it.
-    id: 'assistant',
-    label: 'snapin.assistant',
+    // A console of its own rather than a tab under diagnosis. It was called
+    // the AI manager while it carried an optional model card at the bottom,
+    // which overstated it by a wide margin: everything here is a rule in
+    // core/findings.py, printed with the values it was decided from. The
+    // model is gone; the name is now what the screen is.
+    id: 'reports',
+    label: 'snapin.reports',
     icon: 'gpo',
     available: true,
     panes: { tree: false, detail: false },
