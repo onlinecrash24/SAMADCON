@@ -698,18 +698,100 @@ def _tag(element: Any) -> str:
 # ---------------------------------------------------------------------------
 
 
-def to_html(report: dict[str, Any]) -> str:
+# What the attachable report says in its own voice, in the language the
+# console is being used in. Not the domain's words: section names, registry
+# keys and attribute names come from the policy and are passed through, since
+# translating what GPMC wrote would be inventing a second name for it.
+_REPORT_TEXT: dict[str, dict[str, str]] = {
+    "en": {
+        "identifier": "Identifier",
+        "path": "Path",
+        "version": "Version",
+        "computer_half": "Computer half",
+        "user_half": "User half",
+        "enabled": "enabled",
+        "disabled": "disabled",
+        "computer": "Computer",
+        "user": "User",
+        "empty": "This policy holds no settings.",
+        "unreadable": "Not readable",
+        "configuration": "{half} configuration",
+        "templates": "Administrative templates",
+        "security": "Security settings",
+        "scripts": "Scripts",
+        "redirection": "Folder redirection",
+        "preferences": "Preferences",
+        "other_files": "Other files",
+        "samba_policy": "Samba policy",
+        "no_entries": "No entries.",
+        "col_value": "Value",
+        "col_type": "Type",
+        "col_data": "Data",
+        "col_folder": "Folder",
+        "col_applies": "Applies to",
+        "col_target": "Target",
+        "col_item": "Item",
+        "col_attributes": "Attributes",
+    },
+    "de": {
+        "identifier": "Kennung",
+        "path": "Pfad",
+        "version": "Version",
+        "computer_half": "Computerkonfiguration",
+        "user_half": "Benutzerkonfiguration",
+        "enabled": "aktiviert",
+        "disabled": "deaktiviert",
+        "computer": "Computer",
+        "user": "Benutzer",
+        "empty": "Diese Richtlinie enthält keine Einstellungen.",
+        "unreadable": "Nicht lesbar",
+        "configuration": "{half}konfiguration",
+        "templates": "Administrative Vorlagen",
+        "security": "Sicherheitseinstellungen",
+        "scripts": "Skripte",
+        "redirection": "Ordnerumleitung",
+        "preferences": "Preferences",
+        "other_files": "Weitere Dateien",
+        "samba_policy": "Samba-Richtlinie",
+        "no_entries": "Keine Einträge.",
+        "col_value": "Wert",
+        "col_type": "Typ",
+        "col_data": "Daten",
+        "col_folder": "Ordner",
+        "col_applies": "Gilt für",
+        "col_target": "Ziel",
+        "col_item": "Element",
+        "col_attributes": "Attribute",
+    },
+}
+
+
+def _text(language: str) -> dict[str, str]:
+    """The label table for a language, falling back to English.
+
+    A language we have no table for gets English rather than an empty report:
+    a missing translation should cost a reader nothing but familiarity.
+    """
+    return _REPORT_TEXT.get(language, _REPORT_TEXT["en"])
+
+
+def to_html(report: dict[str, Any], language: str = "en") -> str:
     """The same report as a standalone HTML file.
 
     For attaching to a change record or a ticket, where a link into a console
     behind a login is no use. Deliberately one file, styles inline, no scripts.
+
+    In the language the console is being used in, because the record it is
+    attached to is written in that language too. Only the report's own words
+    are translated — see _REPORT_TEXT.
     """
     gpo = report["gpo"]
+    text = _text(language)
     title = gpo["display_name"] or gpo["guid"]
 
     parts: list[str] = [
         "<!doctype html>",
-        '<html lang="en"><head><meta charset="utf-8">',
+        f'<html lang="{_esc(language)}"><head><meta charset="utf-8">',
         f"<title>{_esc(title)}</title>",
         "<style>",
         "body{font:14px/1.5 system-ui,sans-serif;margin:2rem;max-width:60rem;color:#20222f}",
@@ -723,24 +805,25 @@ def to_html(report: dict[str, Any]) -> str:
         "</style></head><body>",
         f"<h1>{_esc(title)}</h1>",
         "<table>",
-        f"<tr><th>Identifier</th><td><code>{_esc(gpo['guid'])}</code></td></tr>",
-        f"<tr><th>Path</th><td><code>{_esc(gpo['path'] or '')}</code></td></tr>",
-        f"<tr><th>Version</th><td>Computer {gpo['machine_version']} / "
-        f"User {gpo['user_version']}</td></tr>",
-        f"<tr><th>Computer half</th><td>{'enabled' if gpo['machine_enabled'] else 'disabled'}"
-        "</td></tr>",
-        f"<tr><th>User half</th><td>{'enabled' if gpo['user_enabled'] else 'disabled'}</td></tr>",
+        f"<tr><th>{text['identifier']}</th><td><code>{_esc(gpo['guid'])}</code></td></tr>",
+        f"<tr><th>{text['path']}</th><td><code>{_esc(gpo['path'] or '')}</code></td></tr>",
+        f"<tr><th>{text['version']}</th><td>{text['computer']} "
+        f"{gpo['machine_version']} / {text['user']} {gpo['user_version']}</td></tr>",
+        f"<tr><th>{text['computer_half']}</th>"
+        f"<td>{text['enabled'] if gpo['machine_enabled'] else text['disabled']}</td></tr>",
+        f"<tr><th>{text['user_half']}</th>"
+        f"<td>{text['enabled'] if gpo['user_enabled'] else text['disabled']}</td></tr>",
         "</table>",
     ]
 
     if report.get("empty"):
-        parts.append('<p class="muted">This policy holds no settings.</p>')
+        parts.append(f'<p class="muted">{text["empty"]}</p>')
 
     for half in HALVES:
-        parts.extend(_half_html(half, report[half.lower()]))
+        parts.extend(_half_html(half, report[half.lower()], text))
 
     if report["unreadable"]:
-        parts.append("<h2>Not readable</h2><ul>")
+        parts.append(f"<h2>{text['unreadable']}</h2><ul>")
         for item in report["unreadable"]:
             parts.append(f"<li><code>{_esc(item['path'])}</code> — {_esc(item['reason'])}</li>")
         parts.append("</ul>")
@@ -749,17 +832,25 @@ def to_html(report: dict[str, Any]) -> str:
     return "\n".join(parts)
 
 
-def _half_html(name: str, half: dict[str, Any]) -> list[str]:
+def _half_html(name: str, half: dict[str, Any], text: dict[str, str]) -> list[str]:
     if not _has_content(half):
         return []
 
-    parts = [f"<h2>{name} configuration</h2>"]
+    # "Computer configuration" in English, one word in German. The
+    # template decides, not a join.
+    heading = text["configuration"].format(
+        half=text["computer"] if name == "Machine" else text["user"]
+    )
+    parts = [f"<h2>{heading}</h2>"]
 
     if half["registry"]:
-        parts.append("<h3>Administrative templates</h3>")
+        parts.append(f"<h3>{text['templates']}</h3>")
         for group in half["registry"]:
             parts.append(f"<h4><code>{_esc(group['key'])}</code></h4><table>")
-            parts.append("<tr><th>Value</th><th>Type</th><th>Data</th></tr>")
+            parts.append(
+                f"<tr><th>{text['col_value']}</th><th>{text['col_type']}</th>"
+                f"<th>{text['col_data']}</th></tr>"
+            )
             for value in group["values"]:
                 parts.append(
                     f"<tr><td>{_esc(value['value'])}</td>"
@@ -769,7 +860,7 @@ def _half_html(name: str, half: dict[str, Any]) -> list[str]:
             parts.append("</table>")
 
     if half["security"]:
-        parts.append("<h3>Security settings</h3>")
+        parts.append(f"<h3>{text['security']}</h3>")
         for section, values in half["security"].items():
             parts.append(f"<h4>{_esc(section)}</h4><table>")
             for value in values:
@@ -779,7 +870,7 @@ def _half_html(name: str, half: dict[str, Any]) -> list[str]:
             parts.append("</table>")
 
     if half["scripts"]:
-        parts.append("<h3>Scripts</h3>")
+        parts.append(f"<h3>{text['scripts']}</h3>")
         for section, scripts in half["scripts"].items():
             parts.append(f"<h4>{_esc(section)}</h4><table>")
             for script in scripts:
@@ -790,8 +881,11 @@ def _half_html(name: str, half: dict[str, Any]) -> list[str]:
             parts.append("</table>")
 
     if half["redirection"]:
-        parts.append("<h3>Folder redirection</h3><table>")
-        parts.append("<tr><th>Folder</th><th>Applies to</th><th>Target</th></tr>")
+        parts.append(f"<h3>{text['redirection']}</h3><table>")
+        parts.append(
+            f"<tr><th>{text['col_folder']}</th><th>{text['col_applies']}</th>"
+            f"<th>{text['col_target']}</th></tr>"
+        )
         for folder in half["redirection"]["folders"]:
             for target in folder["targets"] or [{"sid": "", "path": ""}]:
                 parts.append(
@@ -802,8 +896,10 @@ def _half_html(name: str, half: dict[str, Any]) -> list[str]:
         parts.append("</table>")
 
     for group in half["preferences"]:
-        parts.append(f"<h3>Preferences — {_esc(group['type'])}</h3><table>")
-        parts.append("<tr><th>Item</th><th>Attributes</th></tr>")
+        parts.append(f"<h3>{text['preferences']} — {_esc(group['type'])}</h3><table>")
+        parts.append(
+            f"<tr><th>{text['col_item']}</th><th>{text['col_attributes']}</th></tr>"
+        )
         for item in group["items"]:
             parts.append(
                 f"<tr><td>{_esc(item['element'])}</td>"
@@ -812,7 +908,7 @@ def _half_html(name: str, half: dict[str, Any]) -> list[str]:
         parts.append("</table>")
 
     for group in half["vgp"]:
-        heading = group["name"] or "Samba policy"
+        heading = group["name"] or text["samba_policy"]
         parts.append(f"<h3>{_esc(heading)}</h3>")
         parts.append(f"<p><code>{_esc(group['path'])}</code></p>")
         if not group["entries"]:
@@ -820,7 +916,7 @@ def _half_html(name: str, half: dict[str, Any]) -> list[str]:
             # when the last entry is removed, so it is a normal state rather
             # than a fault — but a heading with nothing under it reads as a
             # report that gave up.
-            parts.append("<p>No entries.</p>")
+            parts.append(f"<p>{text['no_entries']}</p>")
             continue
         parts.append("<table>")
         for entry in group["entries"]:
@@ -832,7 +928,7 @@ def _half_html(name: str, half: dict[str, Any]) -> list[str]:
         parts.append("</table>")
 
     if half["other_files"]:
-        parts.append("<h3>Other files</h3><ul>")
+        parts.append(f"<h3>{text['other_files']}</h3><ul>")
         for item in half["other_files"]:
             parts.append(f"<li><code>{_esc(item['path'])}</code></li>")
         parts.append("</ul>")

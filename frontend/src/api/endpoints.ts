@@ -372,8 +372,13 @@ export const api = {
     ),
 
   gpoReport: (dn: string) => http.get<GpoReport>(`/gpos/report?dn=${dnParam(dn)}`),
-  downloadGpoReport: (dn: string, name: string) =>
-    http.download(`/gpos/report.html?dn=${dnParam(dn)}`, `${name}.html`),
+  // The language goes along: the change record this is attached to is
+  // written in the language the console is being used in.
+  downloadGpoReport: (dn: string, name: string, language: string) =>
+    http.download(
+      `/gpos/report.html?dn=${dnParam(dn)}&language=${language}`,
+      `${name}.html`,
+    ),
   copyGpo: (dn: string, displayName: string) =>
     http.post<Gpo>(`/gpos/copy?dn=${dnParam(dn)}`, { display_name: displayName }),
   downloadGpoBackup: (dn: string, name: string) =>

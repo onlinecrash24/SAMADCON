@@ -15,7 +15,9 @@ import { ErrorMessage, Spinner } from '../../components/primitives'
 import { useI18n } from '../../i18n'
 
 export function ReportTab({ gpo }: { gpo: Gpo }) {
-  const { t } = useI18n()
+  // The language goes to the server for the attachable file: it is written
+  // for whoever reads the change record, not for the console.
+  const { t, language } = useI18n()
   const report = useQuery({
     queryKey: ['gpo-report', gpo.dn],
     queryFn: () => api.gpoReport(gpo.dn),
@@ -35,7 +37,7 @@ export function ReportTab({ gpo }: { gpo: Gpo }) {
           type="button"
           className="button"
           onClick={() => {
-            void api.downloadGpoReport(gpo.dn, gpo.display_name ?? gpo.guid)
+            void api.downloadGpoReport(gpo.dn, gpo.display_name ?? gpo.guid, language)
           }}
         >
           {t('gpo.downloadReport')}

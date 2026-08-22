@@ -360,13 +360,21 @@ async def settings_report(
 
 @router.get("/report.html", response_class=HTMLResponse)
 async def settings_report_html(
-    worker: Worker, session: CurrentSession, dn: DnQuery
+    worker: Worker,
+    session: CurrentSession,
+    dn: DnQuery,
+    language: Annotated[str, Query(pattern=r"^[a-z]{2}$")] = "en",
 ) -> HTMLResponse:
-    """The same report as a standalone file, for a ticket or a change record."""
+    """The same report as a standalone file, for a ticket or a change record.
+
+    The language comes from the caller because the record this gets attached
+    to is written in it. A console used in German produced an English
+    attachment, which was not wrong so much as for the wrong reader.
+    """
     data = await ad_read(worker, session, report.build_report, dn, label="gpo.report")
     name = data["gpo"]["display_name"] or data["gpo"]["guid"]
     return HTMLResponse(
-        content=report.to_html(data),
+        content=report.to_html(data, language),
         headers={"Content-Disposition": f'inline; filename="{_ascii_filename(name)}.html"'},
     )
 
