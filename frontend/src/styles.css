@@ -1,6 +1,15 @@
 /* SAMADCON — three-pane console layout, light and dark. */
 
 :root {
+  /* The one declaration that tells the browser this page has a dark half.
+     Without it the browser assumes light and paints everything it owns that
+     way: the scrollbars, which is how this was noticed — a white bar down the
+     side of a dark pane — and every control it draws itself, which is why the
+     date field in a property sheet came out white too. Two values, not one,
+     because the palette below follows the reader's preference rather than
+     picking for them. */
+  color-scheme: light dark;
+
   --bg: #f4f5f7;
   --surface: #ffffff;
   --surface-alt: #fafbfc;
