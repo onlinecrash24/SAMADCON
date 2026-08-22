@@ -11,6 +11,10 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Where dialogs and windows are portalled to. Outside #root on purpose:
+         an overlay rendered inside a positioned window would resolve its
+         z-index within that window and paint underneath the one in front. -->
+    <div id="overlays"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

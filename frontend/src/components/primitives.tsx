@@ -1,8 +1,16 @@
 /** Small shared building blocks: icons, error display, modal shell, fields. */
 
-import { useEffect, useRef, type ReactNode } from 'react'
+import {
+  useEffect,
+  useRef,
+  useSyncExternalStore,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from 'react'
+import { createPortal } from 'react-dom'
 
 import { ApiError } from '../api/client'
+import { popOverlay, pushOverlay, subscribeToOverlays, topOverlay } from './overlayStack'
 import { useI18n } from '../i18n'
 import type { MessageKey } from '../i18n/messages'
 import type { ObjectType } from '../api/types'
@@ -110,6 +118,23 @@ export function Banner({ message, tone = 'info' }: { message: string; tone?: 'in
 // Modal
 // ---------------------------------------------------------------------------
 
+/**
+ * Anything that can hold focus, in document order.
+ *
+ * Queried each time rather than cached when the dialog opens: the object
+ * picker inside the membership editor, and both dialogs in the security tab,
+ * mount their fields after the dialog exists. A list taken at open would trap
+ * focus in the two buttons that happened to be there first.
+ */
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]),' +
+  ' textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
+/** The host every overlay is portalled into. See index.html. */
+function overlayHost(): HTMLElement {
+  return document.getElementById('overlays') ?? document.body
+}
+
 export function Modal({
   title,
   onClose,
@@ -129,33 +154,82 @@ export function Modal({
   size?: 'normal' | 'console'
 }) {
   const ref = useRef<HTMLDivElement>(null)
+  const token = useRef(0)
+
+  // Read from a ref so that registering can happen once, on mount, without the
+  // stack entry going stale when the caller passes a new arrow each render.
+  const close = useRef(onClose)
+  close.current = onClose
 
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKey)
-    // Move focus into the dialog so keyboard users are not left outside it.
-    ref.current?.querySelector<HTMLElement>('input, select, textarea, button')?.focus()
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
+    token.current = pushOverlay(() => close.current())
 
-  return (
-    // The backdrop does nothing on purpose, and this is not an omission to
-    // be tidied up later. It used to close the dialog on mousedown, which
-    // meant a click that landed slightly wide of the policy editor threw
-    // away everything typed into it, without a word. Reported by someone who
-    // lost work to it.
+    // Where focus was, so it can be handed back. Moving focus into the dialog
+    // is required — a keyboard user left outside an aria-modal dialog has
+    // nowhere to go — but never returning it is how people end up back at the
+    // top of the page after every confirmation.
+    const opener = document.activeElement as HTMLElement | null
+    ref.current?.querySelector<HTMLElement>(FOCUSABLE)?.focus()
+
+    return () => {
+      popOverlay(token.current)
+      token.current = 0
+      // Only if focus is still ours to give back. If the person has clicked
+      // elsewhere in the meantime, yanking it would be the rude thing.
+      if (opener && ref.current?.contains(document.activeElement)) opener.focus()
+    }
+  }, [])
+
+  // Only the topmost overlay tints the page. Two dialogs each drawing 45%
+  // black gave 70%, and the one underneath became unreadable in a pair while
+  // being perfectly legible alone.
+  const top = useSyncExternalStore(subscribeToOverlays, topOverlay, () => 0)
+  const isTop = token.current !== 0 && token.current === top
+
+  // aria-modal is asserted below, so Tab has to honour it. It did not: focus
+  // walked straight out into the console behind. Portalling made that worse —
+  // the dialog is no longer even in the console's document order.
+  const trapFocus = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Tab' || !ref.current) return
+    const items = [...ref.current.querySelectorAll<HTMLElement>(FOCUSABLE)]
+    if (items.length === 0) return
+
+    const first = items[0]!
+    const last = items[items.length - 1]!
+    const active = document.activeElement
+
+    if (event.shiftKey && active === first) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
+
+  return createPortal(
+    // Portalled out of wherever it was used, and this is load-bearing rather
+    // than tidiness: a dialog rendered inside a positioned window resolves its
+    // z-index within that window's stacking context, so a confirmation opened
+    // from a background window would paint underneath the window in front.
+    // Silently.
     //
-    // Windows dialogs do not close when you click beside them either, and
-    // this console is read against those.
-    <div className="modal__backdrop">
+    // The backdrop does nothing on click, on purpose, and this is not an
+    // omission to be tidied up later. It used to close the dialog on
+    // mousedown, which meant a click landing slightly wide of the policy
+    // editor threw away everything typed into it, without a word. Reported by
+    // someone who lost work to it.
+    //
+    // Windows dialogs do not close when you click beside them either, and this
+    // console is read against those.
+    <div className={isTop ? 'modal__backdrop' : 'modal__backdrop modal__backdrop--stacked'}>
       <div
         className={size === 'console' ? 'modal modal--console' : 'modal'}
         role="dialog"
         aria-modal="true"
         aria-label={title}
         ref={ref}
+        onKeyDown={trapFocus}
       >
         <header className="modal__header">
           <h2>{title}</h2>
@@ -166,7 +240,8 @@ export function Modal({
         <div className="modal__body">{children}</div>
         {footer && <footer className="modal__footer">{footer}</footer>}
       </div>
-    </div>
+    </div>,
+    overlayHost(),
   )
 }
 

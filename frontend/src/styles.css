@@ -627,6 +627,9 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 /* Modal                                                                 */
 /* --------------------------------------------------------------------- */
 
+/* Only the topmost overlay tints the page; the rest are just a positioning
+   layer. Two dialogs each at 45% black made the lower one unreadable. */
+.modal__backdrop--stacked { background: none; }
 .modal__backdrop {
   position: fixed;
   inset: 0;
@@ -1007,7 +1010,10 @@ fieldset[disabled] { opacity: 0.6; }
 
 @media print {
   /* The console is not what is being printed. */
-  .console, .boot, .placeholder, .no-print { display: none !important; }
+  /* #overlays is in this list because dialogs are portalled out of .console.
+     They used to be hidden as a side effect of hiding their parent; now they
+     have to be named, or an open dialog prints on top of the report. */
+  .console, .boot, .placeholder, .no-print, #overlays { display: none !important; }
 
   /* Whatever the screen is set to, paper is white. Without this a reader in
      dark mode prints light grey on white and can read none of it: browsers
