@@ -1005,6 +1005,10 @@ body.is-resizing { cursor: col-resize; user-select: none; }
    their content so the name gets the rest. */
 .table--compact th,
 .table--compact td { padding: 3px 10px 3px 0; vertical-align: middle; }
+/* A second line belonging to the one above it — a GUID under a name. The
+   body's 1.5 is right for prose and wrong for a label, where it turns one row
+   into what reads as two. */
+.table__sub { line-height: 1.25; }
 .table--compact tbody tr:hover { background: var(--hover); }
 .table__cell--narrow { width: 1%; white-space: nowrap; }
 /* A column holding an input. Wide enough for a select's longest label and a

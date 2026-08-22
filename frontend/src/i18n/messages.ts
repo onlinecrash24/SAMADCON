@@ -795,6 +795,10 @@ export const de = {
     'Die Verknüpfung wird aktiv und nicht erzwungen angelegt. Beides lässt sich danach in der Richtlinie unter „Verknüpfungen" ändern.',
   'gpo.notLinkable':
     'Hierher lässt sich keine Richtlinie verknüpfen. Das geht nur bei der Domäne selbst, bei Organisationseinheiten und bei Standorten.',
+  'gpo.linkEnable': 'Verknüpfung aktivieren',
+  'gpo.linkDisable': 'Verknüpfung deaktivieren',
+  'gpo.linkEnforce': 'Erzwingen',
+  'gpo.linkUnenforce': 'Erzwingung aufheben',
   'gpo.unlinkHere': 'Verknüpfung entfernen …',
   'gpo.confirmUnlink':
     '{policy} wird nicht mehr auf {container} angewendet. Die Richtlinie selbst bleibt bestehen, samt aller anderen Verknüpfungen.',
@@ -2112,6 +2116,10 @@ export const en: Record<MessageKey, string> = {
     'The link is created active and not enforced. Both can be changed afterwards under the policy’s Links tab.',
   'gpo.notLinkable':
     'A policy cannot be linked here. Only the domain itself, organisational units and sites can carry one.',
+  'gpo.linkEnable': 'Enable the link',
+  'gpo.linkDisable': 'Disable the link',
+  'gpo.linkEnforce': 'Enforce',
+  'gpo.linkUnenforce': 'Stop enforcing',
   'gpo.unlinkHere': 'Remove the link…',
   'gpo.confirmUnlink':
     '{policy} will no longer apply to {container}. The policy itself stays, along with every other link it has.',

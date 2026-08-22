@@ -74,6 +74,35 @@ export function GpoLinkTree({
     container: DropTarget
     link: ContainerLink
   } | null>(null)
+  const [error, setError] = useState<unknown>(null)
+
+  const queryClient = useQueryClient()
+
+  /**
+   * Flip one of a link's two switches.
+   *
+   * Written straight away rather than through a dialog: both are one click to
+   * undo, and the menu entry says which direction it is going in. Removing a
+   * link is the one here that asks, because it is the one that cannot be
+   * taken back with the same gesture.
+   */
+  const setLink = useMutation({
+    mutationFn: ({
+      container,
+      link,
+      change,
+    }: {
+      container: DropTarget
+      link: ContainerLink
+      change: { enabled?: boolean; enforced?: boolean }
+    }) => api.updateGpoLink(container.dn, link.dn, change),
+    onSuccess: () => {
+      setError(null)
+      void queryClient.invalidateQueries({ queryKey: ['gpo-link-map'] })
+      onChanged(t('gpo.linkSaved'))
+    },
+    onError: setError,
+  })
 
   // Every link in the domain, once. Fetched only while this console is open —
   // the caller mounts this component then — and shared by every branch.
@@ -98,6 +127,10 @@ export function GpoLinkTree({
 
   return (
     <div className="tree__children">
+      {/* The tree has no other place to report a write that failed, and a
+          switch that silently did not flip is worse than one that says so. */}
+      <ErrorMessage error={error} onDismiss={() => setError(null)} />
+
       <ContainerNode
         dn={rootDn}
         name={rootLabel}
@@ -109,8 +142,28 @@ export function GpoLinkTree({
         onAskAboutLink={(container, link, at) =>
           menu.open(
             at,
-            [{ id: 'unlink', labelKey: 'gpo.unlinkHere', danger: true }],
-            () => setUnlinking({ container, link }),
+            [
+              // Named for what pressing it does, not for the state it is in.
+              // A menu has nowhere to put a tick, and "Enforced" with no mark
+              // beside it says nothing about which way it would go.
+              {
+                id: 'enabled',
+                labelKey: link.enabled ? 'gpo.linkDisable' : 'gpo.linkEnable',
+              },
+              {
+                id: 'enforced',
+                labelKey: link.enforced ? 'gpo.linkUnenforce' : 'gpo.linkEnforce',
+              },
+              'separator',
+              { id: 'unlink', labelKey: 'gpo.unlinkHere', danger: true },
+            ],
+            (id) => {
+              if (id === 'unlink') setUnlinking({ container, link })
+              else if (id === 'enabled')
+                setLink.mutate({ container, link, change: { enabled: !link.enabled } })
+              else if (id === 'enforced')
+                setLink.mutate({ container, link, change: { enforced: !link.enforced } })
+            },
           )
         }
         onAskToLink={(target, at) =>

@@ -127,7 +127,7 @@ export function GpoView({ containerDn, onChanged, onOpenPolicy }: GpoViewProps) 
       {gpos.length > 0 && <p className="muted small">{t('gpo.dragHint')}</p>}
 
       <div className="table-wrap">
-        <table className="table">
+        <table className="table table--compact">
           <thead>
             <tr>
               <th>{t('gpo.name')}</th>
@@ -172,7 +172,7 @@ export function GpoView({ containerDn, onChanged, onOpenPolicy }: GpoViewProps) 
                   >
                     {gpo.display_name ?? gpo.guid}
                   </button>
-                  <div className="muted small mono">{gpo.guid}</div>
+                  <div className="muted small mono table__sub">{gpo.guid}</div>
                 </td>
                 <td className="small">
                   {t('gpo.versionPair', {
