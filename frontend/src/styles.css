@@ -300,6 +300,41 @@ button:focus-visible {
 .topbar__actions { display: flex; align-items: center; gap: 12px; margin-left: auto; }
 .topbar__user { color: var(--text-muted); font-size: 0.9em; }
 
+/* The consoles, as a strip of tabs under the top bar. */
+.console__tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 10px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  /* Six German console names do not fit at 1100px. Scrolling keeps them on
+     one row; wrapping would make the strip change height as the window
+     changes width, and the panes below would jump with it. */
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.console__tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.88em;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.console__tab:hover:not(:disabled) { color: var(--text); }
+.console__tab:disabled { opacity: 0.5; cursor: default; }
+.console__tab--active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 500;
+}
+
 .console__panes {
   display: grid;
   /* The detail pane carries property sheets, permission tables and the
@@ -311,20 +346,43 @@ button:focus-visible {
      panes needs its own prefix: a second `.console__panes` further down the
      file silently turned this three-column grid into two, and the detail pane
      wrapped onto a new row under the tree. */
-  grid-template-columns: minmax(210px, 280px) minmax(340px, 1fr) minmax(420px, 640px);
   flex: 1;
   min-height: 0;
 }
 
-/* Two panes, for every console that has no object to show on the right.
-   A modifier on the same element rather than a second `.console__panes`
-   rule — that is what silently broke this grid once before, and it has to
-   come after the block above to win on source order. */
-.console__panes--wide { grid-template-columns: minmax(210px, 280px) 1fr; }
+/* Three shapes, one class each, all the same specificity (0,1,0) so that the
+   media queries below win on source order alone.
+
+   This is the fix for a real bug: the modifier this replaces was written as a
+   second class on the same element, giving it 0,2,0 — which quietly outranked
+   both media queries. For five of six consoles the 1100px layout never
+   applied, and at 720px the hidden tree pane still held its column.
+
+   The 1px tracks are the separators. They hold a divider element that draws
+   the border the panes used to draw themselves, so there is one line rather
+   than two adjacent ones, and the splitter has somewhere to live. */
+.console__panes--full {
+  grid-template-columns:
+    minmax(210px, 280px) 1px minmax(340px, 1fr) 1px minmax(420px, 640px);
+}
+.console__panes--tree {
+  grid-template-columns: minmax(210px, 280px) 1px minmax(340px, 1fr);
+}
+.console__panes--list { grid-template-columns: minmax(0, 1fr); }
 
 .pane { overflow: auto; min-height: 0; background: var(--surface); }
-.pane--tree { border-right: 1px solid var(--border); background: var(--surface-alt); }
-.pane--detail { border-left: 1px solid var(--border); background: var(--surface-alt); }
+.pane--tree { background: var(--surface-alt); }
+.pane--detail { background: var(--surface-alt); }
+
+/* The line between two panes. Inert here; the splitter step makes it a handle
+   and only has to widen the track. */
+.splitter { background: var(--border); }
+
+/* Consoles with no tree still render the pane, because unmounting it would
+   throw away every expanded branch. Hiding it is what keeps it out of the
+   grid. */
+.console__panes--list .pane--tree,
+.console__panes--list .splitter { display: none; }
 .pane__header {
   display: flex;
   flex-wrap: wrap;
@@ -340,13 +398,24 @@ button:focus-visible {
 }
 .pane__actions { display: flex; gap: 6px; flex-wrap: wrap; }
 
+/* After the shape block on purpose: same specificity, later wins. */
 @media (max-width: 1100px) {
-  .console__panes { grid-template-columns: 220px 1fr; }
-  .pane--detail { grid-column: 1 / -1; border-left: none; border-top: 1px solid var(--border); }
+  .console__panes--full,
+  .console__panes--tree { grid-template-columns: 220px 1px minmax(0, 1fr); }
+  /* The detail pane wraps to a full-width row rather than squeezing the list.
+     Its separator has nothing left to separate. */
+  .console__panes--full .splitter--detail { display: none; }
+  .console__panes--full .pane--detail {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--border);
+  }
 }
 @media (max-width: 720px) {
-  .console__panes { grid-template-columns: 1fr; }
-  .pane--tree { display: none; }
+  .console__panes--full,
+  .console__panes--tree,
+  .console__panes--list { grid-template-columns: minmax(0, 1fr); }
+  .pane--tree,
+  .splitter { display: none; }
 }
 
 /* --------------------------------------------------------------------- */
@@ -354,7 +423,6 @@ button:focus-visible {
 /* --------------------------------------------------------------------- */
 
 .tree { padding: 6px 0; }
-.tree__snapin + .tree__snapin { margin-top: 2px; }
 .tree__label--root { font-weight: 600; }
 .tree__label--muted { color: var(--text-muted); }
 /* An expander that is only a marker, not a control. */

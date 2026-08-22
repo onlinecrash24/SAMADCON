@@ -9,6 +9,7 @@ import { LoginView } from './components/LoginView'
 import { LogoMark } from './components/Logo'
 import { ObjectList } from './components/ObjectList'
 import { TreePane } from './components/TreePane'
+import { ConsoleTabs } from './features/console/ConsoleTabs'
 import {
   NewComputerDialog,
   NewGroupDialog,
@@ -17,7 +18,7 @@ import {
 } from './components/dialogs'
 import { ErrorMessage, Icon, Spinner } from './components/primitives'
 import type { DnsZone } from './api/types'
-import { SNAPINS, type SnapinId } from './features/console/snapins'
+import { SNAPINS, panesFor, type SnapinId } from './features/console/snapins'
 import { DiagnosticsView } from './features/diagnostics/DiagnosticsView'
 import { SecurityFindings } from './features/diagnostics/SecurityFindings'
 import { DnsView } from './features/dns/DnsView'
@@ -77,6 +78,13 @@ function Console() {
   // first: without it, the very first write would store "nothing selected"
   // and a second refresh arriving inside that window would lose the pane.
   const pendingSelection = useRef(restored.selectedDn)
+
+  // Where the person was when the page loaded, so the navigation tree can open
+  // the branches on the way to it. Held here rather than inside the pane: it is
+  // a fact about this session, and a pane that captured it itself would quietly
+  // start meaning "when the pane last mounted" if it were ever rendered
+  // conditionally — which is exactly what a console with no tree invites.
+  const revealDn = useRef(restored.search ? null : restored.dn)
 
   const [currentDn, setCurrentDn] = useState(restored.dn)
   const [selected, setSelected] = useState<DirectoryObject | null>(null)
@@ -189,6 +197,13 @@ function Console() {
     void queryClient.invalidateQueries({ queryKey: ['tree'] })
   }
 
+  // Three shapes rather than one boolean modifier. The old one only ever
+  // asked "is this the directory console?", which could not express that three
+  // consoles have no tree at all — they were being handed a 210-280px column
+  // to leave empty.
+  const panes = panesFor(snapin)
+  const shape = panes.detail ? 'full' : panes.tree ? 'tree' : 'list'
+
   return (
     <div className="console">
       <header className="topbar">
@@ -238,14 +253,19 @@ function Console() {
         </div>
       </header>
 
+      {/* Above the notices, not below: the strip is chrome, and it must not
+          jump down when a success message appears and away again four seconds
+          later. */}
+      <ConsoleTabs active={snapin} onSelect={setSnapin} />
+
       {notice && <div className="alert alert--success">{notice}</div>}
       <ErrorMessage error={navigationError} onDismiss={() => setNavigationError(null)} />
 
-      <div
-        className={
-          snapin === 'directory' ? 'console__panes' : 'console__panes console__panes--wide'
-        }
-      >
+      <div className={`console__panes console__panes--${shape}`}>
+        {/* Always rendered, even for the three consoles that have no tree —
+            the stylesheet hides it for those. Unmounting it would throw away
+            every expanded branch on the way past Sites, and the pane is built
+            on never being unmounted. */}
         <div className="pane pane--tree">
           <TreePane
             rootDn={baseDn}
@@ -254,28 +274,25 @@ function Console() {
             onSelect={(dn) => {
               setActiveSearch('')
               setSearchTerm('')
-              setSnapin('directory')
               setCurrentDn(dn)
               setSelected(null)
             }}
             showAdvanced={showAdvanced}
             activeSnapin={snapin}
-            onSelectSnapin={setSnapin}
+            revealDn={revealDn.current}
             gpoContainerDn={gpoContainerDn}
-            onSelectGpoContainer={(dn) => {
-              setSnapin('gpo')
-              setGpoContainerDn(dn)
-            }}
+            onSelectGpoContainer={setGpoContainerDn}
             onChanged={onChanged}
             restoredZoneDn={restored.zoneDn}
             selectedZoneDn={dnsZone?.dn ?? null}
             onSelectZone={(zone) => {
-              setSnapin('dns')
               setDnsZone(zone)
               setSelected(null)
             }}
           />
         </div>
+
+        <div className="splitter splitter--tree" />
 
         {snapin === 'dns' ? (
           <div className="pane pane--list">
@@ -344,18 +361,22 @@ function Console() {
         </div>
         )}
 
-        {/* Only the directory console fills this. Every other snap-in left
+        {/* Only the directory console fills this. Every other console left
             it standing on "nothing selected" and took 420px of width with
             it — which is the width the group policy list wanted. GPMC has
-            two panes there for the same reason. */}
-        {snapin === 'directory' && (
-          <div className="pane pane--detail">
-            <DetailPane
-              object={selected}
-              onChanged={onChanged}
-              onNavigate={(dn) => void navigateTo(dn)}
-            />
-          </div>
+            two panes there for the same reason. Which consoles those are is
+            now stated in snapins.ts rather than spelled out here. */}
+        {panes.detail && (
+          <>
+            <div className="splitter splitter--detail" />
+            <div className="pane pane--detail">
+              <DetailPane
+                object={selected}
+                onChanged={onChanged}
+                onNavigate={(dn) => void navigateTo(dn)}
+              />
+            </div>
+          </>
         )}
       </div>
 

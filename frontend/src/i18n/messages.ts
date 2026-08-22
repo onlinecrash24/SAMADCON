@@ -51,6 +51,7 @@ export const de = {
   'gpo.allPolicies': 'Alle Richtlinien',
   'gpo.linkMissingPolicy': '(Richtlinie existiert nicht mehr)',
 
+  'nav.consoles': 'Konsolen',
   'nav.directory': 'Verzeichnis',
 
   'snapin.directory': 'Benutzer und Computer',
@@ -1370,6 +1371,7 @@ export const en: Record<MessageKey, string> = {
   'gpo.allPolicies': 'All policies',
   'gpo.linkMissingPolicy': '(the policy no longer exists)',
 
+  'nav.consoles': 'Consoles',
   'nav.directory': 'Directory',
 
   'snapin.directory': 'Users and Computers',

@@ -5,7 +5,7 @@ import { isAtOrBelow } from '../dn'
 
 import { api } from '../api/endpoints'
 import type { DnsZone, TreeNode } from '../api/types'
-import { SNAPINS, type SnapinId } from '../features/console/snapins'
+import { snapinLabel, type SnapinId } from '../features/console/snapins'
 import { GpoLinkTree } from '../features/gpo/GpoLinkTree'
 import { useI18n } from '../i18n'
 import { Chevron, Icon, Spinner } from './primitives'
@@ -17,7 +17,6 @@ interface TreePaneProps {
   onSelect: (dn: string) => void
   showAdvanced: boolean
   activeSnapin: SnapinId
-  onSelectSnapin: (id: SnapinId) => void
   selectedZoneDn: string | null
   onSelectZone: (zone: DnsZone) => void
   /** Which container the policy tree has selected; null means all policies. */
@@ -27,11 +26,25 @@ interface TreePaneProps {
   onChanged: (message: string) => void
   /** A zone remembered from before a reload, still to be matched to a zone. */
   restoredZoneDn: string | null
+  /**
+   * A DN to make visible: every branch on the way to it starts open.
+   *
+   * Held by the shell rather than captured here. It means "where the person
+   * was when the page loaded", which is a fact about the session and not about
+   * this component — captured here it would quietly become "where they were
+   * when this pane last mounted" the moment anyone renders the pane
+   * conditionally.
+   */
+  revealDn: string | null
 }
 
 /**
- * The navigation tree, laid out the way MMC does it: every console is a root
- * node, and the directory hierarchy hangs under the one that owns it.
+ * The navigation pane: the hierarchy of whichever console is open.
+ *
+ * It used to hold the consoles as well, as roots with their trees hanging
+ * beneath them. Those live in the tab strip now, so this pane shows one
+ * hierarchy at a time and nothing else — which is what the left pane of an
+ * RSAT console is.
  */
 export function TreePane({
   rootDn,
@@ -40,23 +53,15 @@ export function TreePane({
   onSelect,
   showAdvanced,
   activeSnapin,
-  onSelectSnapin,
   selectedZoneDn,
   onSelectZone,
   gpoContainerDn,
   onSelectGpoContainer,
   onChanged,
   restoredZoneDn,
+  revealDn,
 }: TreePaneProps) {
   const { t } = useI18n()
-
-  // Where the directory selection was when this pane mounted, which after a
-  // reload is where the person left off. Captured rather than followed: this
-  // tree is only ever hidden, never unmounted, so mounting happens exactly
-  // once — at load — and that is the only moment branches should open by
-  // themselves. Following it live would expand the tree under people as they
-  // navigate from the detail pane, which nobody asked for.
-  const [revealDn] = useState(selectedDn)
 
   // A selection inside a console only marks a row while that console is the
   // active one. The selected DN and zone deliberately survive a switch to
@@ -67,87 +72,49 @@ export function TreePane({
   const zoneDn = activeSnapin === 'dns' ? selectedZoneDn : null
 
   return (
-    <nav className="tree" aria-label={t('nav.directory')}>
-      {SNAPINS.map((snapin) => {
-        // The console root carries the mark unless one of its own child rows
-        // does. Consoles without child rows always carry it while active.
-        const childSelected =
-          (snapin.id === 'directory' && directoryDn !== null) ||
-          (snapin.id === 'dns' && zoneDn !== null)
+    // Named after what it is currently showing. Labelled "Verzeichnis" while
+    // listing DNS zones, it tells a screen reader something untrue.
+    <nav className="tree" aria-label={t(snapinLabel(activeSnapin))}>
+      {/* Hidden while another console is open, not unmounted. Which branches
+          someone had expanded is part of where they left off — the same reason
+          the selected DN survives the switch — and unmounting would throw it
+          away every time they glanced at another console. The tab strip makes
+          switching one click and always visible, so that now happens more
+          often, which makes discarding the state cost more, not less. */}
+      <div hidden={activeSnapin !== 'directory'}>
+        <TreeNodeRow
+          node={{ dn: rootDn, name: rootLabel, type: 'domain', has_children: true } as TreeNode}
+          depth={1}
+          selectedDn={directoryDn}
+          onSelect={onSelect}
+          showAdvanced={showAdvanced}
+          revealDn={revealDn}
+          initiallyOpen
+        />
+      </div>
 
-        return (
-          <div className="tree__snapin" key={snapin.id}>
-            <div
-              className={
-                activeSnapin === snapin.id && !childSelected
-                  ? 'tree__row tree__row--selected'
-                  : 'tree__row'
-              }
-            >
-              {/* No expander on a console root. It is a section heading rather
-                  than a container, and the arrow claimed a state that was never
-                  real: it always pointed open, while the DNS console only shows
-                  its zones once that console is the active one. */}
-              <span className="tree__toggle" />
-              <button
-                type="button"
-                className={
-                  snapin.available ? 'tree__label tree__label--root' : 'tree__label tree__label--muted'
-                }
-                onClick={() => onSelectSnapin(snapin.id)}
-              >
-                <Icon type={snapin.icon} />
-                <span>{t(snapin.label)}</span>
-              </button>
-            </div>
+      {activeSnapin === 'dns' && (
+        <ZoneList
+          selectedZoneDn={zoneDn}
+          onSelectZone={onSelectZone}
+          restoredZoneDn={restoredZoneDn}
+        />
+      )}
 
-            {snapin.available && snapin.id === 'directory' && (
-              // Hidden while another console is open, the way the DNS and
-              // policy trees are: two hierarchies standing open at once push
-              // the consoles below them off the pane.
-              //
-              // Hidden rather than unmounted, though. Which branches someone
-              // had expanded is part of where they left off — the same reason
-              // the selected DN survives the switch — and unmounting would
-              // throw it away every time they glanced at another console.
-              <div hidden={activeSnapin !== 'directory'}>
-                <TreeNodeRow
-                  node={{ dn: rootDn, name: rootLabel, type: 'domain', has_children: true } as TreeNode}
-                  depth={1}
-                  selectedDn={directoryDn}
-                  onSelect={onSelect}
-                  showAdvanced={showAdvanced}
-                  revealDn={revealDn}
-                  initiallyOpen
-                />
-              </div>
-            )}
-
-            {snapin.available && snapin.id === 'dns' && activeSnapin === 'dns' && (
-              <ZoneList
-                selectedZoneDn={zoneDn}
-                onSelectZone={onSelectZone}
-                restoredZoneDn={restoredZoneDn}
-              />
-            )}
-
-            {snapin.available && snapin.id === 'gpo' && activeSnapin === 'gpo' && (
-              <GpoLinkTree
-                rootDn={rootDn}
-                rootLabel={rootLabel}
-                selectedDn={gpoContainerDn}
-                onSelect={onSelectGpoContainer}
-                onChanged={onChanged}
-                // Followed live, unlike the directory tree above: the policy
-                // tree is unmounted whenever another console is open, so it
-                // mounts again on every visit and has to open toward wherever
-                // the selection is now — not toward where a reload found it.
-                revealDn={gpoContainerDn}
-              />
-            )}
-          </div>
-          )
-      })}
+      {activeSnapin === 'gpo' && (
+        <GpoLinkTree
+          rootDn={rootDn}
+          rootLabel={rootLabel}
+          selectedDn={gpoContainerDn}
+          onSelect={onSelectGpoContainer}
+          onChanged={onChanged}
+          // Followed live, unlike the directory tree above: the policy tree is
+          // unmounted whenever another console is open, so it mounts again on
+          // every visit and has to open toward wherever the selection is now —
+          // not toward where a reload found it.
+          revealDn={gpoContainerDn}
+        />
+      )}
     </nav>
   )
 }
