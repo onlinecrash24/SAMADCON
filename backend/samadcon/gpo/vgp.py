@@ -18,15 +18,21 @@ to be produced and read byte by byte. These are read by Samba's own
 ``samba/gp/vgp_*_ext.py``, and written by ``samba-tool gpo manage`` — both
 open. The element names below are taken from the modules that consume them.
 
-Two kinds are deliberately left out of this first wave, and for the same
-reason the others are in it — evidence:
+One kind is still out, and for the same reason the others are in — evidence.
 
-* **Unix/Files** carries a ``permissions`` sub-structure whose element names
-  the reader checks three times over, apparently for user, group and other,
-  but the grouping is not visible from the reading code alone.
-* **Unix/Scripts/Startup** requires a ``hash`` of the script, and how Samba
-  computes it is not something to guess: a wrong hash means the script is
-  re-applied on every refresh, or never.
+**Unix/Scripts/Startup** carries a ``hash`` per entry. Reading
+``vgp_startup_scripts_ext`` settles its element names and their defaults:
+``script`` and ``hash`` are required, ``parameters`` defaults to the empty
+string, ``run_as`` to ``root``, and ``run_once`` is presence-only — the same
+shape as the ``permissions`` elements in Unix/Files. What that source does
+not settle is how the hash is produced: the extension only reads it and
+hands it to ``gp_file_applier.apply``. Writing a wrong one means the script
+is re-run on every refresh, or never, so it waits for the module that
+writes it.
+
+**Unix/Files** was in that list until its ``permissions`` sub-structure was
+read off a real manifest rather than inferred: three blocks, user, group and
+other, always written, with a right granted by an element being present.
 """
 
 from __future__ import annotations
