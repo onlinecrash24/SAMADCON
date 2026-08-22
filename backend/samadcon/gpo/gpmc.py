@@ -230,6 +230,12 @@ def link_map(conn: DirectoryConnection) -> dict[str, list[dict[str, Any]]]:
                         "container": values.as_str(entry, "name")
                         or values.name_from_dn(dn),
                         "container_dn": dn,
+                        # The policy as the attribute names it, not as the
+                        # directory holds it. Removing a link matches on this
+                        # string, and it is the only form that still works for
+                        # a link whose policy is gone — there is no object left
+                        # to look one up from.
+                        "gpo_dn": link["dn"],
                         "kind": _container_kind(entry),
                         "order": link["order"],
                         "enabled": link["enabled"],
@@ -270,6 +276,7 @@ def links_by_container(conn: DirectoryConnection) -> dict[str, Any]:
             node["links"].append(
                 {
                     "guid": guid,
+                    "dn": place["gpo_dn"],
                     # None when the policy is linked but no longer exists — a
                     # real state, and one the tree should show rather than
                     # silently drop: a link to nothing still costs every client

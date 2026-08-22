@@ -24,10 +24,12 @@ UPDATES = "{BBBB0000-0000-0000-0000-000000000002}"
 GHOST = "{CCCC0000-0000-0000-0000-000000000003}"
 
 
-def place(dn: str, name: str, order: int, **overrides: Any) -> dict[str, Any]:
+def place(dn: str, name: str, order: int, guid: str = BASELINE, **overrides: Any) -> dict[str, Any]:
     entry: dict[str, Any] = {
         "container": name,
         "container_dn": dn,
+        # As the gPLink attribute spells it. Removing a link matches on this.
+        "gpo_dn": f"CN={guid},CN=Policies,CN=System,DC=example,DC=test",
         "kind": "organizational_unit",
         "order": order,
         "enabled": True,
@@ -45,11 +47,11 @@ def domain(monkeypatch: pytest.MonkeyPatch) -> None:
         "link_map",
         lambda conn: {
             BASELINE: [
-                place(WORKSTATIONS, "Workstations", 2),
-                place(SERVERS, "Server", 1),
+                place(WORKSTATIONS, "Workstations", 2, BASELINE),
+                place(SERVERS, "Server", 1, BASELINE),
             ],
-            UPDATES: [place(WORKSTATIONS, "Workstations", 1)],
-            GHOST: [place(SERVERS, "Server", 2)],
+            UPDATES: [place(WORKSTATIONS, "Workstations", 1, UPDATES)],
+            GHOST: [place(SERVERS, "Server", 2, GHOST)],
         },
     )
     monkeypatch.setattr(
@@ -101,6 +103,26 @@ def test_a_link_to_a_policy_that_is_gone_is_kept_and_unnamed(domain: None) -> No
 
     assert len(ghost) == 1
     assert ghost[0]["display_name"] is None
+
+
+def test_each_link_carries_the_policy_as_the_attribute_names_it(domain: None) -> None:
+    """Removing a link matches on that string. Without it the tree can show a
+    link and not act on it, which is the shape this had before."""
+    found = containers(gpmc.links_by_container(object()))
+    by_guid = {link["guid"]: link["dn"] for link in found[WORKSTATIONS]["links"]}
+
+    assert by_guid[BASELINE].startswith(f"CN={BASELINE},")
+    assert by_guid[UPDATES].startswith(f"CN={UPDATES},")
+
+
+def test_a_link_whose_policy_is_gone_still_carries_one(domain: None) -> None:
+    """The only case where it matters: there is no object left to look a DN up
+    from, so the one parsed out of the attribute is the only one there is."""
+    found = containers(gpmc.links_by_container(object()))
+    ghost = next(link for link in found[SERVERS]["links"] if link["guid"] == GHOST)
+
+    assert ghost["display_name"] is None
+    assert ghost["dn"].startswith(f"CN={GHOST},")
 
 
 def test_a_container_that_links_nothing_does_not_appear(domain: None) -> None:

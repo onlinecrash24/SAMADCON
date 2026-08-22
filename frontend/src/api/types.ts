@@ -688,6 +688,13 @@ export interface GpoLink {
 /** One link as the management tree lists it, under its container. */
 export interface ContainerLink {
   guid: string
+  /**
+   * The policy as the gPLink attribute names it.
+   *
+   * What removing a link matches on, and the only form that still works when
+   * the policy is gone: there is no object left to look one up from.
+   */
+  dn: string
   /** null when the link outlived the policy — a real state, kept visible. */
   display_name: string | null
   /** 1 takes precedence, as GPMC counts it. */

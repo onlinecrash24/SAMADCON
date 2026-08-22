@@ -20,13 +20,13 @@
  * keyboard.
  */
 
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type DragEvent, type MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 
 import { api } from '../../api/endpoints'
-import type { LinkableNode, LinkedContainer } from '../../api/types'
-import { Badge, Spinner } from '../../components/primitives'
+import type { ContainerLink, LinkableNode, LinkedContainer } from '../../api/types'
+import { Badge, ErrorMessage, Modal, Spinner } from '../../components/primitives'
 import { isAtOrBelow } from '../../dn'
 import { useI18n } from '../../i18n'
 import { anchorOf, useContextMenu } from '../../components/ContextMenu'
@@ -70,6 +70,11 @@ export function GpoLinkTree({
   // One instance for the whole tree, never one per row.
   const menu = useContextMenu()
 
+  const [unlinking, setUnlinking] = useState<{
+    container: DropTarget
+    link: ContainerLink
+  } | null>(null)
+
   // Every link in the domain, once. Fetched only while this console is open —
   // the caller mounts this component then — and shared by every branch.
   const links = useQuery({
@@ -101,6 +106,13 @@ export function GpoLinkTree({
         selectedDn={selectedDn}
         onSelect={onSelect}
         onDropPolicy={(target, policy) => setDropped({ target, policy })}
+        onAskAboutLink={(container, link, at) =>
+          menu.open(
+            at,
+            [{ id: 'unlink', labelKey: 'gpo.unlinkHere', danger: true }],
+            () => setUnlinking({ container, link }),
+          )
+        }
         onAskToLink={(target, at) =>
           menu.open(at, [{ id: 'link', labelKey: 'gpo.linkHere' }], () =>
             // Without a policy: the dialog asks which. Linking was a drag and
@@ -136,6 +148,18 @@ export function GpoLinkTree({
           question with it. */}
       {menu.menu}
 
+      {unlinking && (
+        <UnlinkDialog
+          container={unlinking.container}
+          link={unlinking.link}
+          onClose={() => setUnlinking(null)}
+          onDone={(message) => {
+            setUnlinking(null)
+            onChanged(message)
+          }}
+        />
+      )}
+
       {dropped &&
         createPortal(
           <LinkPolicyDialog
@@ -160,6 +184,7 @@ function ContainerNode({
   onSelect,
   onDropPolicy,
   onAskToLink,
+  onAskAboutLink,
   linkable,
   revealDn,
   initiallyOpen = false,
@@ -173,6 +198,12 @@ function ContainerNode({
   onDropPolicy: (target: DropTarget, policy: DraggedPolicy) => void
   /** A row was right-clicked and wants the menu, at this point. */
   onAskToLink: (target: DropTarget, at: { x: number; y: number }) => void
+  /** A link row was right-clicked. It names itself, so it gets its own menu. */
+  onAskAboutLink: (
+    target: DropTarget,
+    link: ContainerLink,
+    at: { x: number; y: number },
+  ) => void
   /** Whether a policy may be linked here, as the server decides it. */
   linkable: boolean
   revealDn: string | null
@@ -282,6 +313,18 @@ function ContainerNode({
               key={link.guid}
               style={{ paddingLeft: `${(depth + 1) * 14}px` }}
               {...dropZone}
+              // Overrides the container's, which dropZone also carries. A drop
+              // aimed here is charitably read as aimed at the container; a
+              // right-click is not a miss, it names the row it landed on.
+              onContextMenu={(event) => {
+                event.preventDefault()
+                onSelect(dn)
+                onAskAboutLink(
+                  { dn, name, linkable },
+                  link,
+                  { x: event.clientX, y: event.clientY },
+                )
+              }}
             >
               <span className="tree__toggle" />
               <span className="tree__label">
@@ -318,6 +361,7 @@ function ContainerNode({
               onSelect={onSelect}
               onDropPolicy={onDropPolicy}
               onAskToLink={onAskToLink}
+              onAskAboutLink={onAskAboutLink}
               linkable={node.linkable}
               revealDn={revealDn}
             />
@@ -325,5 +369,69 @@ function ContainerNode({
         </div>
       )}
     </div>
+  )
+}
+/**
+ * Removing one link, with the two facts that decide the answer.
+ *
+ * Which policy and where — because the same policy is usually linked in
+ * several places, and "remove the link" without saying which one is the
+ * question people answer wrongly.
+ */
+function UnlinkDialog({
+  container,
+  link,
+  onClose,
+  onDone,
+}: {
+  container: DropTarget
+  link: ContainerLink
+  onClose: () => void
+  onDone: (message: string) => void
+}) {
+  const { t } = useI18n()
+  const queryClient = useQueryClient()
+  const [error, setError] = useState<unknown>(null)
+
+  const name = link.display_name ?? t('gpo.linkMissingPolicy')
+
+  const remove = useMutation({
+    // By the DN the attribute holds, not by one looked up from the policy —
+    // this has to work for a link whose policy is gone, which is one of the
+    // reasons to remove it.
+    mutationFn: () => api.unlinkGpo(container.dn, link.dn),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['gpo-link-map'] })
+      void queryClient.invalidateQueries({ queryKey: ['gpo-locations', link.guid] })
+      onDone(t('gpo.unlinkedFrom', { policy: name, container: container.name }))
+    },
+    onError: setError,
+  })
+
+  return createPortal(
+    <Modal
+      title={t('gpo.unlinkHere')}
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className="button" onClick={onClose}>
+            {t('action.cancel')}
+          </button>
+          <button
+            type="button"
+            className="button button--danger"
+            disabled={remove.isPending}
+            onClick={() => remove.mutate()}
+          >
+            {t('gpo.unlink')}
+          </button>
+        </>
+      }
+    >
+      <ErrorMessage error={error} />
+      <p>{t('gpo.confirmUnlink', { policy: name, container: container.name })}</p>
+      <p className="muted small">{t('gpo.confirmUnlinkHint')}</p>
+    </Modal>,
+    document.getElementById('overlays') ?? document.body,
   )
 }

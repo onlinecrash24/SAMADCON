@@ -795,6 +795,12 @@ export const de = {
     'Die Verknüpfung wird aktiv und nicht erzwungen angelegt. Beides lässt sich danach in der Richtlinie unter „Verknüpfungen" ändern.',
   'gpo.notLinkable':
     'Hierher lässt sich keine Richtlinie verknüpfen. Das geht nur bei der Domäne selbst, bei Organisationseinheiten und bei Standorten.',
+  'gpo.unlinkHere': 'Verknüpfung entfernen …',
+  'gpo.confirmUnlink':
+    '{policy} wird nicht mehr auf {container} angewendet. Die Richtlinie selbst bleibt bestehen, samt aller anderen Verknüpfungen.',
+  'gpo.confirmUnlinkHint':
+    'Wirksam beim nächsten Aktualisieren der betroffenen Rechner, nicht sofort.',
+  'gpo.unlinkedFrom': 'Die Verknüpfung von {policy} mit {container} ist entfernt.',
   'gpo.linkHere': 'Richtlinie verknüpfen …',
   'gpo.pickPolicy': '— Richtlinie wählen —',
   'gpo.linkAlreadyHere': 'hier bereits verknüpft',
@@ -2106,6 +2112,12 @@ export const en: Record<MessageKey, string> = {
     'The link is created active and not enforced. Both can be changed afterwards under the policy’s Links tab.',
   'gpo.notLinkable':
     'A policy cannot be linked here. Only the domain itself, organisational units and sites can carry one.',
+  'gpo.unlinkHere': 'Remove the link…',
+  'gpo.confirmUnlink':
+    '{policy} will no longer apply to {container}. The policy itself stays, along with every other link it has.',
+  'gpo.confirmUnlinkHint':
+    'It takes effect the next time the machines in scope refresh, not at once.',
+  'gpo.unlinkedFrom': 'The link between {policy} and {container} is gone.',
   'gpo.linkHere': 'Link a policy here…',
   'gpo.pickPolicy': '— pick a policy —',
   'gpo.linkAlreadyHere': 'already linked here',
