@@ -674,3 +674,6 @@ than the project.
 ## Licence
 
 AGPL-3.0-or-later.
+
+The icons are Phosphor Icons, MIT, embedded as path data rather than loaded
+as files — see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

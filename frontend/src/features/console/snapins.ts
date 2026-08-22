@@ -20,7 +20,11 @@ export type SnapinId = 'directory' | 'dns' | 'sites' | 'diagnostics' | 'gpo' | '
 export interface Snapin {
   id: SnapinId
   label: MessageKey
-  /** Icon type reused from the object icon set. */
+  /**
+   * Which icon to draw. Its own, not one borrowed from the object set:
+   * six consoles were sharing three icons, so half of them said nothing
+   * about which console you were looking at.
+   */
   icon: string
   available: boolean
   /** Shown when an unavailable snap-in is selected. */
@@ -41,14 +45,14 @@ export const SNAPINS: Snapin[] = [
   {
     id: 'directory',
     label: 'snapin.directory',
-    icon: 'domain',
+    icon: 'tab-directory',
     available: true,
     panes: { tree: true, detail: true },
   },
   {
     id: 'dns',
     label: 'snapin.dns',
-    icon: 'container',
+    icon: 'tab-dns',
     available: true,
     // The zone list is the tree here.
     panes: { tree: true, detail: false },
@@ -56,21 +60,21 @@ export const SNAPINS: Snapin[] = [
   {
     id: 'sites',
     label: 'snapin.sites',
-    icon: 'container',
+    icon: 'tab-sites',
     available: true,
     panes: { tree: false, detail: false },
   },
   {
     id: 'diagnostics',
     label: 'snapin.diagnostics',
-    icon: 'domain',
+    icon: 'tab-diagnostics',
     available: true,
     panes: { tree: false, detail: false },
   },
   {
     id: 'gpo',
     label: 'snapin.gpo',
-    icon: 'gpo',
+    icon: 'tab-gpo',
     available: true,
     // The link tree — which policies apply where.
     panes: { tree: true, detail: false },
@@ -84,7 +88,7 @@ export const SNAPINS: Snapin[] = [
     // model is gone; the name is now what the screen is.
     id: 'reports',
     label: 'snapin.reports',
-    icon: 'gpo',
+    icon: 'tab-reports',
     available: true,
     panes: { tree: false, detail: false },
   },

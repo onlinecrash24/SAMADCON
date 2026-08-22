@@ -702,3 +702,6 @@ ein Release hob zwei davon, und gefunden hat es ein Leser, nicht das Projekt.
 ## Lizenz
 
 AGPL-3.0-or-later.
+
+Die Symbole sind Phosphor Icons, MIT, als Pfaddaten eingebettet statt als Dateien
+geladen — siehe [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
