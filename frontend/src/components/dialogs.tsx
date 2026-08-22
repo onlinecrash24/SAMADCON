@@ -312,7 +312,13 @@ export function MoveDialog({
   name,
   onClose,
   onDone,
-}: DialogProps & { dn: string; name: string }) {
+  onRelocated,
+}: DialogProps & {
+  dn: string
+  name: string
+  /** Where the object went; see RenameDialog. */
+  onRelocated?: (dn: string, name: string) => void
+}) {
   const { t } = useI18n()
   const { error, setError, pending, run } = useSubmit(onDone, onClose)
 
@@ -348,7 +354,9 @@ export function MoveDialog({
     void run(async () => {
       const result = await api.move(dn, target)
       // The DN changed, so the caller has to follow it — otherwise the detail
-      // pane keeps pointing at something that no longer exists.
+      // pane keeps pointing at something that no longer exists. It said so
+      // here for a while before anything acted on it.
+      onRelocated?.(result.dn, name)
       return t('status.moved', { name, target: result.dn })
     })
   }
@@ -486,7 +494,19 @@ export function RenameDialog({
   currentName,
   onClose,
   onDone,
-}: DialogProps & { dn: string; currentName: string }) {
+  onRelocated,
+}: DialogProps & {
+  dn: string
+  currentName: string
+  /**
+   * Where the object went.
+   *
+   * A rename changes the DN, and anything holding one — the selection, a
+   * window — would otherwise be pointing at a name that no longer resolves,
+   * having just succeeded at making that true.
+   */
+  onRelocated?: (dn: string, name: string) => void
+}) {
   const { t } = useI18n()
   const { error, setError, pending, run } = useSubmit(onDone, onClose)
   const [name, setName] = useState(currentName)
@@ -494,7 +514,8 @@ export function RenameDialog({
   const submit = (event: FormEvent) => {
     event.preventDefault()
     void run(async () => {
-      await api.rename(dn, name.trim())
+      const renamed = await api.rename(dn, name.trim())
+      onRelocated?.(renamed.dn, name.trim())
       return t('status.saved')
     })
   }

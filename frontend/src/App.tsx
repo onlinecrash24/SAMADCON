@@ -31,6 +31,7 @@ import { SecurityFindings } from './features/diagnostics/SecurityFindings'
 import { DnsView } from './features/dns/DnsView'
 import { contextMenuActions } from './features/directory/objectActions'
 import { GpoView } from './features/gpo/GpoView'
+import { ObjectPropertiesWindow } from './features/directory/ObjectPropertiesWindow'
 import { GpoWindow } from './features/gpo/GpoWindow'
 import { SitesView } from './features/sites/SitesView'
 import { useI18n } from './i18n'
@@ -78,6 +79,11 @@ export function App() {
   ) : (
     <LoginView />
   )
+}
+
+/** The leading component of a DN, without its attribute name. */
+function nameFromDn(dn: string): string {
+  return (dn.split(',')[0] ?? dn).replace(/^[A-Za-z]+=/, '')
 }
 
 function Console() {
@@ -295,8 +301,12 @@ function Console() {
         setObjectDialog({ kind: 'delete', object })
         return
       case 'properties':
-        setSnapin('directory')
-        setSelected(object)
+        windows.open({
+          snapin: 'directory',
+          kind: 'object',
+          title: object.display_name || object.name,
+          dn: object.dn,
+        })
         return
       default:
         return
@@ -504,9 +514,17 @@ function Console() {
                 setActiveSearch('')
                 setCurrentDn(object.dn)
                 setSelected(null)
-              } else {
-                setSelected(object)
+                return
               }
+              // A double click on something that cannot be opened into opens
+              // its properties, which is what it does in the original.
+              setSelected(object)
+              windows.open({
+                snapin: 'directory',
+                kind: 'object',
+                title: object.display_name || object.name,
+                dn: object.dn,
+              })
             }}
             onContext={openMenu}
           />
@@ -526,6 +544,7 @@ function Console() {
                 object={selected}
                 onChanged={onChanged}
                 onNavigate={(dn) => void navigateTo(dn)}
+                onRetarget={(dn) => void navigateTo(dn)}
               />
             </div>
           </>
@@ -600,7 +619,29 @@ function Console() {
               onClose={() => windows.close(open.id)}
               onChanged={onChanged}
             />
-          ) : null
+          ) : (
+            <ObjectPropertiesWindow
+              dn={open.dn}
+              onClose={() => windows.close(open.id)}
+              onChanged={onChanged}
+              // Following a member or a parent group opens another window
+              // rather than moving the console behind this one: windows are
+              // cheap now, and shifting the pane under something someone is
+              // reading is the disorienting alternative.
+              onNavigate={(dn) =>
+                windows.open({
+                  snapin: 'directory',
+                  kind: 'object',
+                  // The leading component, not the whole DN: a title bar
+                  // reading CN=Anna,OU=Benutzer,DC=… tells nobody anything it
+                  // could not fit.
+                  title: nameFromDn(dn),
+                  dn,
+                })
+              }
+              onRetarget={(dn, name) => windows.retarget(open.id, dn, name)}
+            />
+          )
         }
       />
     </div>
