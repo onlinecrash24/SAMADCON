@@ -81,6 +81,22 @@ h3 { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; colo
 .small { font-size: 0.85em; }
 .selectable { user-select: all; }
 
+/* The `hidden` attribute carries its display:none from the browser's own
+   stylesheet, which means any author rule that sets display beats it — and
+   silently, because the markup still says hidden.
+
+   A window is display:flex, so hiding one did nothing at all: switching
+   console left the policy editor standing in front of the console you had
+   just moved to, while the count on the tab correctly said it was put away.
+   Reported from a real domain. Minimising a window was broken the same way,
+   for the same reason.
+
+   Stated once here rather than per component, because the next thing with a
+   display of its own would meet the same trap. !important is right for this
+   one: hidden means hidden, and there is no case where something asks to be
+   hidden and wants to keep its box. */
+[hidden] { display: none !important; }
+
 /* --------------------------------------------------------------------- */
 /* Controls                                                              */
 /* --------------------------------------------------------------------- */
