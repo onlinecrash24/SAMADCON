@@ -56,6 +56,21 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     async (username: string, password: string, options: LoginOptions = {}) => {
       const info = await api.login(username, password, options)
       setCsrfToken(info.csrf_token)
+
+      // Signing in is a beginning: the console opens at Users and Computers,
+      // not wherever the last session happened to stop. Clearing it here
+      // rather than only on sign-out is what makes that true — a lapsed ticket
+      // never passes through logout, so the position used to outlive the
+      // session that chose it.
+      //
+      // Before setSession, and that ordering is load-bearing: setting the
+      // session mounts the console, which reads the stored position in a lazy
+      // initialiser. Clearing afterwards would be one render too late.
+      //
+      // A refresh with a session still valid does not come through here at
+      // all — the probe above restores it — so F5 still lands where it left
+      // off, which is the point of storing this in the first place.
+      forgetConsoleLocation()
       setSession(info)
 
       // Remember only what actually worked, and only when the user named a

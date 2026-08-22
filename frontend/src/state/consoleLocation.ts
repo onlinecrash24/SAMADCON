@@ -114,11 +114,20 @@ export function writeConsoleLocation(location: ConsoleLocation): void {
 /**
  * Forget it.
  *
- * Called on a deliberate sign-out and not when a ticket merely lapses. Signing
- * out is an ending — leaving the previous person's OU and account names in a
- * shared browser is not what that gesture means. A lapsed ticket is usually
- * the same person signing straight back in, and landing where they were is the
- * entire point of this file.
+ * Called at both ends of a session: on sign-out, because leaving the previous
+ * person's OU and account names sitting in a shared browser is not what that
+ * gesture means — and on sign-in, because signing in is a beginning and the
+ * console should open at Users and Computers.
+ *
+ * It used to be sign-out alone, on the reasoning that a lapsed ticket is
+ * usually the same person coming straight back. The consequence was not
+ * obvious until someone met it: a lapsed ticket never passes through
+ * sign-out, so the position outlived the session that chose it and people
+ * were dropped into whichever console they had last opened, days earlier.
+ *
+ * A refresh is untouched. It never reaches either end — the session probe
+ * restores the session — so F5 still lands where it left off, which is the
+ * whole reason any of this is stored.
  */
 export function forgetConsoleLocation(): void {
   try {

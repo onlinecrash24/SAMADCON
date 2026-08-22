@@ -10,6 +10,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { forgetConsoleLocation, readConsoleLocation, writeConsoleLocation } from './consoleLocation'
+import { SNAPINS } from '../features/console/snapins'
 
 const BASE = 'DC=spam-deny,DC=local'
 
@@ -115,11 +116,32 @@ describe('nonsense falls back rather than being repaired', () => {
   })
 })
 
-describe('signing out ends the position', () => {
-  it('forgets it', () => {
+describe('a session begins and ends at Users and Computers', () => {
+  it('forgets the position when told to', () => {
+    // Called at both ends: signing out, and signing in. A lapsed ticket never
+    // passes through signing out, so without the second call the position
+    // outlived the session that chose it.
     writeConsoleLocation(full)
     forgetConsoleLocation()
     expect(readConsoleLocation(BASE).snapin).toBe('directory')
+  })
+
+  it('defaults to the directory console by name, not by position in the list', () => {
+    // Reordering the tab strip must not change where a sign-in lands.
+    expect(readConsoleLocation(BASE).snapin).toBe('directory')
+    expect(SNAPINS[0]?.id).toBe('directory')
+  })
+
+  it('starts at the domain root, with nothing selected and no search', () => {
+    expect(readConsoleLocation(BASE)).toEqual({
+      snapin: 'directory',
+      dn: BASE,
+      selectedDn: null,
+      showAdvanced: false,
+      search: '',
+      gpoContainerDn: null,
+      zoneDn: null,
+    })
   })
 })
 
