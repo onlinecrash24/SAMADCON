@@ -1,10 +1,13 @@
 /** Dialogs for the create/rename/delete/password actions. */
 
+import { useQuery } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 
+import { ApiError } from '../api/client'
 import { api } from '../api/endpoints'
+import type { TreeNode } from '../api/types'
 import { useI18n } from '../i18n'
-import { ErrorMessage, Field, Modal } from './primitives'
+import { ErrorMessage, Field, Modal, Spinner } from './primitives'
 
 interface DialogProps {
   onClose: () => void
@@ -298,6 +301,130 @@ export function NewOuDialog({ parentDn, onClose, onDone }: DialogProps & { paren
   )
 }
 
+
+// ---------------------------------------------------------------------------
+// Move
+// ---------------------------------------------------------------------------
+
+export function MoveDialog({
+  dn,
+  name,
+  onClose,
+  onDone,
+}: DialogProps & { dn: string; name: string }) {
+  const { t } = useI18n()
+  const { error, setError, pending, run } = useSubmit(onDone, onClose)
+
+  // The partition the object lives in, taken from its own name. Derived
+  // rather than passed in, and not because it saves a prop: an object cannot
+  // move across partitions, so the only correct root is the one it is
+  // already under. A root handed down from the console shell could be the
+  // configuration partition, and every target under it would be refused.
+  const baseDn = dn.slice(dn.search(/DC=/i))
+
+  // Where the picker is looking, which is also the target. There is no
+  // separate "selected" state on purpose: one of them would end up stale, and
+  // the one that decides where an object lands should be the one on screen.
+  const [target, setTarget] = useState(baseDn)
+
+  const listing = useQuery({
+    queryKey: ['move-target', target],
+    queryFn: () => api.tree(target),
+  })
+
+  // A container cannot be moved into itself or into anything below it. The
+  // server would let rename fail with a bare LDAP error; saying it here means
+  // the button is simply not available for a move that cannot work.
+  const inside = (candidate: string) =>
+    candidate.toLowerCase() === dn.toLowerCase() ||
+    candidate.toLowerCase().endsWith(',' + dn.toLowerCase())
+
+  const parentOf = (child: string) => child.slice(child.indexOf(',') + 1)
+  const canAscend = target.toLowerCase() !== baseDn.toLowerCase()
+
+  const unchanged = parentOf(dn).toLowerCase() === target.toLowerCase()
+  const refused = inside(target)
+
+  const submit = () => {
+    void run(async () => {
+      const result = await api.move(dn, target)
+      // The DN changed, so the caller has to follow it — otherwise the detail
+      // pane keeps pointing at something that no longer exists.
+      return t('status.moved', { name, target: result.dn })
+    })
+  }
+
+  return (
+    <Modal
+      title={t('dialog.moveTitle', { name })}
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className="button" onClick={onClose}>
+            {t('action.cancel')}
+          </button>
+          <button
+            type="button"
+            className="button button--primary"
+            disabled={pending || refused || unchanged}
+            onClick={submit}
+          >
+            {t('action.move')}
+          </button>
+        </>
+      }
+    >
+      <div className="form">
+        <ErrorMessage error={error} onDismiss={() => setError(null)} />
+
+        <p className="muted small">{t('dialog.moveHint')}</p>
+
+        <Field label={t('dialog.moveTarget')}>
+          <code className="mono small">{target}</code>
+        </Field>
+
+        {refused && <div className="alert alert--warning">{t('dialog.moveIntoItself')}</div>}
+        {unchanged && !refused && <p className="muted small">{t('dialog.moveUnchanged')}</p>}
+
+        <div className="pane__actions">
+          <button
+            type="button"
+            className="button"
+            disabled={!canAscend}
+            onClick={() => setTarget(parentOf(target))}
+          >
+            {t('dialog.moveUp')}
+          </button>
+        </div>
+
+        {listing.isLoading && <Spinner label={t('status.loading')} />}
+        {listing.error && <ErrorMessage error={listing.error} />}
+
+        <ul className="plain-list">
+          {(listing.data?.nodes ?? []).map((node: TreeNode) => (
+            <li key={node.dn}>
+              <button
+                type="button"
+                className="button"
+                // Descending into the object being moved is pointless: every
+                // container under it is refused anyway.
+                disabled={inside(node.dn)}
+                onClick={() => setTarget(node.dn)}
+              >
+                {node.name}
+              </button>
+            </li>
+          ))}
+        </ul>
+
+        {(listing.data?.nodes ?? []).length === 0 && !listing.isLoading && (
+          <p className="muted small">{t('dialog.moveNoChildren')}</p>
+        )}
+      </div>
+    </Modal>
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Password, rename, delete
 // ---------------------------------------------------------------------------
@@ -410,13 +537,28 @@ export function DeleteDialog({
   const { error, setError, pending, run } = useSubmit(onDone, onClose)
   const [recursive, setRecursive] = useState(false)
 
+  // The refusal delete_ou gives while the OU is protected. Recognised rather
+  // than shown as one more failure, because it is the one failure here with a
+  // sensible next step — and without offering that step, a correct refusal
+  // reads as a dead end.
+  const isProtected = error instanceof ApiError && error.code === 'delete_protected'
+
+  const remove = async () => {
+    if (isOu) await api.deleteOu(dn, recursive)
+    else await api.remove(dn, recursive)
+    return t('status.deleted', { name })
+  }
+
   const submit = () => {
+    void run(remove)
+  }
+
+  const unprotectAndDelete = () => {
     void run(async () => {
-      // OUs go through their own endpoint, which refuses while the object is
-      // still protected instead of returning a bare access-denied.
-      if (isOu) await api.deleteOu(dn, recursive)
-      else await api.remove(dn, recursive)
-      return t('status.deleted', { name })
+      // Two writes, in this order, and the text above says so. If the delete
+      // fails on something else afterwards, the protection is gone regardless.
+      await api.setDeleteProtection(dn, false)
+      return await remove()
     })
   }
 
@@ -429,15 +571,37 @@ export function DeleteDialog({
           <button type="button" className="button" onClick={onClose}>
             {t('action.cancel')}
           </button>
-          <button type="button" className="button button--danger" onClick={submit} disabled={pending}>
-            {t('action.delete')}
-          </button>
+          {isProtected ? (
+            // Replaces the plain delete rather than sitting beside it: with
+            // both on screen, the one that cannot work is the one people press.
+            <button
+              type="button"
+              className="button button--danger"
+              onClick={unprotectAndDelete}
+              disabled={pending}
+            >
+              {t('action.unprotectAndDelete')}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="button button--danger"
+              onClick={submit}
+              disabled={pending}
+            >
+              {t('action.delete')}
+            </button>
+          )}
         </>
       }
     >
       <div className="form">
         <ErrorMessage error={error} onDismiss={() => setError(null)} />
-        <p>{t('dialog.deleteBody')}</p>
+        {isProtected ? (
+          <p>{t('dialog.deleteProtectedBody')}</p>
+        ) : (
+          <p>{t('dialog.deleteBody')}</p>
+        )}
         <p className="mono muted">{dn}</p>
         {isContainer && (
           <label className="checkbox">

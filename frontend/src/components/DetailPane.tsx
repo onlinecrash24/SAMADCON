@@ -17,7 +17,7 @@ import { PropertySheet } from '../features/directory/PropertySheet'
 import { SecurityTab } from '../features/directory/SecurityTab'
 import { useI18n } from '../i18n'
 import type { MessageKey } from '../i18n/messages'
-import { DeleteDialog, PasswordDialog, RenameDialog } from './dialogs'
+import { DeleteDialog, MoveDialog, PasswordDialog, RenameDialog } from './dialogs'
 import {
   Badge,
   ErrorMessage,
@@ -73,7 +73,9 @@ function ObjectDetail({
   const queryClient = useQueryClient()
 
   const [tab, setTab] = useState<Tab>('overview')
-  const [dialog, setDialog] = useState<'password' | 'rename' | 'delete' | null>(null)
+  const [dialog, setDialog] = useState<'password' | 'rename' | 'move' | 'delete' | null>(
+    null,
+  )
   const [actionError, setActionError] = useState<unknown>(null)
   const [saveError, setSaveError] = useState<unknown>(null)
 
@@ -210,6 +212,11 @@ function ObjectDetail({
         <button type="button" className="button" onClick={() => setDialog('rename')}>
           {t('action.rename')}
         </button>
+        {/* Every object, not only OUs: move_object is generic, and a user
+            in the wrong OU is the commoner mistake. */}
+        <button type="button" className="button" onClick={() => setDialog('move')}>
+          {t('action.move')}
+        </button>
         <button type="button" className="button button--danger" onClick={() => setDialog('delete')}>
           {t('action.delete')}
         </button>
@@ -331,6 +338,19 @@ function ObjectDetail({
           currentName={object.name}
           onClose={() => setDialog(null)}
           onDone={(message) => {
+            invalidate()
+            onChanged(message)
+          }}
+        />
+      )}
+      {dialog === 'move' && (
+        <MoveDialog
+          dn={object.dn}
+          name={object.name}
+          onClose={() => setDialog(null)}
+          onDone={(message) => {
+            // The DN changed, so the selection has to move with it — the
+            // pane would otherwise keep showing an object at its old name.
             invalidate()
             onChanged(message)
           }}

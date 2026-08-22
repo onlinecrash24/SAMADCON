@@ -305,6 +305,20 @@ export const de = {
   'dialog.passwordMustChange': 'Benutzer muss Kennwort bei nächster Anmeldung ändern',
   'dialog.passwordMustChangeHint':
     'Bis zur Änderung stellt das KDC kein Ticket aus: Anmeldungen an SAMADCON oder anderen Kerberos-Diensten schlagen fehl. Die Änderung muss an einem Domänen-Client erfolgen.',
+  'dialog.moveHint':
+    'Ziel auswählen, nicht eintippen: ein von Hand geschriebener DN ist genau die Eingabe, bei der ein Tippfehler das Objekt irgendwohin legt, wo es niemand sucht.',
+  'dialog.moveTarget': 'Ziel',
+  'dialog.moveUp': '↑ Eine Ebene höher',
+  'dialog.moveNoChildren': 'Hier liegt kein weiterer Container.',
+  'dialog.moveIntoItself':
+    'Ein Container lässt sich nicht in sich selbst oder in etwas darunter verschieben.',
+  'dialog.moveUnchanged': 'Das Objekt liegt bereits hier.',
+  'status.moved': '{name} liegt jetzt unter {target}.',
+
+  'action.unprotectAndDelete': 'Schutz aufheben und löschen',
+  'dialog.deleteProtectedBody':
+    'Diese OU ist gegen versehentliches Löschen geschützt. Der Schutz wird zuerst entfernt und danach gelöscht — das sind zwei Schritte. Scheitert der zweite, ist der Schutz trotzdem weg und muss von Hand wieder gesetzt werden.',
+
   'dialog.renameTitle': 'Umbenennen',
   'dialog.moveTitle': 'Verschieben nach',
   'dialog.newUserTitle': 'Neuer Benutzer',
@@ -1588,6 +1602,20 @@ export const en: Record<MessageKey, string> = {
   'dialog.passwordMustChange': 'User must change password at next logon',
   'dialog.passwordMustChangeHint':
     'Until it is changed the KDC issues no ticket: signing in to SAMADCON or any other Kerberos service will fail. The change has to happen on a domain-joined client.',
+  'dialog.moveHint':
+    'Pick the target rather than typing it: a distinguished name written by hand is exactly the input where a typo puts the object somewhere nobody looks for it.',
+  'dialog.moveTarget': 'Target',
+  'dialog.moveUp': '↑ Up one level',
+  'dialog.moveNoChildren': 'No further container here.',
+  'dialog.moveIntoItself':
+    'A container cannot be moved into itself, or into anything below it.',
+  'dialog.moveUnchanged': 'The object is already here.',
+  'status.moved': '{name} now sits under {target}.',
+
+  'action.unprotectAndDelete': 'Lift the protection and delete',
+  'dialog.deleteProtectedBody':
+    'This OU is protected against accidental deletion. The protection is removed first and the deletion follows — two steps. If the second one fails, the protection is gone anyway and has to be set again by hand.',
+
   'dialog.renameTitle': 'Rename',
   'dialog.moveTitle': 'Move to',
   'dialog.newUserTitle': 'New user',

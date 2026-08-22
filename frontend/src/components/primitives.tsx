@@ -141,14 +141,21 @@ export function Modal({
   }, [onClose])
 
   return (
-    <div className="modal__backdrop" onMouseDown={onClose}>
+    // The backdrop does nothing on purpose, and this is not an omission to
+    // be tidied up later. It used to close the dialog on mousedown, which
+    // meant a click that landed slightly wide of the policy editor threw
+    // away everything typed into it, without a word. Reported by someone who
+    // lost work to it.
+    //
+    // Windows dialogs do not close when you click beside them either, and
+    // this console is read against those.
+    <div className="modal__backdrop">
       <div
         className={size === 'console' ? 'modal modal--console' : 'modal'}
         role="dialog"
         aria-modal="true"
         aria-label={title}
         ref={ref}
-        onMouseDown={(event) => event.stopPropagation()}
       >
         <header className="modal__header">
           <h2>{title}</h2>
