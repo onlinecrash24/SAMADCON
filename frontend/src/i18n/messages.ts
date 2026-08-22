@@ -895,6 +895,8 @@ export const de = {
   'gpo.otherFiles': 'Weitere Dateien',
   'gpo.copy': 'Kopieren',
   'gpo.copied': 'Richtlinie kopiert.',
+  'gpo.renameHint':
+    'Nur der Anzeigename. Die Kennung bleibt, wie sie ist — Verknüpfungen und Clients gehen danach.',
   'gpo.copyHint':
     'Die Kopie erhält eine eigene Kennung und eigene Berechtigungen. Verknüpfungen werden nicht übernommen — wo eine Richtlinie wirkt, bleibt eine Entscheidung.',
   'gpo.backup': 'Sicherung',
@@ -2201,6 +2203,8 @@ export const en: Record<MessageKey, string> = {
   'gpo.otherFiles': 'Other files',
   'gpo.copy': 'Copy',
   'gpo.copied': 'Policy copied.',
+  'gpo.renameHint':
+    'The display name only. The GUID stays as it is — links and clients go by that.',
   'gpo.copyHint':
     'The copy gets its own identifier and its own permissions. Links are not copied — where a policy applies stays a decision.',
   'gpo.backup': 'Back up',

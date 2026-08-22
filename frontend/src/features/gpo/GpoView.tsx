@@ -13,6 +13,8 @@ import { api } from '../../api/endpoints'
 import type { Gpo } from '../../api/types'
 import { Badge, ErrorMessage, Modal, Spinner, useDateFormat } from '../../components/primitives'
 import { useI18n } from '../../i18n'
+import { anchorOf, useContextMenu, type MenuNode } from '../../components/ContextMenu'
+import { CopyGpoDialog, DeleteGpoDialog, gpoName, RenameGpoDialog } from './GpoDialogs'
 import { startPolicyDrag } from './policyDrag'
 
 interface GpoViewProps {
@@ -35,6 +37,34 @@ export function GpoView({ containerDn, onChanged, onOpenPolicy }: GpoViewProps) 
   const formatDate = useDateFormat()
 
   const [creating, setCreating] = useState(false)
+  const [acting, setActing] = useState<{ kind: 'rename' | 'copy' | 'delete'; gpo: Gpo } | null>(
+    null,
+  )
+  const menu = useContextMenu()
+
+  /**
+   * What a row offers.
+   *
+   * The list had nothing on a row at all — every one of these meant opening
+   * the policy first and closing it afterwards.
+   */
+  const openMenu = (gpo: Gpo, at: { x: number; y: number }) => {
+    const items: MenuNode[] = [
+      { id: 'open', labelKey: 'action.open' },
+      'separator',
+      { id: 'rename', labelKey: 'action.rename' },
+      { id: 'copy', labelKey: 'gpo.copy' },
+      { id: 'backup', labelKey: 'gpo.backup' },
+      'separator',
+      { id: 'delete', labelKey: 'action.delete', danger: true },
+    ]
+
+    menu.open(at, items, (id) => {
+      if (id === 'open') onOpenPolicy(gpo.dn, gpoName(gpo))
+      else if (id === 'backup') api.downloadGpoBackup(gpo.dn, gpoName(gpo)).catch(setError)
+      else if (id === 'rename' || id === 'copy' || id === 'delete') setActing({ kind: id, gpo })
+    })
+  }
   const [restoring, setRestoring] = useState(false)
   const [error, setError] = useState<unknown>(null)
 
@@ -111,7 +141,17 @@ export function GpoView({ containerDn, onChanged, onOpenPolicy }: GpoViewProps) 
               <tr
                 key={gpo.dn}
                 className="table__row--draggable"
-                onClick={() => onOpenPolicy(gpo.dn, gpo.display_name ?? gpo.guid)}
+                onClick={() => onOpenPolicy(gpo.dn, gpoName(gpo))}
+                onContextMenu={(event) => {
+                  event.preventDefault()
+                  openMenu(gpo, { x: event.clientX, y: event.clientY })
+                }}
+                tabIndex={0}
+                onKeyDown={(event) => {
+                  if (!((event.shiftKey && event.key === 'F10') || event.key === 'ContextMenu')) return
+                  event.preventDefault()
+                  openMenu(gpo, anchorOf(event.currentTarget))
+                }}
                 // The whole row is the handle, not just the name: a drag that
                 // only starts from a four-word link is a drag most people
                 // never find.
@@ -149,6 +189,42 @@ export function GpoView({ containerDn, onChanged, onOpenPolicy }: GpoViewProps) 
           </tbody>
         </table>
       </div>
+
+      {menu.menu}
+
+      {acting?.kind === 'rename' && (
+        <RenameGpoDialog
+          gpo={acting.gpo}
+          onClose={() => setActing(null)}
+          onDone={() => {
+            setActing(null)
+            refresh()
+            onChanged(t('status.saved'))
+          }}
+        />
+      )}
+      {acting?.kind === 'copy' && (
+        <CopyGpoDialog
+          gpo={acting.gpo}
+          onClose={() => setActing(null)}
+          onDone={() => {
+            setActing(null)
+            refresh()
+            onChanged(t('gpo.copied'))
+          }}
+        />
+      )}
+      {acting?.kind === 'delete' && (
+        <DeleteGpoDialog
+          gpo={acting.gpo}
+          onClose={() => setActing(null)}
+          onDone={() => {
+            setActing(null)
+            refresh()
+            onChanged(t('gpo.deleted'))
+          }}
+        />
+      )}
 
       {creating && (
         <NewGpoDialog

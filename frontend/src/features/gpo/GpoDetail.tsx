@@ -15,6 +15,7 @@ import type { Gpo } from '../../api/types'
 import { Badge, ErrorMessage, Modal, Spinner, useDateFormat } from '../../components/primitives'
 import { useI18n } from '../../i18n'
 import type { MessageKey } from '../../i18n/messages'
+import { CopyGpoDialog, DeleteGpoDialog } from './GpoDialogs'
 import { ReportTab } from './ReportTab'
 import { WmiTab } from './WmiTab'
 import { AdmxTab } from './admx/AdmxTab'
@@ -53,15 +54,6 @@ export function GpoDetail({ gpo, onClose, onChanged, onDeleted }: GpoDetailProps
   const [error, setError] = useState<unknown>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [copying, setCopying] = useState(false)
-
-  const remove = useMutation({
-    mutationFn: (force: boolean) => api.deleteGpo(gpo.dn, force),
-    onSuccess: onDeleted,
-    onError: (failure) => {
-      setConfirmDelete(false)
-      setError(failure)
-    },
-  })
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ['gpo', gpo.dn] })
@@ -164,7 +156,7 @@ export function GpoDetail({ gpo, onClose, onChanged, onDeleted }: GpoDetailProps
       </div>
 
       {copying && (
-        <CopyDialog
+        <CopyGpoDialog
           gpo={gpo}
           onClose={() => setCopying(false)}
           onDone={() => {
@@ -175,83 +167,17 @@ export function GpoDetail({ gpo, onClose, onChanged, onDeleted }: GpoDetailProps
       )}
 
       {confirmDelete && (
-        <Modal
-          title={t('gpo.confirmDeleteTitle')}
+        <DeleteGpoDialog
+          gpo={gpo}
           onClose={() => setConfirmDelete(false)}
-          footer={
-            <>
-              <button type="button" className="button" onClick={() => setConfirmDelete(false)}>
-                {t('action.cancel')}
-              </button>
-              <button
-                type="button"
-                className="button button--danger"
-                disabled={remove.isPending}
-                onClick={() => remove.mutate(false)}
-              >
-                {t('action.delete')}
-              </button>
-            </>
-          }
-        >
-          <p>{t('gpo.confirmDelete', { name: gpo.display_name ?? gpo.guid })}</p>
-          <p className="muted small">{t('gpo.confirmDeleteHint')}</p>
-        </Modal>
+          onDone={onDeleted}
+        />
       )}
     </div>
   )
 }
 
 // ---------------------------------------------------------------------------
-
-function CopyDialog({
-  gpo,
-  onClose,
-  onDone,
-}: {
-  gpo: Gpo
-  onClose: () => void
-  onDone: () => void
-}) {
-  const { t } = useI18n()
-  const [name, setName] = useState(`${gpo.display_name ?? gpo.guid} (copy)`)
-  const [error, setError] = useState<unknown>(null)
-
-  const copy = useMutation({
-    mutationFn: () => api.copyGpo(gpo.dn, name.trim()),
-    onSuccess: onDone,
-    onError: setError,
-  })
-
-  return (
-    <Modal
-      title={t('gpo.copy')}
-      onClose={onClose}
-      footer={
-        <>
-          <button type="button" className="button" onClick={onClose}>
-            {t('action.cancel')}
-          </button>
-          <button
-            type="button"
-            className="button button--primary"
-            disabled={!name.trim() || copy.isPending}
-            onClick={() => copy.mutate()}
-          >
-            {t('gpo.copy')}
-          </button>
-        </>
-      }
-    >
-      <ErrorMessage error={error} />
-      <label className="field">
-        <span className="field__label">{t('gpo.name')}</span>
-        <input value={name} onChange={(event) => setName(event.target.value)} autoFocus />
-        <span className="field__hint">{t('gpo.copyHint')}</span>
-      </label>
-    </Modal>
-  )
-}
 
 // ---------------------------------------------------------------------------
 
