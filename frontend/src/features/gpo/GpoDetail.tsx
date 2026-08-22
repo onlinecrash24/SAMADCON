@@ -68,39 +68,10 @@ export function GpoDetail({ gpo, onClose, onChanged, onDeleted }: GpoDetailProps
   }
 
   return (
-    <Modal
-      title={gpo.display_name ?? gpo.guid}
-      size="console"
-      onClose={onClose}
-      footer={
-        <>
-          <button
-            type="button"
-            className="button button--danger"
-            onClick={() => setConfirmDelete(true)}
-          >
-            {t('action.delete')}
-          </button>
-          <button
-            type="button"
-            className="button"
-            onClick={() => {
-              api
-                .downloadGpoBackup(gpo.dn, gpo.display_name ?? gpo.guid)
-                .catch(setError)
-            }}
-          >
-            {t('gpo.backup')}
-          </button>
-          <button type="button" className="button" onClick={() => setCopying(true)}>
-            {t('gpo.copy')}
-          </button>
-          <button type="button" className="button" onClick={onClose}>
-            {t('action.close')}
-          </button>
-        </>
-      }
-    >
+    // No frame of its own any more. This is the content of a window now, and
+    // the window supplies the title bar, the position and the close button —
+    // which is what lets two policies stand open side by side.
+    <div className="sheet-window">
       <div className="tabs">
         {(
           [
@@ -165,6 +136,33 @@ export function GpoDetail({ gpo, onClose, onChanged, onDeleted }: GpoDetailProps
         {tab === 'health' && <HealthTab gpo={gpo} />}
       </div>
 
+      {/* Below the scrolling panel, so it stays reachable however long the
+          settings report gets. */}
+      <div className="sheet-window__footer">
+        <button
+          type="button"
+          className="button button--danger"
+          onClick={() => setConfirmDelete(true)}
+        >
+          {t('action.delete')}
+        </button>
+        <button
+          type="button"
+          className="button"
+          onClick={() => {
+            api.downloadGpoBackup(gpo.dn, gpo.display_name ?? gpo.guid).catch(setError)
+          }}
+        >
+          {t('gpo.backup')}
+        </button>
+        <button type="button" className="button" onClick={() => setCopying(true)}>
+          {t('gpo.copy')}
+        </button>
+        <button type="button" className="button" onClick={onClose}>
+          {t('action.close')}
+        </button>
+      </div>
+
       {copying && (
         <CopyDialog
           gpo={gpo}
@@ -200,7 +198,7 @@ export function GpoDetail({ gpo, onClose, onChanged, onDeleted }: GpoDetailProps
           <p className="muted small">{t('gpo.confirmDeleteHint')}</p>
         </Modal>
       )}
-    </Modal>
+    </div>
   )
 }
 

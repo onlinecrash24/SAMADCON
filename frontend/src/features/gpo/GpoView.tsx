@@ -13,21 +13,27 @@ import { api } from '../../api/endpoints'
 import type { Gpo } from '../../api/types'
 import { Badge, ErrorMessage, Modal, Spinner, useDateFormat } from '../../components/primitives'
 import { useI18n } from '../../i18n'
-import { GpoDetail } from './GpoDetail'
 import { startPolicyDrag } from './policyDrag'
 
 interface GpoViewProps {
   /** The container the tree points at; null is every policy, as before. */
   containerDn: string | null
   onChanged: (message: string) => void
+  /**
+   * Ask the shell for a window on this policy.
+   *
+   * This used to be one nullable held here, which is why switching console
+   * destroyed an open editor without saying so: the pane holding it was
+   * unmounted. A window outlives the pane that opened it.
+   */
+  onOpenPolicy: (dn: string, title: string) => void
 }
 
-export function GpoView({ containerDn, onChanged }: GpoViewProps) {
+export function GpoView({ containerDn, onChanged, onOpenPolicy }: GpoViewProps) {
   const { t } = useI18n()
   const queryClient = useQueryClient()
   const formatDate = useDateFormat()
 
-  const [selected, setSelected] = useState<Gpo | null>(null)
   const [creating, setCreating] = useState(false)
   const [restoring, setRestoring] = useState(false)
   const [error, setError] = useState<unknown>(null)
@@ -104,12 +110,8 @@ export function GpoView({ containerDn, onChanged }: GpoViewProps) {
             {gpos.map((gpo) => (
               <tr
                 key={gpo.dn}
-                className={
-                  selected?.dn === gpo.dn
-                    ? 'table__row--selected table__row--draggable'
-                    : 'table__row--draggable'
-                }
-                onClick={() => setSelected(gpo)}
+                className="table__row--draggable"
+                onClick={() => onOpenPolicy(gpo.dn, gpo.display_name ?? gpo.guid)}
                 // The whole row is the handle, not just the name: a drag that
                 // only starts from a four-word link is a drag most people
                 // never find.
@@ -123,7 +125,11 @@ export function GpoView({ containerDn, onChanged }: GpoViewProps) {
                 }
               >
                 <td>
-                  <button type="button" className="link" onClick={() => setSelected(gpo)}>
+                  <button
+                    type="button"
+                    className="link"
+                    onClick={() => onOpenPolicy(gpo.dn, gpo.display_name ?? gpo.guid)}
+                  >
                     {gpo.display_name ?? gpo.guid}
                   </button>
                   <div className="muted small mono">{gpo.guid}</div>
@@ -143,22 +149,6 @@ export function GpoView({ containerDn, onChanged }: GpoViewProps) {
           </tbody>
         </table>
       </div>
-
-      {selected && (
-        <GpoDetail
-          gpo={selected}
-          onClose={() => setSelected(null)}
-          onChanged={(message) => {
-            refresh()
-            onChanged(message)
-          }}
-          onDeleted={() => {
-            setSelected(null)
-            refresh()
-            onChanged(t('gpo.deleted'))
-          }}
-        />
-      )}
 
       {creating && (
         <NewGpoDialog

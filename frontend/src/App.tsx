@@ -11,6 +11,7 @@ import { ObjectList } from './components/ObjectList'
 import { TreePane } from './components/TreePane'
 import { useContextMenu, type MenuNode } from './components/ContextMenu'
 import { Splitter } from './components/Splitter'
+import { Taskbar, useWindowCounts, WindowLayer } from './components/WindowLayer'
 import { ConsoleTabs } from './features/console/ConsoleTabs'
 import {
   NewComputerDialog,
@@ -30,10 +31,12 @@ import { SecurityFindings } from './features/diagnostics/SecurityFindings'
 import { DnsView } from './features/dns/DnsView'
 import { contextMenuActions } from './features/directory/objectActions'
 import { GpoView } from './features/gpo/GpoView'
+import { GpoWindow } from './features/gpo/GpoWindow'
 import { SitesView } from './features/sites/SitesView'
 import { useI18n } from './i18n'
 import { readConsoleLocation, writeConsoleLocation } from './state/consoleLocation'
 import { readPaneWidths, writePaneWidths, type Boundary } from './state/paneWidths'
+import { useWindows, WindowProvider } from './state/windows'
 import { useSession } from './state/session'
 
 type NewObjectKind = 'user' | 'group' | 'computer' | 'ou' | null
@@ -65,7 +68,16 @@ export function App() {
     )
   }
 
-  return session ? <Console /> : <LoginView />
+  // Above Console, so Console itself can open windows — and because Console
+  // exists only while there is a session, signing out unmounts the windows
+  // with it. No cleanup, no forgetWindows().
+  return session ? (
+    <WindowProvider>
+      <Console />
+    </WindowProvider>
+  ) : (
+    <LoginView />
+  )
 }
 
 function Console() {
@@ -224,6 +236,8 @@ function Console() {
   }
 
   const menu = useContextMenu()
+  const windows = useWindows()
+  const windowCounts = useWindowCounts()
 
   /**
    * What a menu choice does.
@@ -386,7 +400,7 @@ function Console() {
       {/* Above the notices, not below: the strip is chrome, and it must not
           jump down when a success message appears and away again four seconds
           later. */}
-      <ConsoleTabs active={snapin} onSelect={setSnapin} />
+      <ConsoleTabs active={snapin} onSelect={setSnapin} windowCounts={windowCounts} />
 
       {notice && <div className="alert alert--success">{notice}</div>}
       <ErrorMessage error={shellError} onDismiss={() => setShellError(null)} />
@@ -439,7 +453,13 @@ function Console() {
           </div>
         ) : snapin === 'gpo' ? (
           <div className="pane pane--list">
-            <GpoView containerDn={gpoContainerDn} onChanged={onChanged} />
+              <GpoView
+              containerDn={gpoContainerDn}
+              onChanged={onChanged}
+              onOpenPolicy={(dn, title) =>
+                windows.open({ snapin: 'gpo', kind: 'gpo', title, dn })
+              }
+            />
           </div>
         ) : snapin === 'assistant' ? (
           <div className="pane pane--list">
@@ -566,6 +586,23 @@ function Console() {
       )}
 
       {menu.menu}
+
+      {/* A flex child of the console, not a fixed strip: the panes shrink to
+          make room and nothing is ever covered by it. */}
+      <Taskbar activeSnapin={snapin} />
+
+      <WindowLayer
+        activeSnapin={snapin}
+        render={(open) =>
+          open.kind === 'gpo' ? (
+            <GpoWindow
+              dn={open.dn}
+              onClose={() => windows.close(open.id)}
+              onChanged={onChanged}
+            />
+          ) : null
+        }
+      />
     </div>
   )
 }

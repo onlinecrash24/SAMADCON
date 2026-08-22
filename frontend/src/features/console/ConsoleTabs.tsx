@@ -23,9 +23,12 @@ import { useI18n } from '../../i18n'
 export function ConsoleTabs({
   active,
   onSelect,
+  windowCounts,
 }: {
   active: SnapinId
   onSelect: (id: SnapinId) => void
+  /** How many windows each console is holding out of sight. */
+  windowCounts?: Partial<Record<SnapinId, number>>
 }) {
   const { t } = useI18n()
 
@@ -50,6 +53,12 @@ export function ConsoleTabs({
           >
             <Icon type={snapin.icon} />
             <span className="console__tab-label">{label}</span>
+            {/* Windows of an inactive console are hidden, not closed. Without
+                saying how many, the two are indistinguishable and somebody
+                concludes their half-typed sheet was thrown away. */}
+            {(windowCounts?.[snapin.id] ?? 0) > 0 && (
+              <span className="console__tab-count">({windowCounts?.[snapin.id]})</span>
+            )}
           </button>
         )
       })}

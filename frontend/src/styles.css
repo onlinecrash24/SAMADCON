@@ -436,6 +436,148 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 }
 
 /* --------------------------------------------------------------------- */
+/* Windows and the taskbar                                               */
+/* --------------------------------------------------------------------- */
+
+/* The stacking ladder, in one place. Before this there were three z-index
+   values scattered over nine hundred lines and no way to see the order:
+     1   .pane__header    sticky, inside a scrolling pane
+     40  .window-layer    every window, in its own stacking context
+     50  .modal__backdrop dialogs — above every window, on purpose
+     55  .menu            context menus, above dialogs that opened them
+     60  .report          the printable document, above everything
+   A window's own z-index is a small number *inside* the layer, so it can
+   never climb into the band the dialogs use. */
+.window-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  /* The layer itself must not swallow clicks meant for the console. */
+  pointer-events: none;
+}
+
+.window {
+  position: absolute;
+  left: var(--win-x, 60px);
+  top: var(--win-y, 48px);
+  width: var(--win-w, 900px);
+  height: var(--win-h, 620px);
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 14px 44px rgb(0 0 0 / 30%);
+  overflow: hidden;
+}
+.window--maximised { inset: 0; width: auto; height: auto; border-radius: 0; }
+
+.window__bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px 7px 12px;
+  background: var(--surface-alt);
+  border-bottom: 1px solid var(--border);
+  cursor: move;
+  /* Or dragging the bar on a tablet scrolls the page behind it. */
+  touch-action: none;
+  user-select: none;
+}
+.window__title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9em;
+  font-weight: 500;
+}
+.window__buttons { display: flex; gap: 2px; }
+.window__button {
+  width: 26px;
+  height: 22px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-muted);
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+.window__button:hover { background: var(--hover); color: var(--text); }
+.window__button--close:hover { background: var(--danger); color: #fff; }
+
+.window__body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+
+/* The grab corner. Sixteen pixels is small, but it is where everyone reaches
+   for one, and maximise is the recovery for a window that got away. */
+.window__corner {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+/* The policy editor and, later, the property sheet: a tab row that stays put
+   over a panel that scrolls. Lifted from the console-sized modal, which is
+   where this shape was proven. */
+.sheet-window { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 12px 14px 0; }
+.sheet-window > .tabs { margin-bottom: 10px; }
+.sheet-window__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+
+.taskbar {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 5px 10px;
+  background: var(--surface-alt);
+  border-top: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.taskbar__item {
+  max-width: 220px;
+  padding: 4px 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.84em;
+  cursor: pointer;
+}
+.taskbar__item:hover { background: var(--hover); }
+.taskbar__item--away { color: var(--text-muted); font-style: italic; }
+
+/* The count on a console tab. Without it, "the windows of the other console
+   are hidden" is indistinguishable from "they were closed", and somebody
+   believes they lost work. */
+.console__tab-count { color: var(--text-muted); font-size: 0.85em; }
+
+@media (max-width: 720px) {
+  /* Full screen, no dragging, no corner. The taskbar becomes the switcher,
+     which is the right metaphor there and needs nothing new.
+     This works only because the geometry above is in custom properties: an
+     inline width would beat this rule. */
+  .window { inset: 0; width: auto; height: auto; border: none; border-radius: 0; }
+  .window__bar { cursor: default; }
+  .window__corner { display: none; }
+}
+
+/* --------------------------------------------------------------------- */
 /* Context menu                                                          */
 /* --------------------------------------------------------------------- */
 
