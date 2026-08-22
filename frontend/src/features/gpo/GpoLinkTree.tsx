@@ -21,7 +21,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query'
-import { useState, type DragEvent } from 'react'
+import { useState, type DragEvent, type MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 
 import { api } from '../../api/endpoints'
@@ -29,6 +29,7 @@ import type { LinkableNode, LinkedContainer } from '../../api/types'
 import { Badge, Spinner } from '../../components/primitives'
 import { isAtOrBelow } from '../../dn'
 import { useI18n } from '../../i18n'
+import { anchorOf, useContextMenu } from '../../components/ContextMenu'
 import { LinkPolicyDialog } from './LinkPolicyDialog'
 import { isPolicyDrag, readPolicyDrag, type DraggedPolicy } from './policyDrag'
 
@@ -61,7 +62,13 @@ export function GpoLinkTree({
 
   // What was dropped where, held until the dialog answers for it. A drop
   // writes nothing on its own.
-  const [dropped, setDropped] = useState<{ policy: DraggedPolicy; target: DropTarget } | null>(null)
+  const [dropped, setDropped] = useState<{
+    policy: DraggedPolicy | null
+    target: DropTarget
+  } | null>(null)
+
+  // One instance for the whole tree, never one per row.
+  const menu = useContextMenu()
 
   // Every link in the domain, once. Fetched only while this console is open —
   // the caller mounts this component then — and shared by every branch.
@@ -94,6 +101,13 @@ export function GpoLinkTree({
         selectedDn={selectedDn}
         onSelect={onSelect}
         onDropPolicy={(target, policy) => setDropped({ target, policy })}
+        onAskToLink={(target, at) =>
+          menu.open(at, [{ id: 'link', labelKey: 'gpo.linkHere' }], () =>
+            // Without a policy: the dialog asks which. Linking was a drag and
+            // nothing else, and a drag cannot be done from a keyboard.
+            setDropped({ target, policy: null }),
+          )
+        }
         // The domain itself, and a policy may always be linked to it — that is
         // where Default Domain Policy sits.
         linkable
@@ -120,6 +134,8 @@ export function GpoLinkTree({
           the whole tree pane on a narrow window — and an open dialog that
           vanishes with the pane it was opened from takes its unanswered
           question with it. */}
+      {menu.menu}
+
       {dropped &&
         createPortal(
           <LinkPolicyDialog
@@ -143,6 +159,7 @@ function ContainerNode({
   selectedDn,
   onSelect,
   onDropPolicy,
+  onAskToLink,
   linkable,
   revealDn,
   initiallyOpen = false,
@@ -154,6 +171,8 @@ function ContainerNode({
   selectedDn: string | null
   onSelect: (dn: string | null) => void
   onDropPolicy: (target: DropTarget, policy: DraggedPolicy) => void
+  /** A row was right-clicked and wants the menu, at this point. */
+  onAskToLink: (target: DropTarget, at: { x: number; y: number }) => void
   /** Whether a policy may be linked here, as the server decides it. */
   linkable: boolean
   revealDn: string | null
@@ -213,6 +232,15 @@ function ContainerNode({
       const policy = readPolicyDrag(event)
       if (policy && linkable) onDropPolicy({ dn, name, linkable }, policy)
     },
+    // Worn by the same rows as the drop, for the same reason: a policy row is
+    // indented under its container and reads as part of it, so aiming at one
+    // is the likeliest miss there is. It opens the container's menu.
+    onContextMenu: (event: MouseEvent<HTMLElement>) => {
+      if (!linkable) return
+      event.preventDefault()
+      onSelect(dn)
+      onAskToLink({ dn, name, linkable }, { x: event.clientX, y: event.clientY })
+    },
   }
 
   return (
@@ -230,6 +258,13 @@ function ContainerNode({
           type="button"
           className="tree__label"
           onClick={() => onSelect(dn)}
+          onKeyDown={(event) => {
+            if (!linkable) return
+            if (!((event.shiftKey && event.key === 'F10') || event.key === 'ContextMenu')) return
+            event.preventDefault()
+            onSelect(dn)
+            onAskToLink({ dn, name, linkable }, anchorOf(event.currentTarget))
+          }}
           title={linkable ? dn : t('gpo.notLinkable')}
         >
           <span className={linkable ? undefined : 'muted'}>{name}</span>
@@ -282,6 +317,7 @@ function ContainerNode({
               selectedDn={selectedDn}
               onSelect={onSelect}
               onDropPolicy={onDropPolicy}
+              onAskToLink={onAskToLink}
               linkable={node.linkable}
               revealDn={revealDn}
             />

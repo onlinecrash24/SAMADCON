@@ -54,13 +54,30 @@ export function LinkPolicyDialog({
   onClose,
   onDone,
 }: {
-  policy: DraggedPolicy
+  /**
+   * The policy being linked, when there is one.
+   *
+   * A drop arrives holding one. The menu on a container does not — you asked
+   * to link *something* here — so the dialog asks which, and everything below
+   * that point is the same either way.
+   */
+  policy: DraggedPolicy | null
   target: Target
   onClose: () => void
   onDone: (message: string) => void
 }) {
   const { t } = useI18n()
   const queryClient = useQueryClient()
+
+  const [picked, setPicked] = useState<DraggedPolicy | null>(null)
+  const chosen = policy ?? picked
+
+  // Only when there is choosing to do. Opened from a drop this never runs.
+  const catalogue = useQuery({
+    queryKey: ['gpos'],
+    queryFn: () => api.gpos(),
+    enabled: policy === null,
+  })
 
   const [targets, setTargets] = useState<Target[]>([target])
   const [picking, setPicking] = useState(false)
@@ -85,7 +102,8 @@ export function LinkPolicyDialog({
     staleTime: 30_000,
   })
 
-  const linksThis = (guid: string) => guid.toUpperCase() === policy.guid.toUpperCase()
+  const linksThis = (guid: string) =>
+    chosen !== null && guid.toUpperCase() === chosen.guid.toUpperCase()
 
   const alreadyAt = (dn: string) =>
     (linkMap.data?.containers ?? [])
@@ -118,13 +136,14 @@ export function LinkPolicyDialog({
   }
 
   const submit = async () => {
+    if (!chosen) return
     setError(null)
     setPending(true)
     const results: Record<string, Outcome> = {}
 
     for (const item of targets) {
       try {
-        await api.linkGpo(item.dn, policy.dn)
+        await api.linkGpo(item.dn, chosen.dn)
         results[item.dn] = { kind: 'linked' }
       } catch (cause) {
         // Already linked is not a failure of this action. Whoever pressed the
@@ -144,7 +163,7 @@ export function LinkPolicyDialog({
     setPending(false)
 
     void queryClient.invalidateQueries({ queryKey: ['gpo-link-map'] })
-    void queryClient.invalidateQueries({ queryKey: ['gpo-locations', policy.guid] })
+    void queryClient.invalidateQueries({ queryKey: ['gpo-locations', chosen.guid] })
 
     // Stays open when something failed, with the list below saying which.
     if (targets.some((item) => results[item.dn]?.kind === 'failed')) return
@@ -152,15 +171,15 @@ export function LinkPolicyDialog({
     const only = targets.length === 1 ? targets[0] : undefined
     onDone(
       only
-        ? t('gpo.linkedTo', { policy: policy.name, container: only.name })
-        : t('gpo.linkedToMany', { policy: policy.name, count: targets.length }),
+        ? t('gpo.linkedTo', { policy: chosen.name, container: only.name })
+        : t('gpo.linkedToMany', { policy: chosen.name, count: targets.length }),
     )
     onClose()
   }
 
   return (
     <Modal
-      title={t('gpo.linkDropTitle', { policy: policy.name })}
+      title={chosen ? t('gpo.linkDropTitle', { policy: chosen.name }) : t('gpo.linkHere')}
       onClose={onClose}
       footer={
         <>
@@ -170,7 +189,7 @@ export function LinkPolicyDialog({
           <button
             type="button"
             className="button button--primary"
-            disabled={pending || targets.length === 0}
+            disabled={pending || targets.length === 0 || !chosen}
             onClick={() => void submit()}
           >
             {t('gpo.link')}
@@ -180,6 +199,34 @@ export function LinkPolicyDialog({
     >
       <div className="form">
         <ErrorMessage error={error} onDismiss={() => setError(null)} />
+
+        {/* Only when the dialog was opened without one. A drop has already
+            said which policy, and asking again would be asking twice. */}
+        {policy === null && (
+          <label className="field">
+            <span className="field__label">{t('gpo.name')}</span>
+            <select
+              value={picked?.dn ?? ''}
+              onChange={(event) => {
+                const found = (catalogue.data?.gpos ?? []).find(
+                  (entry) => entry.dn === event.target.value,
+                )
+                setPicked(
+                  found
+                    ? { dn: found.dn, guid: found.guid, name: found.display_name ?? found.guid }
+                    : null,
+                )
+              }}
+            >
+              <option value="">{t('gpo.pickPolicy')}</option>
+              {(catalogue.data?.gpos ?? []).map((entry) => (
+                <option key={entry.dn} value={entry.dn}>
+                  {entry.display_name ?? entry.guid}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
 
         <p>{t('gpo.linkDropBody')}</p>
 

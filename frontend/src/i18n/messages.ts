@@ -795,6 +795,8 @@ export const de = {
     'Die Verknüpfung wird aktiv und nicht erzwungen angelegt. Beides lässt sich danach in der Richtlinie unter „Verknüpfungen" ändern.',
   'gpo.notLinkable':
     'Hierher lässt sich keine Richtlinie verknüpfen. Das geht nur bei der Domäne selbst, bei Organisationseinheiten und bei Standorten.',
+  'gpo.linkHere': 'Richtlinie verknüpfen …',
+  'gpo.pickPolicy': '— Richtlinie wählen —',
   'gpo.linkAlreadyHere': 'hier bereits verknüpft',
   'gpo.linkAddTarget': 'Weiteres Ziel',
   'gpo.linkElsewhere': 'Bereits verknüpft mit: {containers}',
@@ -2102,6 +2104,8 @@ export const en: Record<MessageKey, string> = {
     'The link is created active and not enforced. Both can be changed afterwards under the policy’s Links tab.',
   'gpo.notLinkable':
     'A policy cannot be linked here. Only the domain itself, organisational units and sites can carry one.',
+  'gpo.linkHere': 'Link a policy here…',
+  'gpo.pickPolicy': '— pick a policy —',
   'gpo.linkAlreadyHere': 'already linked here',
   'gpo.linkAddTarget': 'Another target',
   'gpo.linkElsewhere': 'Already linked to: {containers}',
