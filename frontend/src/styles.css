@@ -316,6 +316,12 @@ button:focus-visible {
   min-height: 0;
 }
 
+/* Two panes, for every console that has no object to show on the right.
+   A modifier on the same element rather than a second `.console__panes`
+   rule — that is what silently broke this grid once before, and it has to
+   come after the block above to win on source order. */
+.console__panes--wide { grid-template-columns: minmax(210px, 280px) 1fr; }
+
 .pane { overflow: auto; min-height: 0; background: var(--surface); }
 .pane--tree { border-right: 1px solid var(--border); background: var(--surface-alt); }
 .pane--detail { border-left: 1px solid var(--border); background: var(--surface-alt); }

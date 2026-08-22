@@ -186,7 +186,11 @@ function Console() {
       {notice && <div className="alert alert--success">{notice}</div>}
       <ErrorMessage error={navigationError} onDismiss={() => setNavigationError(null)} />
 
-      <div className="console__panes">
+      <div
+        className={
+          snapin === 'directory' ? 'console__panes' : 'console__panes console__panes--wide'
+        }
+      >
         <div className="pane pane--tree">
           <TreePane
             rootDn={baseDn}
@@ -278,9 +282,19 @@ function Console() {
         </div>
         )}
 
-        <div className="pane pane--detail">
-          <DetailPane object={selected} onChanged={onChanged} onNavigate={(dn) => void navigateTo(dn)} />
-        </div>
+        {/* Only the directory console fills this. Every other snap-in left
+            it standing on "nothing selected" and took 420px of width with
+            it — which is the width the group policy list wanted. GPMC has
+            two panes there for the same reason. */}
+        {snapin === 'directory' && (
+          <div className="pane pane--detail">
+            <DetailPane
+              object={selected}
+              onChanged={onChanged}
+              onNavigate={(dn) => void navigateTo(dn)}
+            />
+          </div>
+        )}
       </div>
 
       {newObject === 'user' && (
