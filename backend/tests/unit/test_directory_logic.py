@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from samadcon.ad import directory, groups, sacl, uac
+from samadcon.ad.connection import SearchResult
 from samadcon.core.errors import InvalidRequest
 
 # ---------------------------------------------------------------------------
@@ -136,6 +137,44 @@ def test_filter_hides_advanced_objects_when_asked():
     result = directory.build_filter(include_advanced=False)
     assert "showInAdvancedViewOnly=TRUE" in result
     assert result.startswith("(!") or result.startswith("(&")
+
+
+class RecordingConnection:
+    """Answers nothing, and remembers what it was asked."""
+
+    class Info:
+        base_dn = "DC=example,DC=test"
+
+    def __init__(self) -> None:
+        self.info = RecordingConnection.Info()
+        self.expression = ""
+
+    def search(self, base, *, expression, **rest):
+        self.expression = expression
+        return SearchResult(entries=[])
+
+
+def test_a_search_can_be_told_to_leave_advanced_objects_out():
+    """The switch in the console hid objects from the tree and the list and
+    not from the search, so a container absent from one turned up in the
+    other. build_filter could always express it; nothing passed it through."""
+    conn = RecordingConnection()
+
+    directory.search_objects(conn, query="anna", include_advanced=False)
+
+    assert "(!(showInAdvancedViewOnly=TRUE))" in conn.expression
+
+
+def test_a_search_includes_them_unless_asked_otherwise():
+    """Different from /tree and /children on purpose. Those answer "what is in
+    this place" and may leave things out; this one answers "where is X", and
+    omitting an object because of a flag reports that it does not exist. It is
+    the default every chooser relies on."""
+    conn = RecordingConnection()
+
+    directory.search_objects(conn, query="anna")
+
+    assert "showInAdvancedViewOnly" not in conn.expression
 
 
 def test_filter_rejects_unknown_type():

@@ -32,6 +32,40 @@ def test_health_needs_no_authentication(client: TestClient):
     assert response.json()["status"] == "ok"
 
 
+def parameters_of(path: str) -> dict[str, dict]:
+    """The query parameters a route declares, by name.
+
+    Read off the application rather than fetched: the schema endpoint is not
+    served, which is a deliberate choice for something that manages a domain
+    and not one to work around in a test.
+    """
+    schema = app.openapi()
+    return {
+        parameter["name"]: parameter
+        for parameter in schema["paths"][path]["get"].get("parameters", [])
+    }
+
+
+def test_the_search_can_be_told_to_leave_advanced_objects_out():
+    """The switch in the console hid objects from the tree and the list and not
+    from the search: build_filter could express it, search_objects took it, and
+    the route in between had it wired shut. Nothing here can catch that except
+    the declaration itself."""
+    advanced = parameters_of("/api/v1/directory/search").get("advanced")
+
+    assert advanced is not None, "the search route declares no advanced parameter"
+    assert advanced["schema"]["default"] is True
+
+
+def test_browsing_leaves_them_out_by_default_and_searching_does_not():
+    """The asymmetry is deliberate. A list of a place may leave things out; an
+    answer to "where is X" that omits an object reports it does not exist."""
+    for path in ("/api/v1/directory/tree", "/api/v1/directory/children"):
+        assert parameters_of(path)["advanced"]["schema"]["default"] is False
+
+    assert parameters_of("/api/v1/directory/search")["advanced"]["schema"]["default"] is True
+
+
 def test_info_reports_the_realm(client: TestClient):
     payload = client.get("/api/v1/info").json()
     assert payload["realm"] == "SAMADCON.TEST"

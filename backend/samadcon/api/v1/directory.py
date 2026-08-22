@@ -73,8 +73,23 @@ async def search(
     base: Annotated[str | None, Query(description="Search base; defaults to the domain")] = None,
     types: Annotated[str | None, Query(description="Comma-separated object types")] = None,
     scope: Annotated[str, Query(pattern="^(base|one|subtree)$")] = "subtree",
+    advanced: Annotated[
+        bool, Query(description="Include objects marked advanced-only")
+    ] = True,
     limit: Annotated[int, Query(ge=1, le=10000)] = 2000,
 ) -> dict[str, Any]:
+    """Find objects anywhere below a base.
+
+    ``advanced`` defaults to true here while it defaults to false on /tree and
+    /children, and the difference is on purpose. Those two answer "what is in
+    this place", which is a view and may leave things out. This one answers
+    "where is the thing called X", and a search that silently omits an object
+    because of how it is flagged reports that it does not exist.
+
+    The console passes the state of its own switch, so browsing and searching
+    agree while browsing. Anything picking a trustee or a link target does not,
+    because choosing from a list of candidates is not browsing.
+    """
     return await ad_read(
         worker,
         session,
@@ -83,6 +98,7 @@ async def search(
         query=q,
         types=split_csv(types),
         scope=directory.base_scope(scope),
+        include_advanced=advanced,
         max_results=limit,
         label="directory.search",
     )

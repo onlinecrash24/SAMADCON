@@ -159,8 +159,10 @@ function Console() {
   })
 
   const search = useQuery({
-    queryKey: ['search', activeSearch],
-    queryFn: () => api.search(activeSearch),
+    // The switch is part of the key, or toggling it would serve the previous
+    // answer out of the cache and look like the switch does nothing.
+    queryKey: ['search', activeSearch, showAdvanced],
+    queryFn: () => api.search(activeSearch, { advanced: showAdvanced }),
     enabled: activeSearch !== '',
   })
 
@@ -387,14 +389,6 @@ function Console() {
         </form>
 
         <div className="topbar__actions">
-          <label className="checkbox checkbox--inline">
-            <input
-              type="checkbox"
-              checked={showAdvanced}
-              onChange={(event) => setShowAdvanced(event.target.checked)}
-            />
-            <span>{t('nav.advanced')}</span>
-          </label>
           <button type="button" className="link" onClick={() => setLanguage(language === 'de' ? 'en' : 'de')}>
             {language === 'de' ? 'EN' : 'DE'}
           </button>
@@ -483,8 +477,23 @@ function Console() {
         <div className="pane pane--list">
           <div className="pane__header">
             <span className="mono muted small">{activeSearch ? t('nav.search') : currentDn}</span>
-            {!activeSearch && (
-              <div className="pane__actions">
+            <div className="pane__actions">
+              {/* It acts on this console alone — the tree and the list beside
+                  it — and it used to sit in the top bar, where it stayed
+                  visible while someone was in DNS or Group Policy and it did
+                  nothing at all. Outside the search condition below, because
+                  it applies to the results of a search too. */}
+              <label className="checkbox checkbox--inline">
+                <input
+                  type="checkbox"
+                  checked={showAdvanced}
+                  onChange={(event) => setShowAdvanced(event.target.checked)}
+                />
+                <span>{t('nav.advanced')}</span>
+              </label>
+
+              {!activeSearch && (
+                <>
                 <button type="button" className="button" onClick={() => setNewObject('user')}>
                   + {t('action.newUser')}
                 </button>
@@ -497,8 +506,9 @@ function Console() {
                 <button type="button" className="button" onClick={() => setNewObject('ou')}>
                   + {t('action.newOu')}
                 </button>
-              </div>
-            )}
+                </>
+              )}
+            </div>
           </div>
 
           {active.isLoading && <Spinner label={t('status.loading')} />}

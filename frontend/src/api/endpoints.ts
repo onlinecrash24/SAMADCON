@@ -121,11 +121,19 @@ export const api = {
     if (options.advanced) params.set('advanced', 'true')
     return http.get<ChildListing>(`/directory/children?${params.toString()}`)
   },
-  search: (query: string, options: { base?: string; types?: string[] } = {}) => {
+  // `advanced` is left out by everything that picks a candidate — a trustee,
+  // a link target — because hiding an object from a chooser is not a view
+  // preference, it is a lie about what exists. Only the console's own search
+  // box passes it, so that browsing and searching agree.
+  search: (
+    query: string,
+    options: { base?: string; types?: string[]; advanced?: boolean } = {},
+  ) => {
     const params = new URLSearchParams()
     if (query) params.set('q', query)
     if (options.base) params.set('base', options.base)
     if (options.types?.length) params.set('types', options.types.join(','))
+    if (options.advanced !== undefined) params.set('advanced', String(options.advanced))
     return http.get<SearchResult>(`/directory/search?${params.toString()}`)
   },
   object: (dn: string) => http.get<DirectoryObject>(`/directory/object?dn=${dnParam(dn)}`),
