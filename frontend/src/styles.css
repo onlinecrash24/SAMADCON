@@ -375,6 +375,14 @@ button:focus-visible {
 .tree__row { display: flex; align-items: center; gap: 2px; padding: 1px 4px; }
 .tree__row:hover { background: var(--hover); }
 .tree__row--selected { background: var(--selected); }
+/* The row a policy would land on. Dashed rather than filled: while a drag is
+   in the air this is a proposal, not a selection, and it should not look like
+   one that has already been made. */
+.tree__row--drop {
+  background: var(--selected);
+  outline: 1px dashed var(--accent);
+  outline-offset: -1px;
+}
 .tree__toggle {
   background: none;
   border: none;
@@ -689,6 +697,10 @@ button:focus-visible {
 .field-inline input { flex: 1; min-width: 0; }
 
 .table tbody tr.table__row--selected { background: var(--selected); }
+/* A row that can be dragged says so before it is touched. Without the cursor
+   the gesture is invisible, and an invisible gesture is one nobody uses. */
+.table tbody tr.table__row--draggable { cursor: grab; }
+.table tbody tr.table__row--draggable:active { cursor: grabbing; }
 
 /* A long list of settings: tighter rows, and the two trailing columns kept to
    their content so the name gets the rest. */

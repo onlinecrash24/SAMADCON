@@ -214,6 +214,7 @@ function Console() {
               setSnapin('gpo')
               setGpoContainerDn(dn)
             }}
+            onChanged={onChanged}
             selectedZoneDn={dnsZone?.dn ?? null}
             onSelectZone={(zone) => {
               setSnapin('dns')

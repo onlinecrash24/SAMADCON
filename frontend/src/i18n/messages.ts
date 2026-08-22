@@ -795,6 +795,18 @@ export const de = {
   'gpo.linkSaved': 'Verknüpfung geändert.',
   'gpo.linkHint':
     'Die Domäne selbst oder eine Organisationseinheit. Standorte werden unter „Standorte und Dienste" verknüpft.',
+  'gpo.dragHint':
+    'Eine Richtlinie auf eine Organisationseinheit im Baum ziehen, um sie dort zu verknüpfen. Vor dem Verknüpfen wird gefragt.',
+  'gpo.linkDropTitle': '{policy} verknüpfen',
+  'gpo.linkDropBody':
+    'Die Richtlinie wird hier zusätzlich verknüpft. Verknüpfungen an anderen Stellen bleiben unverändert.',
+  'gpo.linkDropDefaults':
+    'Die Verknüpfung wird aktiv und nicht erzwungen angelegt. Beides lässt sich danach in der Richtlinie unter „Verknüpfungen" ändern.',
+  'gpo.linkAlreadyHere': 'hier bereits verknüpft',
+  'gpo.linkAddTarget': 'Weiteres Ziel',
+  'gpo.linkElsewhere': 'Bereits verknüpft mit: {containers}',
+  'gpo.linkedTo': '{policy} ist jetzt mit {container} verknüpft.',
+  'gpo.linkedToMany': '{policy} ist jetzt an {count} Stellen verknüpft.',
   'gpo.filteringHint':
     'Eine Richtlinie greift nur bei Konten, die sowohl Lesen als auch Gruppenrichtlinie übernehmen besitzen.',
   'gpo.applies': 'Wirkt',
@@ -2097,6 +2109,18 @@ export const en: Record<MessageKey, string> = {
   'gpo.linkSaved': 'Link changed.',
   'gpo.linkHint':
     'The domain itself or an organisational unit. Sites are linked under “Sites and services”.',
+  'gpo.dragHint':
+    'Drag a policy onto an organisational unit in the tree to link it there. It asks before linking.',
+  'gpo.linkDropTitle': 'Link {policy}',
+  'gpo.linkDropBody':
+    'The policy gains a link here. Links it already has elsewhere are left alone.',
+  'gpo.linkDropDefaults':
+    'The link is created active and not enforced. Both can be changed afterwards under the policy’s Links tab.',
+  'gpo.linkAlreadyHere': 'already linked here',
+  'gpo.linkAddTarget': 'Another target',
+  'gpo.linkElsewhere': 'Already linked to: {containers}',
+  'gpo.linkedTo': '{policy} is now linked to {container}.',
+  'gpo.linkedToMany': '{policy} is now linked in {count} places.',
   'gpo.filteringHint':
     'A policy takes effect only for accounts that have both read and apply group policy.',
   'gpo.applies': 'Applies',

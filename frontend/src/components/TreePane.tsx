@@ -21,6 +21,8 @@ interface TreePaneProps {
   /** Which container the policy tree has selected; null means all policies. */
   gpoContainerDn: string | null
   onSelectGpoContainer: (dn: string | null) => void
+  /** A policy dropped onto a container in the tree reports back through this. */
+  onChanged: (message: string) => void
 }
 
 /**
@@ -39,6 +41,7 @@ export function TreePane({
   onSelectZone,
   gpoContainerDn,
   onSelectGpoContainer,
+  onChanged,
 }: TreePaneProps) {
   const { t } = useI18n()
 
@@ -86,14 +89,24 @@ export function TreePane({
             </div>
 
             {snapin.available && snapin.id === 'directory' && (
-              <TreeNodeRow
-                node={{ dn: rootDn, name: rootLabel, type: 'domain', has_children: true } as TreeNode}
-                depth={1}
-                selectedDn={directoryDn}
-                onSelect={onSelect}
-                showAdvanced={showAdvanced}
-                initiallyOpen
-              />
+              // Hidden while another console is open, the way the DNS and
+              // policy trees are: two hierarchies standing open at once push
+              // the consoles below them off the pane.
+              //
+              // Hidden rather than unmounted, though. Which branches someone
+              // had expanded is part of where they left off — the same reason
+              // the selected DN survives the switch — and unmounting would
+              // throw it away every time they glanced at another console.
+              <div hidden={activeSnapin !== 'directory'}>
+                <TreeNodeRow
+                  node={{ dn: rootDn, name: rootLabel, type: 'domain', has_children: true } as TreeNode}
+                  depth={1}
+                  selectedDn={directoryDn}
+                  onSelect={onSelect}
+                  showAdvanced={showAdvanced}
+                  initiallyOpen
+                />
+              </div>
             )}
 
             {snapin.available && snapin.id === 'dns' && activeSnapin === 'dns' && (
@@ -106,6 +119,7 @@ export function TreePane({
                 rootLabel={rootLabel}
                 selectedDn={gpoContainerDn}
                 onSelect={onSelectGpoContainer}
+                onChanged={onChanged}
               />
             )}
           </div>

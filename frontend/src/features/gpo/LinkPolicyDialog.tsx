@@ -1,0 +1,275 @@
+/**
+ * The question a dropped policy asks before it is linked.
+ *
+ * Dropping is a gesture that can happen by accident — a pointer that slipped
+ * one row while the button was down looks exactly like a decision — and what
+ * it writes reaches every machine under the container on its next refresh. So
+ * it asks, and it names both halves: which policy, and where.
+ *
+ * It adds a link; it never moves one. A policy is meant to apply in several
+ * places at once, and the places it already applies are listed here so that is
+ * visible at the moment of deciding rather than discovered afterwards. Further
+ * targets can be picked in the same breath, because linking a new baseline to
+ * six OUs one drag at a time is six chances to drop on the wrong row.
+ *
+ * Several targets are written one after another rather than in one call. Each
+ * link is its own write against its own container and its own audit record,
+ * and one of them failing says nothing about the others — so the outcome is
+ * reported per target instead of as a single verdict.
+ */
+
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
+
+import { ApiError } from '../../api/client'
+import { api } from '../../api/endpoints'
+import type { TreeNode } from '../../api/types'
+import { ErrorMessage, Modal, Spinner } from '../../components/primitives'
+import { useI18n } from '../../i18n'
+import type { DraggedPolicy } from './policyDrag'
+
+interface Target {
+  dn: string
+  name: string
+}
+
+type Outcome = { kind: 'linked' } | { kind: 'already' } | { kind: 'failed'; message: string }
+
+/** The domain a DN belongs to, spelled the way people say it. */
+function domainOf(dn: string): Target {
+  const parts = dn.split(',').filter((part) => /^DC=/i.test(part))
+  return { dn: parts.join(','), name: parts.map((part) => part.slice(3)).join('.') }
+}
+
+export function LinkPolicyDialog({
+  policy,
+  target,
+  onClose,
+  onDone,
+}: {
+  policy: DraggedPolicy
+  target: Target
+  onClose: () => void
+  onDone: (message: string) => void
+}) {
+  const { t } = useI18n()
+  const queryClient = useQueryClient()
+
+  const [targets, setTargets] = useState<Target[]>([target])
+  const [picking, setPicking] = useState(false)
+  // A breadcrumb rather than a bare DN: walking back up needs the name of the
+  // container being returned to, and a DN alone cannot supply one. The domain
+  // is kept out of the list so that there is always somewhere to be.
+  const root = domainOf(target.dn)
+  const [path, setPath] = useState<Target[]>([])
+  const [pending, setPending] = useState(false)
+  const [outcomes, setOutcomes] = useState<Record<string, Outcome>>({})
+  const [error, setError] = useState<unknown>(null)
+
+  const here = path[path.length - 1] ?? root
+
+  // Shared with the tree this was dropped on, so opening the dialog costs no
+  // second call. Used only to say what is already true — never to decide what
+  // to send: it is up to thirty seconds old, and skipping a target on that
+  // basis could quietly link nothing at all.
+  const linkMap = useQuery({
+    queryKey: ['gpo-link-map'],
+    queryFn: () => api.gpoLinkMap(),
+    staleTime: 30_000,
+  })
+
+  const linksThis = (guid: string) => guid.toUpperCase() === policy.guid.toUpperCase()
+
+  const alreadyAt = (dn: string) =>
+    (linkMap.data?.containers ?? [])
+      .find((node) => node.dn.toLowerCase() === dn.toLowerCase())
+      ?.links.some((link) => linksThis(link.guid)) ?? false
+
+  const elsewhere = (linkMap.data?.containers ?? []).filter((node) =>
+    node.links.some((link) => linksThis(link.guid)),
+  )
+
+  const children = useQuery({
+    queryKey: ['gpo-link-target', here.dn],
+    queryFn: () => api.tree(here.dn),
+    enabled: picking,
+  })
+
+  const containersHere = (children.data?.nodes ?? []).filter((node: TreeNode) => node.is_container)
+
+  const add = (candidate: Target) => {
+    setTargets((current) =>
+      current.some((item) => item.dn.toLowerCase() === candidate.dn.toLowerCase())
+        ? current
+        : [...current, candidate],
+    )
+  }
+
+  const submit = async () => {
+    setError(null)
+    setPending(true)
+    const results: Record<string, Outcome> = {}
+
+    for (const item of targets) {
+      try {
+        await api.linkGpo(item.dn, policy.dn)
+        results[item.dn] = { kind: 'linked' }
+      } catch (cause) {
+        // Already linked is not a failure of this action. Whoever pressed the
+        // button wanted the policy linked there, and it is.
+        if (cause instanceof ApiError && cause.code === 'gpo_link_exists') {
+          results[item.dn] = { kind: 'already' }
+        } else {
+          results[item.dn] = {
+            kind: 'failed',
+            message: cause instanceof Error ? cause.message : String(cause),
+          }
+        }
+      }
+    }
+
+    setOutcomes(results)
+    setPending(false)
+
+    void queryClient.invalidateQueries({ queryKey: ['gpo-link-map'] })
+    void queryClient.invalidateQueries({ queryKey: ['gpo-locations', policy.guid] })
+
+    // Stays open when something failed, with the list below saying which.
+    if (targets.some((item) => results[item.dn]?.kind === 'failed')) return
+
+    const only = targets.length === 1 ? targets[0] : undefined
+    onDone(
+      only
+        ? t('gpo.linkedTo', { policy: policy.name, container: only.name })
+        : t('gpo.linkedToMany', { policy: policy.name, count: targets.length }),
+    )
+    onClose()
+  }
+
+  return (
+    <Modal
+      title={t('gpo.linkDropTitle', { policy: policy.name })}
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className="button" onClick={onClose}>
+            {t('action.cancel')}
+          </button>
+          <button
+            type="button"
+            className="button button--primary"
+            disabled={pending || targets.length === 0}
+            onClick={() => void submit()}
+          >
+            {t('gpo.link')}
+          </button>
+        </>
+      }
+    >
+      <div className="form">
+        <ErrorMessage error={error} onDismiss={() => setError(null)} />
+
+        <p>{t('gpo.linkDropBody')}</p>
+
+        <ul className="plain-list">
+          {targets.map((item) => {
+            const outcome = outcomes[item.dn]
+            return (
+              <li key={item.dn}>
+                <strong>{item.name}</strong> <span className="muted small mono">{item.dn}</span>
+                {outcome?.kind === 'linked' && (
+                  <span className="muted small"> — {t('gpo.linked')}</span>
+                )}
+                {(outcome?.kind === 'already' || (!outcome && alreadyAt(item.dn))) && (
+                  <span className="muted small"> — {t('gpo.linkAlreadyHere')}</span>
+                )}
+                {!outcome && targets.length > 1 && (
+                  <>
+                    {' '}
+                    <button
+                      type="button"
+                      className="link"
+                      onClick={() =>
+                        setTargets((current) => current.filter((other) => other.dn !== item.dn))
+                      }
+                    >
+                      {t('action.remove')}
+                    </button>
+                  </>
+                )}
+                {outcome?.kind === 'failed' && (
+                  <div className="alert alert--warning">{outcome.message}</div>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+
+        {/* Where it already applies. The point of saying so here is that this
+            dialog adds a place rather than changing one, and naming the others
+            is the shortest way to make that plain. */}
+        {elsewhere.length > 0 && (
+          <p className="muted small">
+            {t('gpo.linkElsewhere', {
+              containers: elsewhere.map((node) => node.name).join(', '),
+            })}
+          </p>
+        )}
+
+        {!picking ? (
+          <div className="pane__actions">
+            <button type="button" className="button" onClick={() => setPicking(true)}>
+              + {t('gpo.linkAddTarget')}
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="pane__actions">
+              <button
+                type="button"
+                className="button"
+                disabled={path.length === 0}
+                onClick={() => setPath((current) => current.slice(0, -1))}
+              >
+                {t('dialog.moveUp')}
+              </button>
+              <button
+                type="button"
+                className="button"
+                disabled={targets.some((item) => item.dn.toLowerCase() === here.dn.toLowerCase())}
+                onClick={() => add(here)}
+              >
+                + {here.name}
+              </button>
+            </div>
+
+            {children.isLoading && <Spinner label={t('status.loading')} />}
+            {children.error && <ErrorMessage error={children.error} />}
+
+            <ul className="plain-list">
+              {/* Only what can hold a link. Listing every user under a
+                  container would bury the handful of places worth picking. */}
+              {containersHere.map((node: TreeNode) => (
+                <li key={node.dn}>
+                  <button
+                    type="button"
+                    className="button"
+                    onClick={() => setPath((current) => [...current, node])}
+                  >
+                    {node.name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+
+            {containersHere.length === 0 && !children.isLoading && (
+              <p className="muted small">{t('dialog.moveNoChildren')}</p>
+            )}
+          </>
+        )}
+
+        <p className="muted small">{t('gpo.linkDropDefaults')}</p>
+      </div>
+    </Modal>
+  )
+}

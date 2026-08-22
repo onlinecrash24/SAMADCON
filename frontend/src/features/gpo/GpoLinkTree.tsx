@@ -13,25 +13,49 @@
  *
  * Links are drawn in precedence order, 1 first, because that is the order they
  * take effect in. Any other order would look like precedence and mislead.
+ *
+ * Every container here is also a place a policy can be dropped. That gesture
+ * is an accelerator and never the only way in: linking from the policy's own
+ * Links tab still works, and has to, because a drag cannot be performed from a
+ * keyboard.
  */
 
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useState, type DragEvent } from 'react'
+import { createPortal } from 'react-dom'
 
 import { api } from '../../api/endpoints'
 import type { LinkedContainer, TreeNode } from '../../api/types'
 import { Badge, Spinner } from '../../components/primitives'
 import { useI18n } from '../../i18n'
+import { LinkPolicyDialog } from './LinkPolicyDialog'
+import { isPolicyDrag, readPolicyDrag, type DraggedPolicy } from './policyDrag'
 
 interface GpoLinkTreeProps {
   rootDn: string
   rootLabel: string
   selectedDn: string | null
   onSelect: (dn: string | null) => void
+  onChanged: (message: string) => void
 }
 
-export function GpoLinkTree({ rootDn, rootLabel, selectedDn, onSelect }: GpoLinkTreeProps) {
+interface DropTarget {
+  dn: string
+  name: string
+}
+
+export function GpoLinkTree({
+  rootDn,
+  rootLabel,
+  selectedDn,
+  onSelect,
+  onChanged,
+}: GpoLinkTreeProps) {
   const { t } = useI18n()
+
+  // What was dropped where, held until the dialog answers for it. A drop
+  // writes nothing on its own.
+  const [dropped, setDropped] = useState<{ policy: DraggedPolicy; target: DropTarget } | null>(null)
 
   // Every link in the domain, once. Fetched only while this console is open —
   // the caller mounts this component then — and shared by every branch.
@@ -63,6 +87,7 @@ export function GpoLinkTree({ rootDn, rootLabel, selectedDn, onSelect }: GpoLink
         byContainer={byContainer}
         selectedDn={selectedDn}
         onSelect={onSelect}
+        onDropPolicy={(target, policy) => setDropped({ target, policy })}
         initiallyOpen
       />
 
@@ -79,6 +104,22 @@ export function GpoLinkTree({ rootDn, rootLabel, selectedDn, onSelect }: GpoLink
           </button>
         </div>
       </div>
+
+      {/* Rendered onto the body rather than here. A fixed-position dialog
+          escapes the pane's own scrolling, but not the media query that hides
+          the whole tree pane on a narrow window — and an open dialog that
+          vanishes with the pane it was opened from takes its unanswered
+          question with it. */}
+      {dropped &&
+        createPortal(
+          <LinkPolicyDialog
+            policy={dropped.policy}
+            target={dropped.target}
+            onClose={() => setDropped(null)}
+            onDone={onChanged}
+          />,
+          document.body,
+        )}
     </div>
   )
 }
@@ -91,6 +132,7 @@ function ContainerNode({
   byContainer,
   selectedDn,
   onSelect,
+  onDropPolicy,
   initiallyOpen = false,
 }: {
   dn: string
@@ -99,10 +141,12 @@ function ContainerNode({
   byContainer: Map<string, LinkedContainer>
   selectedDn: string | null
   onSelect: (dn: string | null) => void
+  onDropPolicy: (target: DropTarget, policy: DraggedPolicy) => void
   initiallyOpen?: boolean
 }) {
   const { t } = useI18n()
   const [open, setOpen] = useState(initiallyOpen)
+  const [over, setOver] = useState(false)
 
   const children = useQuery({
     queryKey: ['gpo-tree', dn],
@@ -115,9 +159,45 @@ function ContainerNode({
   const linked = byContainer.get(dn.toLowerCase())?.links ?? []
   const indent = { paddingLeft: `${depth * 14}px` }
 
+  const rowClass = ['tree__row', selectedDn === dn ? 'tree__row--selected' : '', over ? 'tree__row--drop' : '']
+    .filter(Boolean)
+    .join(' ')
+
+  // Worn by the container's own row and by each policy row beneath it. Those
+  // rows read as part of the container — they are indented under it and
+  // describe it — and aiming at one of them is the likeliest miss there is.
+  // Landing on the container is what was meant, so that is what happens, and
+  // the container's row is what lights up to say so.
+  const dropZone = {
+    onDragOver: (event: DragEvent<HTMLElement>) => {
+      // Only our own drags. Everything else — a file from the desktop, a
+      // selection from another page — has to keep falling through, and the
+      // media type is the one thing readable while a drag is in the air.
+      if (!isPolicyDrag(event)) return
+      // Without this the browser refuses the drop and the row never becomes a
+      // target at all.
+      event.preventDefault()
+      event.dataTransfer.dropEffect = 'link'
+      if (!over) setOver(true)
+    },
+    onDragLeave: (event: DragEvent<HTMLElement>) => {
+      // Moving onto a child of the row fires this too. Ignoring the case
+      // where the pointer is still inside keeps the row from flickering
+      // between marked and unmarked as it crosses the label.
+      if (event.currentTarget.contains(event.relatedTarget as Node | null)) return
+      setOver(false)
+    },
+    onDrop: (event: DragEvent<HTMLElement>) => {
+      event.preventDefault()
+      setOver(false)
+      const policy = readPolicyDrag(event)
+      if (policy) onDropPolicy({ dn, name }, policy)
+    },
+  }
+
   return (
     <div className="tree__node">
-      <div className={selectedDn === dn ? 'tree__row tree__row--selected' : 'tree__row'} style={indent}>
+      <div className={rowClass} style={indent} {...dropZone}>
         <button
           type="button"
           className="tree__toggle"
@@ -137,7 +217,12 @@ function ContainerNode({
           {/* The policies first, then the containers below — the same order
               GPMC uses, and the one that reads as "here, then onwards". */}
           {linked.map((link) => (
-            <div className="tree__row" key={link.guid} style={{ paddingLeft: `${(depth + 1) * 14}px` }}>
+            <div
+              className="tree__row"
+              key={link.guid}
+              style={{ paddingLeft: `${(depth + 1) * 14}px` }}
+              {...dropZone}
+            >
               <span className="tree__toggle" />
               <span className="tree__label">
                 <span className={link.enabled ? undefined : 'muted'}>
@@ -171,6 +256,7 @@ function ContainerNode({
                 byContainer={byContainer}
                 selectedDn={selectedDn}
                 onSelect={onSelect}
+                onDropPolicy={onDropPolicy}
               />
             ))}
         </div>

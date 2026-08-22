@@ -14,6 +14,7 @@ import type { Gpo } from '../../api/types'
 import { Badge, ErrorMessage, Modal, Spinner, useDateFormat } from '../../components/primitives'
 import { useI18n } from '../../i18n'
 import { GpoDetail } from './GpoDetail'
+import { startPolicyDrag } from './policyDrag'
 
 interface GpoViewProps {
   /** The container the tree points at; null is every policy, as before. */
@@ -87,6 +88,8 @@ export function GpoView({ containerDn, onChanged }: GpoViewProps) {
 
       <ErrorMessage error={error} onDismiss={() => setError(null)} />
 
+      {gpos.length > 0 && <p className="muted small">{t('gpo.dragHint')}</p>}
+
       <div className="table-wrap">
         <table className="table">
           <thead>
@@ -101,8 +104,23 @@ export function GpoView({ containerDn, onChanged }: GpoViewProps) {
             {gpos.map((gpo) => (
               <tr
                 key={gpo.dn}
-                className={selected?.dn === gpo.dn ? 'table__row--selected' : undefined}
+                className={
+                  selected?.dn === gpo.dn
+                    ? 'table__row--selected table__row--draggable'
+                    : 'table__row--draggable'
+                }
                 onClick={() => setSelected(gpo)}
+                // The whole row is the handle, not just the name: a drag that
+                // only starts from a four-word link is a drag most people
+                // never find.
+                draggable
+                onDragStart={(event) =>
+                  startPolicyDrag(event, {
+                    dn: gpo.dn,
+                    guid: gpo.guid,
+                    name: gpo.display_name ?? gpo.guid,
+                  })
+                }
               >
                 <td>
                   <button type="button" className="link" onClick={() => setSelected(gpo)}>
