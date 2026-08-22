@@ -74,6 +74,9 @@ function Console() {
   const [navigationError, setNavigationError] = useState<unknown>(null)
   const [snapin, setSnapin] = useState<SnapinId>('directory')
   const [dnsZone, setDnsZone] = useState<DnsZone | null>(null)
+  // Which container the policy tree points at. null is GPMC's "all
+  // policies" node, and the state the console opens in.
+  const [gpoContainerDn, setGpoContainerDn] = useState<string | null>(null)
 
   const children = useQuery({
     queryKey: ['children', currentDn, showAdvanced],
@@ -206,6 +209,11 @@ function Console() {
             showAdvanced={showAdvanced}
             activeSnapin={snapin}
             onSelectSnapin={setSnapin}
+            gpoContainerDn={gpoContainerDn}
+            onSelectGpoContainer={(dn) => {
+              setSnapin('gpo')
+              setGpoContainerDn(dn)
+            }}
             selectedZoneDn={dnsZone?.dn ?? null}
             onSelectZone={(zone) => {
               setSnapin('dns')
@@ -229,7 +237,7 @@ function Console() {
           </div>
         ) : snapin === 'gpo' ? (
           <div className="pane pane--list">
-            <GpoView onChanged={onChanged} />
+            <GpoView containerDn={gpoContainerDn} onChanged={onChanged} />
           </div>
         ) : snapin === 'assistant' ? (
           <div className="pane pane--list">

@@ -16,10 +16,12 @@ import { useI18n } from '../../i18n'
 import { GpoDetail } from './GpoDetail'
 
 interface GpoViewProps {
+  /** The container the tree points at; null is every policy, as before. */
+  containerDn: string | null
   onChanged: (message: string) => void
 }
 
-export function GpoView({ onChanged }: GpoViewProps) {
+export function GpoView({ containerDn, onChanged }: GpoViewProps) {
   const { t } = useI18n()
   const queryClient = useQueryClient()
   const formatDate = useDateFormat()
@@ -31,6 +33,14 @@ export function GpoView({ onChanged }: GpoViewProps) {
 
   const listing = useQuery({ queryKey: ['gpos'], queryFn: () => api.gpos() })
 
+  // The same key the tree uses, so picking a container costs no second call.
+  const linkMap = useQuery({
+    queryKey: ['gpo-link-map'],
+    queryFn: () => api.gpoLinkMap(),
+    staleTime: 30_000,
+    enabled: containerDn !== null,
+  })
+
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ['gpos'] })
   }
@@ -38,12 +48,33 @@ export function GpoView({ onChanged }: GpoViewProps) {
   if (listing.isLoading) return <Spinner label={t('status.loading')} />
   if (listing.error) return <ErrorMessage error={listing.error} />
 
-  const gpos = listing.data?.gpos ?? []
+  const all = listing.data?.gpos ?? []
+
+  // With a container picked, the list answers "what applies here" and in the
+  // order it applies — precedence, not the alphabet. Without one it is every
+  // policy, which is what this console showed before there was a tree.
+  const linkedHere = containerDn
+    ? (linkMap.data?.containers ?? []).find(
+        (node) => node.dn.toLowerCase() === containerDn.toLowerCase(),
+      )
+    : undefined
+
+  const gpos = containerDn
+    ? (linkedHere?.links ?? [])
+        .map((link) => all.find((gpo) => gpo.guid.toUpperCase() === link.guid.toUpperCase()))
+        // A link can outlive its policy. The tree says so in its own row; here
+        // there is no policy to draw, so the row simply is not there.
+        .filter((gpo): gpo is Gpo => gpo !== undefined)
+    : all
 
   return (
     <>
       <div className="pane__header">
-        <span className="muted small">{t('gpo.count', { count: gpos.length })}</span>
+        <span className="muted small">
+          {containerDn
+            ? t('gpo.countLinked', { count: gpos.length, container: linkedHere?.name ?? '' })
+            : t('gpo.count', { count: gpos.length })}
+        </span>
         <div className="pane__actions">
           <button type="button" className="button" onClick={() => setCreating(true)}>
             + {t('gpo.newGpo')}

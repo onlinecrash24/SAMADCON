@@ -298,6 +298,18 @@ async def remove_link(
     return result
 
 
+@router.get("/links/map")
+async def links_by_container(worker: Worker, session: CurrentSession) -> dict[str, Any]:
+    """Every container that links something, with what it links.
+
+    The management tree's question — what applies here — where /links
+    answers it for one container and /linked answers the reverse for one
+    policy. Two searches for the whole domain rather than one per node, so
+    a tree can be drawn without walking it.
+    """
+    return await ad_read(worker, session, gpmc.links_by_container, label="gpo.link_map")
+
+
 @router.get("/linked")
 async def find_links(
     worker: Worker,

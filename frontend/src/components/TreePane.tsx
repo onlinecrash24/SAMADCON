@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { api } from '../api/endpoints'
 import type { DnsZone, TreeNode } from '../api/types'
 import { SNAPINS, type SnapinId } from '../features/console/snapins'
+import { GpoLinkTree } from '../features/gpo/GpoLinkTree'
 import { useI18n } from '../i18n'
 import { Chevron, Icon, Spinner } from './primitives'
 
@@ -17,6 +18,9 @@ interface TreePaneProps {
   onSelectSnapin: (id: SnapinId) => void
   selectedZoneDn: string | null
   onSelectZone: (zone: DnsZone) => void
+  /** Which container the policy tree has selected; null means all policies. */
+  gpoContainerDn: string | null
+  onSelectGpoContainer: (dn: string | null) => void
 }
 
 /**
@@ -33,6 +37,8 @@ export function TreePane({
   onSelectSnapin,
   selectedZoneDn,
   onSelectZone,
+  gpoContainerDn,
+  onSelectGpoContainer,
 }: TreePaneProps) {
   const { t } = useI18n()
 
@@ -92,6 +98,15 @@ export function TreePane({
 
             {snapin.available && snapin.id === 'dns' && activeSnapin === 'dns' && (
               <ZoneList selectedZoneDn={zoneDn} onSelectZone={onSelectZone} />
+            )}
+
+            {snapin.available && snapin.id === 'gpo' && activeSnapin === 'gpo' && (
+              <GpoLinkTree
+                rootDn={rootDn}
+                rootLabel={rootLabel}
+                selectedDn={gpoContainerDn}
+                onSelect={onSelectGpoContainer}
+              />
             )}
           </div>
           )
@@ -210,7 +225,9 @@ function TreeNodeRow({
             type="button"
             className="tree__toggle"
             onClick={() => setOpen((value) => !value)}
-            aria-label={open ? '-' : '+'}
+            // A bare '-' or '+' told a screen reader nothing; the labels
+            // existed for the policy tree anyway.
+            aria-label={open ? t('tree.collapse') : t('tree.expand')}
             aria-expanded={open}
           >
             <Chevron open={open} />

@@ -45,6 +45,12 @@ export const de = {
   'login.skipCertificateWarning':
     'Betrifft nur den Fall, dass auf LDAPS ausgewichen wird. Die Verbindung bleibt dann verschlüsselt, aber die Identität des Servers wird nicht überprüft. Nur in Testumgebungen verwenden.',
 
+  'tree.expand': 'Aufklappen',
+  'tree.collapse': 'Zuklappen',
+  'gpo.countLinked': '{count} verknüpft mit {container}, in der Reihenfolge der Anwendung',
+  'gpo.allPolicies': 'Alle Richtlinien',
+  'gpo.linkMissingPolicy': '(Richtlinie existiert nicht mehr)',
+
   'nav.directory': 'Verzeichnis',
 
   'snapin.directory': 'Benutzer und Computer',
@@ -1343,6 +1349,12 @@ export const en: Record<MessageKey, string> = {
   'login.skipCertificateCheck': 'Do not verify the certificate (LDAPS only)',
   'login.skipCertificateWarning':
     'Applies only if the connection falls back to LDAPS. It then stays encrypted, but the server’s identity is not verified. Use in test environments only.',
+
+  'tree.expand': 'Expand',
+  'tree.collapse': 'Collapse',
+  'gpo.countLinked': '{count} linked at {container}, in the order they apply',
+  'gpo.allPolicies': 'All policies',
+  'gpo.linkMissingPolicy': '(the policy no longer exists)',
 
   'nav.directory': 'Directory',
 

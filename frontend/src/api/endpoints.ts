@@ -36,6 +36,7 @@ import type {
   GpoPreferences,
   GpoInheritance,
   GpoLinkListing,
+  LinkedContainer,
   GpoLinkLocation,
   GpoRedirection,
   GpoReport,
@@ -358,6 +359,10 @@ export const api = {
     http.delete<{ dn: string; name: string }>(`/gpos?dn=${dnParam(dn)}&force=${force}`),
 
   gpoLinks: (dn: string) => http.get<GpoLinkListing>(`/gpos/links?dn=${dnParam(dn)}`),
+  // Every link in the domain, for the management tree. Two searches for the
+  // whole thing, so opening a branch never asks about links again.
+  gpoLinkMap: () =>
+    http.get<{ containers: LinkedContainer[] }>('/gpos/links/map'),
   linkGpo: (dn: string, gpoDn: string, options: { enabled?: boolean; enforced?: boolean } = {}) =>
     http.post<GpoLinkListing>(`/gpos/links?dn=${dnParam(dn)}`, { gpo_dn: gpoDn, ...options }),
   updateGpoLink: (

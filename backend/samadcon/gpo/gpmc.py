@@ -223,6 +223,54 @@ def link_map(conn: DirectoryConnection) -> dict[str, list[dict[str, Any]]]:
     return found
 
 
+def links_by_container(conn: DirectoryConnection) -> dict[str, Any]:
+    """Every container that links something, with what it links, in order.
+
+    The inverse of :func:`link_map`, and the shape the management tree needs:
+    a container with its policies under it, exactly as GPMC draws it.
+
+    Link order is what decides precedence — 1 wins — so the entries are sorted
+    by it. A tree that listed them in whatever order the attribute happened to
+    parse in would be showing something that looks like precedence and is not.
+    """
+    by_guid = link_map(conn)
+    names = {
+        (gpo.get("guid") or "").upper(): gpo.get("display_name") or gpo.get("name")
+        for gpo in container.list_gpos(conn)
+    }
+
+    containers: dict[str, dict[str, Any]] = {}
+    for guid, places in by_guid.items():
+        for place in places:
+            node = containers.setdefault(
+                place["container_dn"],
+                {
+                    "dn": place["container_dn"],
+                    "name": place["container"],
+                    "kind": place["kind"],
+                    "links": [],
+                },
+            )
+            node["links"].append(
+                {
+                    "guid": guid,
+                    # None when the policy is linked but no longer exists — a
+                    # real state, and one the tree should show rather than
+                    # silently drop: a link to nothing still costs every client
+                    # in scope a lookup on each refresh.
+                    "display_name": names.get(guid),
+                    "order": place["order"],
+                    "enabled": place["enabled"],
+                    "enforced": place["enforced"],
+                }
+            )
+
+    for node in containers.values():
+        node["links"].sort(key=lambda link: link["order"])
+
+    return {"containers": sorted(containers.values(), key=lambda node: node["dn"].lower())}
+
+
 def find_links(conn: DirectoryConnection, guid: str) -> list[dict[str, Any]]:
     """Every container in the domain and the configuration that links *guid*.
 

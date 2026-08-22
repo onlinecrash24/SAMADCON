@@ -721,6 +721,24 @@ export interface GpoLink {
   missing: boolean
 }
 
+/** One link as the management tree lists it, under its container. */
+export interface ContainerLink {
+  guid: string
+  /** null when the link outlived the policy — a real state, kept visible. */
+  display_name: string | null
+  /** 1 takes precedence, as GPMC counts it. */
+  order: number
+  enabled: boolean
+  enforced: boolean
+}
+
+export interface LinkedContainer {
+  dn: string
+  name: string
+  kind: string
+  links: ContainerLink[]
+}
+
 export interface GpoLinkListing {
   dn: string
   name: string
