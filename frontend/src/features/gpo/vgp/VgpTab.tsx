@@ -21,6 +21,7 @@ import type { Gpo, VgpEntry, VgpKind, VgpPolicy } from '../../../api/types'
 import { ErrorMessage, Spinner } from '../../../components/primitives'
 import { useI18n } from '../../../i18n'
 import { FilesEditor } from './FilesEditor'
+import { StartupEditor } from './StartupEditor'
 import type { MessageKey } from '../../../i18n/messages'
 
 /** One block of text rather than a list. */
@@ -110,6 +111,10 @@ export function VgpTab({ gpo, onChanged }: { gpo: Gpo; onChanged: (message: stri
             // Its own editor: five fields plus a mode, and a file that has to
             // be on the share before an entry can name it.
             <FilesEditor gpo={gpo} entries={draft} onChange={setDraft} />
+          ) : policy === 'startup' ? (
+            // Also its own: a script off the share, plus a boolean the
+            // generic table cannot render, and a digest nobody types.
+            <StartupEditor gpo={gpo} entries={draft} onChange={setDraft} />
           ) : TEXT_KINDS.includes(policy) ? (
             <TextEditor
               value={String(draft[0]?.text ?? '')}

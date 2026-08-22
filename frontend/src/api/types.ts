@@ -942,6 +942,7 @@ export type VgpPolicy =
   | 'sudoers'
   | 'symlink'
   | 'files'
+  | 'startup'
   | 'motd'
   | 'issue'
   | 'openssh'

@@ -37,6 +37,7 @@ other, always written, with a right granted by an element being present.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -73,6 +74,11 @@ class VgpKind:
     # the kinds whose entries point at one instead of carrying it. Empty for
     # the kinds that hold their content inline.
     payload_field: str = ""
+    # Whether each entry carries a digest of its payload. Only the startup
+    # scripts do, and the digest has to be computed from the bytes on the
+    # share — see _fill_hashes for why a stable stand-in would be worse than
+    # no policy at all.
+    hashes_payload: bool = False
 
     @property
     def path(self) -> str:
@@ -111,6 +117,18 @@ KINDS: dict[str, VgpKind] = {
         # cmd_add_files stores os.path.basename(source) and uploads the file
         # beside the manifest; vgp_files_ext then looks for it there.
         payload_field="source",
+    ),
+    "startup": VgpKind(
+        id="startup",
+        directory="Unix\\Scripts\\Startup",
+        # Both quoted from cmd_add_startup, which is what writes them.
+        name="Unix Scripts",
+        description="Represents Unix scripts to run on Group Policy clients",
+        # cmd_add_startup stores os.path.basename(script) and uploads the file
+        # beside the manifest, exactly as it does for Unix/Files.
+        payload_field="script",
+        # And unlike Unix/Files, the entry carries a digest of that payload.
+        hashes_payload=True,
     ),
     "motd": VgpKind(
         id="motd",
@@ -404,6 +422,81 @@ def _write_access(data: Any, entries: list[dict[str, Any]]) -> None:
 
 
 # ---------------------------------------------------------------------------
+
+
+def _startup_entries(data: Any) -> list[dict[str, Any]]:
+    """The startup scripts, with the defaults vgp_startup_scripts_ext applies.
+
+    ``run_as`` absent means root and ``parameters`` absent means none — both
+    read off the extension, which substitutes them rather than failing. The
+    hash is deliberately not surfaced: it is derived from the script, and an
+    interface that let someone set it would let them set a wrong one.
+    """
+    return [
+        {
+            "script": _text(entry, "script"),
+            "parameters": _text(entry, "parameters"),
+            "run_as": _text(entry, "run_as") or "root",
+            # Presence is the whole statement; the element has no text. Same
+            # shape as the permission elements in Unix/Files.
+            "run_once": entry.find("run_once") is not None,
+        }
+        for entry in data.findall("listelement")
+    ]
+
+
+def _write_startup(data: Any, entries: list[dict[str, Any]]) -> None:
+    """In cmd_add_startup's order, and with its conditions.
+
+    It writes ``parameters``, ``run_as`` and ``run_once`` only when there is
+    something to say, so the same input produces the same file here as there.
+    ``run_as`` is left out when it is root for the same reason: the reader
+    substitutes root for an absent element, so writing it back would turn
+    reading and saving an unchanged policy into a change.
+    """
+    for entry in entries:
+        node = ElementTree.SubElement(data, "listelement")
+        ElementTree.SubElement(node, "script").text = str(entry.get("script", ""))
+        ElementTree.SubElement(node, "hash").text = str(entry.get("hash", ""))
+        if entry.get("parameters"):
+            ElementTree.SubElement(node, "parameters").text = str(entry["parameters"])
+        run_as = str(entry.get("run_as") or "")
+        if run_as and run_as != "root":
+            ElementTree.SubElement(node, "run_as").text = run_as
+        if entry.get("run_once"):
+            ElementTree.SubElement(node, "run_once")
+
+
+def _fill_hashes(
+    share: sysvol.SysvolConnection,
+    base: str,
+    kind: VgpKind,
+    entries: list[dict[str, Any]],
+) -> None:
+    """Give each entry the digest of the payload it names.
+
+    MD5, hex, upper case — what ``cmd_add_startup`` writes, so a manifest this
+    produces is the one samba-tool would have produced for the same script.
+
+    Computed from the bytes on the share rather than taken from the caller,
+    and that is the point of the whole function. ``gp_file_applier.apply``
+    compares this value against the one cached from the last application, not
+    against the script, so a value that is stable but unrelated to the content
+    means a changed script is never re-applied — a policy that looks configured
+    and quietly stops following its own file.
+
+    ``usedforsecurity=False`` says what this is: a change token, not a
+    security digest. It also keeps the call working on a FIPS-enabled build,
+    where a bare md5() raises.
+    """
+    if not kind.hashes_payload:
+        return
+    for entry in entries:
+        name = str(entry.get(kind.payload_field, ""))
+        data = share.read(_payload_path(base, kind, name))
+        entry["hash"] = hashlib.md5(data, usedforsecurity=False).hexdigest().upper()
+
+
 # Which reader and writer belong to which kind
 #
 # A table rather than a chain of ``if kind.id == …``. The chain ended in a
@@ -418,6 +511,7 @@ READERS: dict[str, Callable[[Any], list[dict[str, Any]]]] = {
     "sudoers": _sudoers_entries,
     "symlink": _symlink_entries,
     "files": _files_entries,
+    "startup": _startup_entries,
     "motd": _text_block,
     "issue": _text_block,
     "openssh": _openssh_entries,
@@ -429,6 +523,7 @@ WRITERS: dict[str, Callable[[Any, list[dict[str, Any]]], None]] = {
     "sudoers": _write_sudoers,
     "symlink": _write_symlink,
     "files": _write_files,
+    "startup": _write_startup,
     "motd": _write_text_block,
     "issue": _write_text_block,
     "openssh": _write_openssh,
@@ -503,11 +598,6 @@ def write(
             "This policy has no SYSVOL path.", code="gpo_without_path", context={"dn": dn}
         )
 
-    updated = render(kind.id, entries)
-    current = _read_manifest(conn, gpo, kind)
-    if current is not None and updated == current.encode("utf-8"):
-        return {"dn": dn, "changed": False, "version": gpo["version"]}
-
     share = sysvol.sysvol_for(conn)
     _, _, base = sysvol.parse_unc(gpo["path"])
 
@@ -517,6 +607,17 @@ def write(
     # and the console would show it as configured. Checked before the manifest
     # is written, so a rejected save leaves the old one intact.
     _check_payloads(share, base, kind, entries)
+
+    # Before rendering, because for the startup scripts the digest is part of
+    # what gets rendered — and therefore part of deciding whether anything
+    # changed at all. Replacing a script without touching the manifest is a
+    # real change: same entries, different hash.
+    _fill_hashes(share, base, kind, entries)
+
+    updated = render(kind.id, entries)
+    current = _read_manifest(conn, gpo, kind)
+    if current is not None and updated == current.encode("utf-8"):
+        return {"dn": dn, "changed": False, "version": gpo["version"]}
 
     target = share.resolve(base, kind.path) or sysvol.join(base, kind.path)
     share.makedirs(target.rsplit("\\", 1)[0])

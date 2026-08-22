@@ -1019,6 +1019,17 @@ export const de = {
     'Samba hat zwei Wege für Sudo-Rechte: diesen hier über das Manifest, und einen über Administrative Vorlagen → Samba → Unix Settings → Sudo Rights. Ein Mitglied, auf dem beide gesetzt sind, erhält die Regeln aus beiden. Entscheiden Sie sich für einen Weg.',
   'vgp.kind.sudoers': 'Sudo-Rechte',
   'vgp.kind.symlink': 'Symbolische Links',
+  'vgp.kind.startup': 'Startskripte',
+  'vgp.hint.startup':
+    'Skripte, die ein Linux-Mitglied beim Start ausführt — als @reboot-Eintrag in /etc/cron.d, oder einmalig.',
+  'vgp.startupHint':
+    'Das Skript muss erst hochgeladen werden, dann kann ein Eintrag es nennen. Die Prüfsumme berechnet der Server beim Speichern aus der Datei auf der Freigabe — deshalb ist ein ersetztes Skript auch dann eine Änderung, wenn Sie kein Feld anfassen. „Einmalig" läuft bei der nächsten Aktualisierung und hinterlässt nichts; ohne den Haken entsteht ein @reboot-Eintrag auf dem Mitglied.',
+  'vgp.uploadScript': 'Skript hochladen',
+  'vgp.field.script': 'Skript',
+  'vgp.field.parameters': 'Parameter',
+  'vgp.field.runAs': 'Als Benutzer',
+  'vgp.field.runOnce': 'Einmalig',
+
   'vgp.kind.files': 'Dateien',
   'vgp.kind.motd': 'Nachricht des Tages',
   'vgp.kind.issue': 'Anmeldebanner',
@@ -2261,6 +2272,17 @@ export const en: Record<MessageKey, string> = {
     'Samba has two routes for sudo rights: this one through the manifest, and one under Administrative Templates → Samba → Unix Settings → Sudo Rights. A member with both set gets the rules from both. Pick one route.',
   'vgp.kind.sudoers': 'Sudo rights',
   'vgp.kind.symlink': 'Symbolic links',
+  'vgp.kind.startup': 'Startup scripts',
+  'vgp.hint.startup':
+    'Scripts a Linux member runs at boot — as an @reboot entry in /etc/cron.d, or once.',
+  'vgp.startupHint':
+    'The script has to be uploaded before an entry can name it. The digest is computed by the server from the file on the share when you save, which is why replacing a script is a change even when you touch no field. "Once" runs on the next refresh and leaves nothing behind; without it the script becomes an @reboot entry on the member.',
+  'vgp.uploadScript': 'Upload a script',
+  'vgp.field.script': 'Script',
+  'vgp.field.parameters': 'Parameters',
+  'vgp.field.runAs': 'Run as',
+  'vgp.field.runOnce': 'Once',
+
   'vgp.kind.files': 'Files',
   'vgp.kind.motd': 'Message of the day',
   'vgp.kind.issue': 'Login banner',
