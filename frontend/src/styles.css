@@ -436,6 +436,48 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 }
 
 /* --------------------------------------------------------------------- */
+/* Context menu                                                          */
+/* --------------------------------------------------------------------- */
+
+.menu {
+  position: fixed;
+  z-index: 55;
+  min-width: 190px;
+  padding: 4px 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 28px rgb(0 0 0 / 22%);
+}
+.menu__row { position: relative; }
+.menu__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  width: 100%;
+  padding: 5px 12px;
+  background: none;
+  border: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.88em;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.menu__item:hover,
+.menu__item:focus-visible { background: var(--hover); outline: none; }
+.menu__item--danger { color: var(--danger); }
+.menu__item[aria-disabled='true'] { color: var(--text-muted); cursor: default; }
+.menu__arrow { color: var(--text-muted); font-size: 0.8em; }
+.menu__separator { height: 1px; margin: 4px 0; background: var(--border); }
+.menu__empty { padding: 5px 12px; color: var(--text-muted); font-size: 0.88em; }
+
+/* One level deep, opening to the right of its parent row. */
+.menu--sub { top: -5px; left: 100%; margin-left: 2px; }
+
+/* --------------------------------------------------------------------- */
 /* Tree                                                                  */
 /* --------------------------------------------------------------------- */
 

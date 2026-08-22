@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 
 import type { DirectoryObject } from '../api/types'
 import { useI18n } from '../i18n'
+import { anchorOf } from './ContextMenu'
 import { Badge, Icon, useTypeLabel } from './primitives'
 
 interface ObjectListProps {
@@ -10,9 +11,23 @@ interface ObjectListProps {
   selectedDn: string | null
   onSelect: (object: DirectoryObject) => void
   onOpen?: (object: DirectoryObject) => void
+  /**
+   * A row was asked for its menu, and where to put it.
+   *
+   * The list says where and on what; what may be done there is decided by the
+   * shell, which owns the dialogs and the writes.
+   */
+  onContext?: (object: DirectoryObject, at: { x: number; y: number }) => void
 }
 
-export function ObjectList({ entries, truncated, selectedDn, onSelect, onOpen }: ObjectListProps) {
+export function ObjectList({
+  entries,
+  truncated,
+  selectedDn,
+  onSelect,
+  onOpen,
+  onContext,
+}: ObjectListProps) {
   const { t, tn } = useI18n()
   const typeLabel = useTypeLabel()
   const [filter, setFilter] = useState('')
@@ -62,12 +77,28 @@ export function ObjectList({ entries, truncated, selectedDn, onSelect, onOpen }:
                 className={selectedDn === entry.dn ? 'list__row list__row--selected' : 'list__row'}
                 onClick={() => onSelect(entry)}
                 onDoubleClick={() => onOpen?.(entry)}
+                onContextMenu={(event) => {
+                  if (!onContext) return
+                  event.preventDefault()
+                  // Selected first, the way Windows does it — the menu acts on
+                  // the row under the pointer, and the panes beside it should
+                  // agree about which row that is.
+                  onSelect(entry)
+                  onContext(entry, { x: event.clientX, y: event.clientY })
+                }}
                 tabIndex={0}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') onOpen?.(entry)
                   if (event.key === ' ') {
                     event.preventDefault()
                     onSelect(entry)
+                  }
+                  // The keyboard way in. Without it the menu is not an
+                  // equivalent of the right-click, only a shortcut for mice.
+                  if ((event.shiftKey && event.key === 'F10') || event.key === 'ContextMenu') {
+                    event.preventDefault()
+                    onSelect(entry)
+                    onContext?.(entry, anchorOf(event.currentTarget))
                   }
                 }}
               >

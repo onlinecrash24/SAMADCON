@@ -12,6 +12,7 @@ import type {
 import { AccountControls } from '../features/directory/AccountControls'
 import { AttributeEditor } from '../features/directory/AttributeEditor'
 import { groupsForType } from '../features/directory/fieldDefs'
+import { detailRowActions, type ActionId } from '../features/directory/objectActions'
 import { MembershipEditor } from '../features/directory/MembershipEditor'
 import { PropertySheet } from '../features/directory/PropertySheet'
 import { SecurityTab } from '../features/directory/SecurityTab'
@@ -142,6 +143,58 @@ function ObjectDetail({
   })
 
   const data = detail.data
+  const status = data && 'status' in data ? (data as UserDetail).status : null
+
+  const rowActions = detailRowActions(object, {
+    // The loaded value when there is one, because it is fresher than the row;
+    // otherwise the row's own flag, which is enough to label the button and
+    // more than enough to call the endpoint.
+    disabled: status ? status.disabled : null,
+    // false rather than null while the detail is still loading: unknown means
+    // "offer it anyway", which is right for a list row and would flicker here,
+    // where the precise answer is a moment away.
+    lockedOut: status ? status.locked_out : false,
+  })
+
+  const runRowAction = (id: ActionId) => {
+    switch (id) {
+      case 'enable':
+        action.mutate(async () => {
+          await api.setEnabled(object.dn, true)
+          return t('status.saved')
+        })
+        return
+      case 'disable':
+        action.mutate(async () => {
+          await api.setEnabled(object.dn, false)
+          return t('status.saved')
+        })
+        return
+      case 'unlock':
+        action.mutate(async () => {
+          await api.unlock(object.dn)
+          return t('status.unlocked')
+        })
+        return
+      case 'resetAccount':
+        action.mutate(async () => {
+          await api.resetComputer(object.dn)
+          return t('status.saved')
+        })
+        return
+      case 'resetPassword':
+        setDialog('password')
+        return
+      case 'rename':
+      case 'move':
+      case 'delete':
+        setDialog(id)
+        return
+      default:
+        return
+    }
+  }
+
   const editable = groupsForType(object.type).length > 0
   const tabs: Tab[] = ['overview']
   if (editable) tabs.push('edit')
@@ -161,65 +214,20 @@ function ObjectDetail({
 
       <ErrorMessage error={actionError} onDismiss={() => setActionError(null)} />
 
+      {/* The same list the right-click menu is built from. Two hand-written
+          descriptions of "what applies to a computer" drift apart the week
+          after they are written: someone adds an action to one of them. */}
       <div className="detail__actions">
-        {isUser(object.type) && data && 'status' in data && (
-          <>
-            <button
-              type="button"
-              className="button"
-              onClick={() =>
-                action.mutate(async () => {
-                  await api.setEnabled(object.dn, (data as UserDetail).status.disabled)
-                  return t('status.saved')
-                })
-              }
-            >
-              {(data as UserDetail).status.disabled ? t('action.enable') : t('action.disable')}
-            </button>
-            {(data as UserDetail).status.locked_out && (
-              <button
-                type="button"
-                className="button"
-                onClick={() =>
-                  action.mutate(async () => {
-                    await api.unlock(object.dn)
-                    return t('status.unlocked')
-                  })
-                }
-              >
-                {t('action.unlock')}
-              </button>
-            )}
-            <button type="button" className="button" onClick={() => setDialog('password')}>
-              {t('action.resetPassword')}
-            </button>
-          </>
-        )}
-        {object.type === 'computer' && (
+        {rowActions.map((entry) => (
           <button
+            key={entry.id}
             type="button"
-            className="button"
-            onClick={() =>
-              action.mutate(async () => {
-                await api.resetComputer(object.dn)
-                return t('status.saved')
-              })
-            }
+            className={entry.danger ? 'button button--danger' : 'button'}
+            onClick={() => runRowAction(entry.id)}
           >
-            {t('action.resetAccount')}
+            {t(entry.labelKey)}
           </button>
-        )}
-        <button type="button" className="button" onClick={() => setDialog('rename')}>
-          {t('action.rename')}
-        </button>
-        {/* Every object, not only OUs: move_object is generic, and a user
-            in the wrong OU is the commoner mistake. */}
-        <button type="button" className="button" onClick={() => setDialog('move')}>
-          {t('action.move')}
-        </button>
-        <button type="button" className="button button--danger" onClick={() => setDialog('delete')}>
-          {t('action.delete')}
-        </button>
+        ))}
       </div>
 
       {tabs.length > 1 && (

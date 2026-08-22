@@ -9,6 +9,7 @@ import { LoginView } from './components/LoginView'
 import { LogoMark } from './components/Logo'
 import { ObjectList } from './components/ObjectList'
 import { TreePane } from './components/TreePane'
+import { useContextMenu, type MenuNode } from './components/ContextMenu'
 import { Splitter } from './components/Splitter'
 import { ConsoleTabs } from './features/console/ConsoleTabs'
 import {
@@ -16,6 +17,10 @@ import {
   NewGroupDialog,
   NewOuDialog,
   NewUserDialog,
+  RenameDialog,
+  MoveDialog,
+  DeleteDialog,
+  PasswordDialog,
 } from './components/dialogs'
 import { ErrorMessage, Icon, Spinner } from './components/primitives'
 import type { DnsZone } from './api/types'
@@ -23,6 +28,7 @@ import { SNAPINS, panesFor, type SnapinId } from './features/console/snapins'
 import { DiagnosticsView } from './features/diagnostics/DiagnosticsView'
 import { SecurityFindings } from './features/diagnostics/SecurityFindings'
 import { DnsView } from './features/dns/DnsView'
+import { contextMenuActions } from './features/directory/objectActions'
 import { GpoView } from './features/gpo/GpoView'
 import { SitesView } from './features/sites/SitesView'
 import { useI18n } from './i18n'
@@ -113,7 +119,15 @@ function Console() {
   const [activeSearch, setActiveSearch] = useState(restored.search)
   const [newObject, setNewObject] = useState<NewObjectKind>(null)
   const [notice, setNotice] = useState<string | null>(null)
-  const [navigationError, setNavigationError] = useState<unknown>(null)
+  // Anything a menu, a navigation or a one-shot action failed at. Shown once,
+  // at the top, and dismissible.
+  const [shellError, setShellError] = useState<unknown>(null)
+  const [objectDialog, setObjectDialog] = useState<
+    { kind: 'rename' | 'move' | 'delete' | 'password'; object: DirectoryObject } | null
+  >(null)
+  // Which container a "Neu" command creates into. A menu on a row means that
+  // row, which is not necessarily where the tree is pointing.
+  const [newObjectParent, setNewObjectParent] = useState<string | null>(null)
   const [snapin, setSnapin] = useState<SnapinId>(restored.snapin)
   const [dnsZone, setDnsZone] = useState<DnsZone | null>(null)
   // Which container the policy tree points at. null is GPMC's "all
@@ -205,8 +219,89 @@ function Console() {
       if (parent) setCurrentDn(parent.dn)
       setSelected(object)
     } catch (error) {
-      setNavigationError(error)
+      setShellError(error)
     }
+  }
+
+  const menu = useContextMenu()
+
+  /**
+   * What a menu choice does.
+   *
+   * Split from what a menu offers (objectActions) on purpose: the offer has to
+   * be identical wherever it is made, and the doing differs — the detail pane
+   * has the object loaded and can mutate it straight away, a row has a name
+   * and a DN.
+   */
+  const runAction = (object: DirectoryObject, id: string) => {
+    const write = (call: Promise<unknown>, message: string) => {
+      setShellError(null)
+      call.then(() => onChanged(message)).catch(setShellError)
+    }
+
+    switch (id) {
+      case 'open':
+        void navigateTo(object.dn)
+        return
+      case 'refresh':
+        void queryClient.invalidateQueries({ queryKey: ['tree'] })
+        void queryClient.invalidateQueries({ queryKey: ['children'] })
+        return
+      case 'newUser':
+      case 'newGroup':
+      case 'newComputer':
+      case 'newOu':
+        setNewObjectParent(object.dn)
+        setNewObject(
+          id === 'newUser' ? 'user' : id === 'newGroup' ? 'group' : id === 'newComputer' ? 'computer' : 'ou',
+        )
+        return
+      case 'enable':
+        write(api.setEnabled(object.dn, true), t('status.saved'))
+        return
+      case 'disable':
+        write(api.setEnabled(object.dn, false), t('status.saved'))
+        return
+      case 'unlock':
+        write(api.unlock(object.dn), t('status.unlocked'))
+        return
+      case 'resetAccount':
+        write(api.resetComputer(object.dn), t('status.saved'))
+        return
+      case 'resetPassword':
+        setObjectDialog({ kind: 'password', object })
+        return
+      case 'rename':
+        setObjectDialog({ kind: 'rename', object })
+        return
+      case 'move':
+        setObjectDialog({ kind: 'move', object })
+        return
+      case 'delete':
+        setObjectDialog({ kind: 'delete', object })
+        return
+      case 'properties':
+        setSnapin('directory')
+        setSelected(object)
+        return
+      default:
+        return
+    }
+  }
+
+  const openMenu = (object: DirectoryObject, at: { x: number; y: number }) => {
+    const entries: MenuNode[] = contextMenuActions(object).map((entry) =>
+      entry.kind === 'separator'
+        ? 'separator'
+        : entry.kind === 'submenu'
+          ? {
+              id: `submenu:${entry.labelKey}`,
+              labelKey: entry.labelKey,
+              children: entry.items.map((child) => ({ id: child.id, labelKey: child.labelKey })),
+            }
+          : { id: entry.id, labelKey: entry.labelKey, danger: entry.danger },
+    )
+    menu.open(at, entries, (id) => runAction(object, id))
   }
 
   const onChanged = (message: string) => {
@@ -219,6 +314,14 @@ function Console() {
   // asked "is this the directory console?", which could not express that three
   // consoles have no tree at all — they were being handed a 210-280px column
   // to leave empty.
+  // A menu on a container creates into that container; the toolbar above the
+  // list creates into wherever the tree is pointing.
+  const parentForNew = newObjectParent ?? currentDn
+  const closeNew = () => {
+    setNewObject(null)
+    setNewObjectParent(null)
+  }
+
   const panes = panesFor(snapin)
   const shape = panes.detail ? 'full' : panes.tree ? 'tree' : 'list'
 
@@ -286,7 +389,7 @@ function Console() {
       <ConsoleTabs active={snapin} onSelect={setSnapin} />
 
       {notice && <div className="alert alert--success">{notice}</div>}
-      <ErrorMessage error={navigationError} onDismiss={() => setNavigationError(null)} />
+      <ErrorMessage error={shellError} onDismiss={() => setShellError(null)} />
 
       <div className={`console__panes console__panes--${shape}`} style={paneStyle}>
         {/* Always rendered, even for the three consoles that have no tree —
@@ -307,6 +410,7 @@ function Console() {
             showAdvanced={showAdvanced}
             activeSnapin={snapin}
             revealDn={revealDn.current}
+            onContextNode={openMenu}
             gpoContainerDn={gpoContainerDn}
             onSelectGpoContainer={setGpoContainerDn}
             onChanged={onChanged}
@@ -384,6 +488,7 @@ function Console() {
                 setSelected(object)
               }
             }}
+            onContext={openMenu}
           />
         </div>
         )}
@@ -408,17 +513,59 @@ function Console() {
       </div>
 
       {newObject === 'user' && (
-        <NewUserDialog parentDn={currentDn} onClose={() => setNewObject(null)} onDone={onChanged} />
+        <NewUserDialog parentDn={parentForNew} onClose={closeNew} onDone={onChanged} />
       )}
       {newObject === 'group' && (
-        <NewGroupDialog parentDn={currentDn} onClose={() => setNewObject(null)} onDone={onChanged} />
+        <NewGroupDialog parentDn={parentForNew} onClose={closeNew} onDone={onChanged} />
       )}
       {newObject === 'computer' && (
-        <NewComputerDialog parentDn={currentDn} onClose={() => setNewObject(null)} onDone={onChanged} />
+        <NewComputerDialog parentDn={parentForNew} onClose={closeNew} onDone={onChanged} />
       )}
       {newObject === 'ou' && (
-        <NewOuDialog parentDn={currentDn} onClose={() => setNewObject(null)} onDone={onChanged} />
+        <NewOuDialog parentDn={parentForNew} onClose={closeNew} onDone={onChanged} />
       )}
+
+      {/* Opened from a menu on a row, so they act on that row rather than on
+          whatever the detail pane is showing. The pane keeps its own copies
+          for its own buttons. */}
+      {objectDialog?.kind === 'rename' && (
+        <RenameDialog
+          dn={objectDialog.object.dn}
+          currentName={objectDialog.object.name}
+          onClose={() => setObjectDialog(null)}
+          onDone={onChanged}
+        />
+      )}
+      {objectDialog?.kind === 'move' && (
+        <MoveDialog
+          dn={objectDialog.object.dn}
+          name={objectDialog.object.name}
+          onClose={() => setObjectDialog(null)}
+          onDone={onChanged}
+        />
+      )}
+      {objectDialog?.kind === 'delete' && (
+        <DeleteDialog
+          dn={objectDialog.object.dn}
+          name={objectDialog.object.name}
+          isContainer={objectDialog.object.is_container}
+          isOu={objectDialog.object.type === 'organizational_unit'}
+          onClose={() => setObjectDialog(null)}
+          onDone={(message) => {
+            if (selected?.dn === objectDialog.object.dn) setSelected(null)
+            onChanged(message)
+          }}
+        />
+      )}
+      {objectDialog?.kind === 'password' && (
+        <PasswordDialog
+          dn={objectDialog.object.dn}
+          onClose={() => setObjectDialog(null)}
+          onDone={onChanged}
+        />
+      )}
+
+      {menu.menu}
     </div>
   )
 }

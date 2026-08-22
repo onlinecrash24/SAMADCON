@@ -60,6 +60,24 @@ jobs:
       - name: Unit tests
         run: docker run --rm --entrypoint python samadcon:test -m pytest tests/unit -q
 
+      # The frontend half. Run on the runner rather than in the image, because
+      # the shipped image contains the built bundle and no node — building a
+      # second image just to run these would cost more than it proves.
+      #
+      # Node environment only, no DOM: what is tested is the logic two screens
+      # share and the validation of anything read back out of browser storage.
+      # Layout, pointer and stacking behaviour are checked in a real browser,
+      # because a stand-in DOM reports zeros for every measurement and the
+      # tests would only be asserting against the stand-in.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Frontend unit tests
+        run: npm ci --prefix frontend && npm run test --prefix frontend
+
       # The opposite of the step above: this one runs the start-up and
       # nothing else. `nginx -t` as the command means the entrypoint does its
       # whole job first — certificate, krb5.conf, the real-ip snippet, the

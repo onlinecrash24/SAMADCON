@@ -8,6 +8,7 @@ import type { DnsZone, TreeNode } from '../api/types'
 import { snapinLabel, type SnapinId } from '../features/console/snapins'
 import { GpoLinkTree } from '../features/gpo/GpoLinkTree'
 import { useI18n } from '../i18n'
+import { anchorOf } from './ContextMenu'
 import { Chevron, Icon, Spinner } from './primitives'
 
 interface TreePaneProps {
@@ -26,6 +27,8 @@ interface TreePaneProps {
   onChanged: (message: string) => void
   /** A zone remembered from before a reload, still to be matched to a zone. */
   restoredZoneDn: string | null
+  /** A tree row was right-clicked, and where. */
+  onContextNode?: (node: TreeNode, at: { x: number; y: number }) => void
   /**
    * A DN to make visible: every branch on the way to it starts open.
    *
@@ -60,6 +63,7 @@ export function TreePane({
   onChanged,
   restoredZoneDn,
   revealDn,
+  onContextNode,
 }: TreePaneProps) {
   const { t } = useI18n()
 
@@ -89,6 +93,7 @@ export function TreePane({
           onSelect={onSelect}
           showAdvanced={showAdvanced}
           revealDn={revealDn}
+          onContextNode={onContextNode}
           initiallyOpen
         />
       </div>
@@ -206,6 +211,7 @@ interface TreeNodeRowProps {
   showAdvanced: boolean
   /** A DN to make visible: every branch on the way to it starts open. */
   revealDn: string | null
+  onContextNode?: (node: TreeNode, at: { x: number; y: number }) => void
   initiallyOpen?: boolean
 }
 
@@ -216,6 +222,7 @@ function TreeNodeRow({
   onSelect,
   showAdvanced,
   revealDn,
+  onContextNode,
   initiallyOpen,
 }: TreeNodeRowProps) {
   const { t } = useI18n()
@@ -273,6 +280,19 @@ function TreeNodeRow({
             onSelect(node.dn)
             if (!open && expandable) setOpen(true)
           }}
+          onContextMenu={(event) => {
+            if (!onContextNode) return
+            event.preventDefault()
+            onSelect(node.dn)
+            onContextNode(node, { x: event.clientX, y: event.clientY })
+          }}
+          onKeyDown={(event) => {
+            if (!onContextNode) return
+            if (!((event.shiftKey && event.key === 'F10') || event.key === 'ContextMenu')) return
+            event.preventDefault()
+            onSelect(node.dn)
+            onContextNode(node, anchorOf(event.currentTarget))
+          }}
           title={node.dn}
         >
           <Icon type={node.type} />
@@ -296,6 +316,7 @@ function TreeNodeRow({
               onSelect={onSelect}
               showAdvanced={showAdvanced}
               revealDn={revealDn}
+              onContextNode={onContextNode}
             />
           ))}
         </div>
