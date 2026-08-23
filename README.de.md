@@ -12,7 +12,10 @@ Gruppenrichtlinien-Editor**, den vergleichbare Projekte auslassen.
 SAMADCON spricht ausschließlich Standardprotokolle: **LDAPS, Kerberos und SMB**. Der Container
 muss nicht auf einem Domänencontroller laufen und greift nie direkt auf dessen Dateisystem zu.
 
-> Status: in Entwicklung. Der Umsetzungsstand steht unter [Meilensteine](#meilensteine).
+> Status: alle fünf Meilensteine sind gebaut und gegen eine echte Samba-AD-Domäne geprüft —
+> siehe [Meilensteine](#meilensteine). Veröffentlicht als 0.5.x: heute benutzbar, die
+> Oberfläche ändert sich zwischen Versionen aber noch. Was sich je Release geändert hat,
+> steht im [Changelog](CHANGELOG.md).
 
 ## Warum
 
@@ -698,6 +701,21 @@ erreicht: einen Tag, der gesetzt wurde, ohne die Version überhaupt anzuheben.
 
 Das gibt es, weil v0.5.2 sich als 0.5.1 meldete — drei Dateien trugen die Zahl,
 ein Release hob zwei davon, und gefunden hat es ein Leser, nicht das Projekt.
+
+Die Release-Notizen stehen im annotierten Tag, und `CHANGELOG.md` wird daraus
+erzeugt statt daneben gepflegt:
+
+```bash
+python scripts/build_changelog.py
+```
+
+Nach dem Setzen des Tags ausführen und das Ergebnis mitcommitten. Das Skript
+schreibt die Datei jedes Mal komplett neu, von Hand Eingetragenes geht also
+verloren — genau so ist es gemeint. Eine Quelle, und das ist der Tag.
+
+Der Changelog ist englisch, weil die Tag-Notizen es sind. Eine zweite, gepflegte
+Übersetzung wäre in kurzer Zeit veraltet, und eine veraltete Release-Notiz ist
+schlechter als eine fremdsprachige, die stimmt.
 
 ## Lizenz
 

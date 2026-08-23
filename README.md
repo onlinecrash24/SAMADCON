@@ -12,7 +12,10 @@ included**, which comparable projects leave out.
 SAMADCON speaks nothing but standard protocols: **LDAPS, Kerberos and SMB**. The container does
 not have to run on a domain controller and never touches its file system directly.
 
-> Status: under development. What is built is listed under [Milestones](#milestones).
+> Status: all five milestones are built and verified against a real Samba AD domain — see
+> [Milestones](#milestones). Released as 0.5.x: usable today, with the interface still
+> changing between versions. What changed in each release is in the
+> [changelog](CHANGELOG.md).
 
 ## Why
 
@@ -670,6 +673,17 @@ tag pushed without the version being raised at all.
 This exists because v0.5.2 shipped reporting itself as 0.5.1 — three files
 carried the number, a release raised two of them, and a reader found it rather
 than the project.
+
+The release notes are written into the annotated tag, and `CHANGELOG.md` is
+generated from them rather than kept alongside them:
+
+```bash
+python scripts/build_changelog.py
+```
+
+Run it once the tag exists and commit the result. It rewrites the file from the
+tags every time, so anything typed straight into the changelog is lost — which
+is the point. One source, and it is the tag.
 
 ## Licence
 
