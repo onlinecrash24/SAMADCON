@@ -17,10 +17,52 @@ muss nicht auf einem Domänencontroller laufen und greift nie direkt auf dessen 
 > Oberfläche ändert sich zwischen Versionen aber noch. Was sich je Release geändert hat,
 > steht im [Changelog](CHANGELOG.md).
 
+<p align="center">
+  <a href="docs/screenshots/SAMADCON_GPO_Editor.png">
+    <img src="docs/screenshots/SAMADCON_GPO_Editor.png" width="900" alt="Der Gruppenrichtlinien-Editor von SAMADCON: ein Richtlinienfenster über der Konsole, Reiter „Administrative Vorlagen“, darin die Druckereinstellungen der Computerkonfiguration mit Status und Geltungsbereich; dahinter der Richtlinienbaum.">
+  </a>
+</p>
+
 ## Warum
 
 RSAT setzt einen domänengejointen Windows-Client voraus. In reinen Linux-Umgebungen fällt es damit
 komplett aus, und `samba-tool` deckt als CLI-Werkzeug nur einen Teil des Tagesgeschäfts ab.
+
+## Wie es aussieht
+
+Das Fenster oben ist der Teil, den vergleichbare Projekte auslassen: administrative Vorlagen,
+Sicherheitseinstellungen, der Samba-/VGP-Baum, Einstellungen, Skripte und Ordnerumleitung —
+jeweils ein Reiter derselben Richtlinie. Das Fenster steht über der Konsole und hat eine eigene
+Taskleiste, so wie ein MMC-Snap-in.
+
+<p align="center">
+  <a href="docs/screenshots/SAMADCON_Users_and_Computers.png">
+    <img src="docs/screenshots/SAMADCON_Users_and_Computers.png" width="900" alt="Die Konsole „Benutzer und Computer“: links der Verzeichnisbaum, in der Mitte die Objekte einer Organisationseinheit, rechts die Eigenschaften des ausgewählten Benutzers.">
+  </a>
+</p>
+
+**Benutzer und Computer** — Baum, Objektliste und die Eigenschaften des Ausgewählten: die
+Anordnung, die ADUC verwendet. Jede Konsole ist ein eigener Reiter, weil in RSAT jede davon ein
+eigenes Programm ist und kein Ast eines gemeinsamen Baums.
+
+<p align="center">
+  <a href="docs/screenshots/SAMADCON_right_click.png">
+    <img src="docs/screenshots/SAMADCON_right_click.png" width="900" alt="Der Verknüpfungsbaum der Gruppenrichtlinien mit geöffnetem Kontextmenü an einer Verknüpfung: Verknüpfung deaktivieren, erzwingen oder entfernen.">
+  </a>
+</p>
+
+**Gruppenrichtlinienverwaltung** — der Baum zeigt, welche Richtlinie wo greift, und das Menü
+der Verknüpfung setzt ihre beiden Schalter und entfernt sie. Die rechte Maustaste wirkt an den
+Objekten selbst, nicht nur an einer Leiste irgendwo darüber.
+
+<p align="center">
+  <img src="docs/screenshots/SAMADCON_link_GPO.gif" width="900" alt="Eine Richtlinie wird aus der Liste auf eine Organisationseinheit im Baum gezogen; die Konsole fragt nach und legt die Verknüpfung darunter an.">
+</p>
+
+**Verknüpfen durch Ziehen** — eine Richtlinie auf eine Organisationseinheit fallen lassen, und
+sie fragt, bevor sie verknüpft. Eine Richtlinie kann an beliebig vielen Einheiten hängen.
+
+Die Aufnahmen zeigen eine laufende Samba-AD-Domäne, keinen Entwurf.
 
 ## Sicherheitsmodell
 

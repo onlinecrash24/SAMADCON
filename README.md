@@ -17,10 +17,52 @@ not have to run on a domain controller and never touches its file system directl
 > changing between versions. What changed in each release is in the
 > [changelog](CHANGELOG.md).
 
+<p align="center">
+  <a href="docs/screenshots/SAMADCON_GPO_Editor.png">
+    <img src="docs/screenshots/SAMADCON_GPO_Editor.png" width="900" alt="The SAMADCON group policy editor: a policy window open over the console on its Administrative templates tab, listing the printer settings of the computer configuration with their state and scope, the policy tree behind it.">
+  </a>
+</p>
+
 ## Why
 
 RSAT requires a domain-joined Windows client. In a pure Linux environment it is simply not
 available, and `samba-tool`, being a command-line tool, covers only part of the daily work.
+
+## What it looks like
+
+The window above is the part comparable projects leave out: administrative templates, security
+settings, the Samba/VGP tree, preferences, scripts and folder redirection, each on its own tab
+of one policy — and the window floats over the console with a taskbar of its own, the way an
+MMC snap-in does.
+
+<p align="center">
+  <a href="docs/screenshots/SAMADCON_Users_and_Computers.png">
+    <img src="docs/screenshots/SAMADCON_Users_and_Computers.png" width="900" alt="The Users and Computers console: the directory tree on the left, the objects of an organisational unit in the middle, and the selected user's properties on the right.">
+  </a>
+</p>
+
+**Users and Computers** — tree, object list, and the properties of whatever is selected: the
+arrangement ADUC uses. Each console is a tab of its own, because in RSAT each of them is a
+separate program rather than a branch of one tree.
+
+<p align="center">
+  <a href="docs/screenshots/SAMADCON_right_click.png">
+    <img src="docs/screenshots/SAMADCON_right_click.png" width="900" alt="The group policy link tree with a link's context menu open, offering to disable the link, to enforce it, or to remove it.">
+  </a>
+</p>
+
+**Group Policy Management** — the tree says which policies apply where, and a link's own menu
+sets its two switches and removes it. Right-click works on the objects themselves, not only on
+a toolbar somewhere above them.
+
+<p align="center">
+  <img src="docs/screenshots/SAMADCON_link_GPO.gif" width="900" alt="A policy dragged from the list onto an organisational unit in the tree; the console asks for confirmation and the link then appears under that unit.">
+</p>
+
+**Linking by dragging** — drop a policy onto an organisational unit and it asks before it
+links. One policy can be linked to as many units as you like.
+
+The screenshots are of a live Samba AD domain, not a mock-up.
 
 ## Security model
 
