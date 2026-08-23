@@ -661,7 +661,7 @@ frontend/src/         React + TypeScript, an MMC-like layout
 frontend/public/      favicon
 frontend/src/assets/  lockup and mark, light and dark, plus a monochrome one
 docker/               Dockerfile, entrypoint, nginx, supervisord
-docs/brand/           banner variants, not used by the interface
+docs/brand/           lockup, mark and favicon for use elsewhere; the interface has its own
 ```
 
 The Samba Python libraries are blocking and not thread-safe. Every Samba call therefore goes

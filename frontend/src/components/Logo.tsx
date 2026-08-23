@@ -23,8 +23,12 @@ export function LogoLockup({ className }: { className?: string }) {
         src={lockupLight}
         alt={ALT}
         className={className ? `logo-lockup ${className}` : 'logo-lockup'}
-        width={600}
-        height={132}
+        // The lockup carries its own 420x120. Wrong numbers here do not
+        // distort it — the intrinsic ratio wins once it loads — they reserve
+        // the wrong box until then: at 600x132 the sign-in card held 77px and
+        // jumped to 100px on load. Measured, before and after.
+        width={420}
+        height={120}
       />
     </picture>
   )

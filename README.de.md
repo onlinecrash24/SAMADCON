@@ -690,7 +690,7 @@ frontend/src/         React + TypeScript (MMC-artiges Layout)
 frontend/public/      Favicon
 frontend/src/assets/  Lockup und Bildmarke, je hell/dunkel, dazu einfarbig
 docker/               Dockerfile, Entrypoint, nginx, supervisord
-docs/brand/           Bannervarianten, von der Oberfläche nicht verwendet
+docs/brand/           Lockup, Marke und Favicon zur Verwendung anderswo; die Oberfläche hat eigene
 ```
 
 Die Samba-Python-Bibliotheken sind blockierend und nicht threadsicher. Alle Samba-Aufrufe laufen
