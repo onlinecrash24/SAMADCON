@@ -24,6 +24,7 @@ import {
   PasswordDialog,
 } from './components/dialogs'
 import { ErrorMessage, Icon, Spinner } from './components/primitives'
+import { SourceNote } from './components/SourceNote'
 import type { DnsZone } from './api/types'
 import { SNAPINS, panesFor, type SnapinId } from './features/console/snapins'
 import { DiagnosticsView } from './features/diagnostics/DiagnosticsView'
@@ -151,6 +152,10 @@ function Console() {
   // Which container the policy tree points at. null is GPMC's "all
   // policies" node, and the state the console opens in.
   const [gpoContainerDn, setGpoContainerDn] = useState<string | null>(restored.gpoContainerDn)
+
+  // Shares its key with the diagnosis page, which asks for the same thing:
+  // one request between them, and /info touches no domain controller.
+  const serverInfo = useQuery({ queryKey: ['server-info'], queryFn: () => api.info() })
 
   const children = useQuery({
     queryKey: ['children', currentDn, showAdvanced],
@@ -389,6 +394,7 @@ function Console() {
         </form>
 
         <div className="topbar__actions">
+          <SourceNote version={serverInfo.data?.version} />
           <button type="button" className="link" onClick={() => setLanguage(language === 'de' ? 'en' : 'de')}>
             {language === 'de' ? 'EN' : 'DE'}
           </button>

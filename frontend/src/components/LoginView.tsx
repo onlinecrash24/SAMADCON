@@ -6,6 +6,7 @@ import { useI18n } from '../i18n'
 import { loadRecentServers, type RecentServer } from '../state/recentServers'
 import { useSession } from '../state/session'
 import { LogoLockup } from './Logo'
+import { SourceNote } from './SourceNote'
 import { Badge, Banner, ErrorMessage, Field, Spinner } from './primitives'
 
 /** Value of the domain selector. Anything else is a profile id. */
@@ -326,7 +327,7 @@ export function LoginView() {
           >
             {language === 'de' ? 'English' : 'Deutsch'}
           </button>
-          {info && <span className="login__version">v{info.version}</span>}
+          <SourceNote version={info?.version} />
         </div>
       </form>
     </div>

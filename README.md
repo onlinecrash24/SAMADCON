@@ -731,5 +731,15 @@ is the point. One source, and it is the tag.
 
 AGPL-3.0-or-later.
 
+The console names it and links back here from its own interface — top right while signed in,
+and at the foot of the sign-in card. That is not decoration: section 13 obliges anyone who
+modifies SAMADCON and offers it over a network to offer its source to the people using it, and
+a console that never says where it came from makes that impossible to keep. If you fork it,
+point the link at your fork rather than removing it.
+
+The Samba python bindings this is built on (`samba.samdb`, `samba.dcerpc`, `samba.ndr` and the
+rest) are GPL-3.0-or-later, and `ldb` is LGPL-3.0-or-later. AGPLv3 and GPLv3 permit that
+combination explicitly, each in its own section 13.
+
 The icons are Phosphor Icons, MIT, embedded as path data rather than loaded
 as files — see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

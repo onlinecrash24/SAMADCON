@@ -763,5 +763,15 @@ schlechter als eine fremdsprachige, die stimmt.
 
 AGPL-3.0-or-later.
 
+Die Konsole nennt sie und verweist von sich aus hierher — oben rechts im angemeldeten Zustand
+und unten auf der Anmeldekarte. Das ist keine Zierde: §13 verpflichtet jeden, der SAMADCON
+ändert und über ein Netz anbietet, den Nutzern den Quelltext anzubieten, und eine Konsole, die
+nie sagt, woher sie kommt, macht das unmöglich. Wer sie abspaltet, richtet den Verweis bitte
+auf die eigene Abspaltung, statt ihn zu entfernen.
+
+Die Samba-Python-Bindungen, auf denen das aufsetzt (`samba.samdb`, `samba.dcerpc`, `samba.ndr`
+und die übrigen), stehen unter GPL-3.0-or-later, `ldb` unter LGPL-3.0-or-later. AGPLv3 und
+GPLv3 erlauben diese Kombination ausdrücklich, jeweils in ihrem eigenen §13.
+
 Die Symbole sind Phosphor Icons, MIT, als Pfaddaten eingebettet statt als Dateien
 geladen — siehe [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

@@ -9,6 +9,7 @@
 export const de = {
   'app.title': 'SAMADCON',
   'app.subtitle': 'Samba AD Console',
+  'app.sourceTitle': 'Quelltext auf GitHub. SAMADCON ist freie Software.',
 
   'login.heading': 'Anmelden',
   'login.username': 'Benutzername',
@@ -1333,6 +1334,7 @@ export type MessageKey = keyof typeof de
 export const en: Record<MessageKey, string> = {
   'app.title': 'SAMADCON',
   'app.subtitle': 'Samba AD Console',
+  'app.sourceTitle': 'Source code on GitHub. SAMADCON is free software.',
 
   'login.heading': 'Sign in',
   'login.username': 'User name',
