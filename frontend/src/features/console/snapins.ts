@@ -11,11 +11,16 @@
  * coming from RSAT looks for "DNS" and "Group Policy Management" in this tree;
  * finding them greyed out with a note is far less confusing than finding
  * nothing and wondering whether they are hidden somewhere.
+ *
+ * The order of this array is the order of the tabs, and it is deliberate: the
+ * four that manage the domain come first, then the two that only look at it.
+ * Group policy sat behind diagnosis for no better reason than the order they
+ * were built in, which put the console's own reason for existing fifth.
  */
 
 import type { MessageKey } from '../../i18n/messages'
 
-export type SnapinId = 'directory' | 'dns' | 'sites' | 'diagnostics' | 'gpo' | 'reports'
+export type SnapinId = 'directory' | 'dns' | 'sites' | 'gpo' | 'diagnostics' | 'reports'
 
 export interface Snapin {
   id: SnapinId
@@ -65,19 +70,19 @@ export const SNAPINS: Snapin[] = [
     panes: { tree: false, detail: false },
   },
   {
-    id: 'diagnostics',
-    label: 'snapin.diagnostics',
-    icon: 'tab-diagnostics',
-    available: true,
-    panes: { tree: false, detail: false },
-  },
-  {
     id: 'gpo',
     label: 'snapin.gpo',
     icon: 'tab-gpo',
     available: true,
     // The link tree — which policies apply where.
     panes: { tree: true, detail: false },
+  },
+  {
+    id: 'diagnostics',
+    label: 'snapin.diagnostics',
+    icon: 'tab-diagnostics',
+    available: true,
+    panes: { tree: false, detail: false },
   },
 
   {
