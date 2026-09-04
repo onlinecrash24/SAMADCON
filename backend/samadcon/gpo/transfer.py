@@ -298,6 +298,7 @@ def _unpack(conn: DirectoryConnection, archive: zipfile.ZipFile, gpo: dict[str, 
     share = sysvol.sysvol_for(conn)
     _, _, base = sysvol.parse_unc(gpo["path"])
 
+    total = 0
     for info in archive.infolist():
         if info.is_dir():
             continue
@@ -309,7 +310,13 @@ def _unpack(conn: DirectoryConnection, archive: zipfile.ZipFile, gpo: dict[str, 
         if relative is None:
             logger.warning("skipping %s in the backup: unsafe path", name)
             continue
-        if info.file_size > MAX_BACKUP_BYTES:
+        # Per-file and in total. The per-file cap alone lets a crafted archive
+        # of many members below it sum to any size at all — a zip bomb writing
+        # tens of gigabytes onto SYSVOL under the administrator's own ticket.
+        # file_size is the declared uncompressed size, so this is checked
+        # before a single member is read.
+        total += info.file_size
+        if info.file_size > MAX_BACKUP_BYTES or total > MAX_BACKUP_BYTES:
             raise InvalidRequest(
                 "A file in this backup is too large.",
                 code="backup_too_large",
@@ -340,6 +347,11 @@ def _safe_relative(name: str) -> str | None:
         if part in ("", "."):
             continue
         if part == "..":
+            return None
+        # A colon is a Windows drive marker ("C:/…") and, on an SMB share
+        # backed by vfs_streams, an alternate-data-stream selector. Neither is
+        # a plain path component, so a member carrying one is dropped.
+        if ":" in part:
             return None
         parts.append(part)
 

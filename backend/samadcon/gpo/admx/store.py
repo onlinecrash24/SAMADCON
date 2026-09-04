@@ -521,9 +521,13 @@ def _safe_name(name: str) -> str | None:
     file of another kind — is dropped rather than reshaped, because this
     writes onto a share every domain member reads.
     """
-    cleaned = name.replace("\\", "/").strip().lstrip("/")
+    cleaned = name.replace("\\", "/").strip()
+    # Not lstrip'd: "/example.admx" is an absolute path, and turning it into a
+    # relative one is exactly the reshaping the docstring says this refuses.
+    if cleaned.startswith("/"):
+        return None
     parts = [part for part in cleaned.split("/") if part not in ("", ".")]
-    if not parts or any(part == ".." for part in parts):
+    if not parts or any(part == ".." or ":" in part for part in parts):
         return None
 
     lowered = parts[-1].lower()

@@ -424,7 +424,13 @@ def get_attributes(conn: DirectoryConnection, dn: str) -> dict[str, Any]:
 def get_ancestors(conn: DirectoryConnection, dn: str) -> list[dict[str, Any]]:
     """Path from the domain root down to *dn*, for breadcrumbs."""
     base_dn = conn.info.base_dn
-    if not dn.lower().endswith(base_dn.lower()):
+    # The comma matters: a bare endswith lets "OU=xDC=example,DC=test" through
+    # as if it sat under "DC=example,DC=test", and the object then resolves to
+    # nothing rather than to the refusal this is here to make. Either the DN is
+    # the base, or it ends at a component boundary before it.
+    lowered = dn.lower()
+    base = base_dn.lower()
+    if not (lowered == base or lowered.endswith("," + base)):
         raise InvalidRequest(
             "The object is outside this domain's naming context.",
             code="outside_naming_context",

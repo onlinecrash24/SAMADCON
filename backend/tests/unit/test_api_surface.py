@@ -69,7 +69,16 @@ def test_browsing_leaves_them_out_by_default_and_searching_does_not():
 def test_info_reports_the_realm(client: TestClient):
     payload = client.get("/api/v1/info").json()
     assert payload["realm"] == "SAMADCON.TEST"
-    assert "sessions" in payload
+    assert set(payload) == {"version", "realm", "ldap_insecure", "ldap_transports"}
+
+
+def test_info_withholds_internal_topology_before_sign_in(client: TestClient):
+    """/info is reachable without a session, so it must not hand an anonymous
+    caller the internal DC addresses or a live count of signed-in
+    administrators. Both used to be here and the front end read neither."""
+    payload = client.get("/api/v1/info").json()
+    for leaked in ("dc_hosts", "sessions", "workgroup", "dc_discovery"):
+        assert leaked not in payload
 
 
 @pytest.mark.parametrize(
@@ -197,3 +206,51 @@ def test_openapi_document_builds(client: TestClient):
     schema = client.get("/api/openapi.json").json()
     assert schema["info"]["title"].startswith("SAMADCON")
     assert "/api/v1/users" in schema["paths"]
+
+
+def test_login_with_a_typed_server_is_rate_limited(client: TestClient, monkeypatch):
+    """A typed-in address makes login resolve a target, which opens outbound
+    connections before anyone is authenticated — the same reach /servers/probe
+    limits. Login must share that limit or it is a second, unthrottled way to
+    use the container as a port scanner. The resolve is stubbed to fail so the
+    test never touches the network; the point is that the limiter trips first."""
+    from samadcon.ad import targets
+    from samadcon.core.errors import InvalidRequest
+    from samadcon.core.ratelimit import probe_limiter
+
+    probe_limiter.reset()
+
+    def refuse(*args, **kwargs):
+        raise InvalidRequest("no", code="nope")
+
+    monkeypatch.setattr(targets, "resolve_target", refuse)
+
+    body = {"username": "x", "password": "y", "server": "10.0.0.1"}
+    codes = [client.post("/api/v1/auth/login", json=body).status_code for _ in range(21)]
+
+    assert codes[:20] == [400] * 20
+    assert codes[20] == 429
+    # The bucket holds exactly the events it let through, not the one it turned
+    # away — the limit is a ceiling, not an off-by-one.
+    assert len(probe_limiter._events["testclient"]) == 20
+    probe_limiter.reset()
+
+
+def test_login_without_a_server_is_not_probe_limited(client: TestClient, monkeypatch):
+    """The default and configured profiles name operator-chosen hosts, not
+    caller-chosen ones, so they are not throttled by the probe limiter. They
+    still fail here — resolve is stubbed — but never with a 429."""
+    from samadcon.ad import targets
+    from samadcon.core.errors import InvalidRequest
+    from samadcon.core.ratelimit import probe_limiter
+
+    probe_limiter.reset()
+    monkeypatch.setattr(
+        targets, "resolve_target", lambda *a, **k: (_ for _ in ()).throw(InvalidRequest("no", code="nope"))
+    )
+
+    body = {"username": "x", "password": "y"}
+    codes = {client.post("/api/v1/auth/login", json=body).status_code for _ in range(21)}
+
+    assert codes == {400}
+    probe_limiter.reset()

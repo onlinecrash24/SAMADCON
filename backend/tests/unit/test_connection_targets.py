@@ -445,3 +445,23 @@ def test_the_window_slides():
 
     time.sleep(0.08)
     limiter.check("a")
+
+def test_the_table_does_not_grow_without_bound(monkeypatch):
+    """Each probe from a fresh source address adds a key, and the caller is
+    unauthenticated. Keys whose newest event is already outside the window can
+    never trip the limit again, so once the table is large they are dropped —
+    not only the empty ones, which a sliding window never produces on its own."""
+    import samadcon.core.ratelimit as rl
+
+    clock = {"t": 0.0}
+    monkeypatch.setattr(rl.time, "monotonic", lambda: clock["t"])
+
+    limiter = rl.RateLimiter(max_events=1, window_seconds=10)
+    for index in range(1100):
+        limiter.check(f"addr-{index}")
+    assert len(limiter._events) == 1100  # all within the window, nothing to drop
+
+    clock["t"] = 1000.0
+    limiter.check("one-more")
+    # Every earlier key is now far outside the window and has been swept.
+    assert len(limiter._events) < 50

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from samadcon.core.errors import InvalidRequest
 from samadcon.gpo import transfer, wmi
 
 # ---------------------------------------------------------------------------
@@ -37,6 +38,11 @@ def test_redundant_parts_are_dropped():
         "   ",
         "./",
         "..",
+        # A drive marker and an alternate-data-stream selector: neither is a
+        # plain path component, and on an SMB share backed by vfs_streams the
+        # second writes into a stream rather than the file it names.
+        "C:/outside.txt",
+        "Machine/Registry.pol:evil",
     ],
 )
 def test_a_name_that_escapes_the_policy_is_refused(name):
@@ -47,6 +53,46 @@ def test_a_name_that_escapes_the_policy_is_refused(name):
     bent into something that looks safe.
     """
     assert transfer._safe_relative(name) is None
+
+
+class _RecordingShare:
+    """A SYSVOL stand-in that accepts writes and remembers them."""
+
+    def __init__(self) -> None:
+        self.written: list[str] = []
+
+    def makedirs(self, path: str) -> None:
+        pass
+
+    def write(self, path: str, data: bytes) -> None:
+        self.written.append(path)
+
+
+def test_a_backup_larger_than_the_cap_in_total_is_refused(monkeypatch):
+    """The per-file cap alone lets an archive of many small members sum to any
+    size — a zip bomb writing gigabytes onto SYSVOL under the administrator's
+    own ticket. The running total is checked before a member is read, and the
+    write that would cross the line never happens."""
+    import io
+    import zipfile
+
+    share = _RecordingShare()
+    monkeypatch.setattr(transfer.sysvol, "sysvol_for", lambda conn: share)
+    monkeypatch.setattr(transfer, "MAX_BACKUP_BYTES", 100)
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("Machine/a.pol", b"x" * 60)
+        archive.writestr("Machine/b.pol", b"y" * 60)  # 120 in total, cap is 100
+    buffer.seek(0)
+
+    gpo = {"path": "\\\\example.lan\\sysvol\\example.lan\\Policies\\{GUID}"}
+    with pytest.raises(InvalidRequest) as excinfo:
+        transfer._unpack(object(), zipfile.ZipFile(buffer), gpo)
+
+    assert excinfo.value.code == "backup_too_large"
+    # It stopped at the member that crossed the line, not after writing both.
+    assert len(share.written) <= 1
 
 
 # ---------------------------------------------------------------------------

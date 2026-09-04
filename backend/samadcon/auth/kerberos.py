@@ -277,7 +277,11 @@ def _acquire_via_kinit(
 
     try:
         result = subprocess.run(
-            ["kinit", "-f", "-r", "7d", principal.full],
+            # "--" ends option parsing, so a principal that begins with a dash
+            # is an operand and never a flag. The regex already forbids one and
+            # the "@REALM" would break getopt bundling anyway — but the safety
+            # of the call should not rest on a coincidence two files apart.
+            ["kinit", "-f", "-r", "7d", "--", principal.full],
             input=password.encode("utf-8") + b"\n",
             capture_output=True,
             env=env,

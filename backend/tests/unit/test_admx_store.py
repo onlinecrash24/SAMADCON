@@ -130,6 +130,10 @@ def test_backslashes_are_accepted():
         "../outside.admx",
         "de-DE/../../outside.adml",
         "/etc/passwd",
+        # An absolute path, dropped rather than turned into a relative one.
+        "/example.admx",
+        # A colon: a drive marker or an ADS selector on the share.
+        "de-DE/ex:ploit.adml",
         "",
         "readme.txt",
         # A template one directory deep is not where one belongs, and a text

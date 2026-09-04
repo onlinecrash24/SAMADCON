@@ -219,6 +219,23 @@ class LoginThrottle:
                 if now - last > self.lockout:
                     count = 0
                 self._failures[key] = (count + 1, now)
+            self._prune(now)
+
+    def _prune(self, now: datetime) -> None:
+        """Drop entries whose lockout window has passed.
+
+        The username half of the key is attacker-chosen, so an entry is added
+        for every account name ever tried. record_success removes only the one
+        that just succeeded and check only the one it is asked about, so a run
+        of failures against made-up names would otherwise sit here until the
+        process restarts. An entry older than the lockout can no longer block
+        anyone, so it is removed. Cheap because it only runs once the table is
+        larger than any real deployment's live set.
+        """
+        if len(self._failures) <= 4096:
+            return
+        for key in [k for k, (_, last) in self._failures.items() if now - last > self.lockout]:
+            del self._failures[key]
 
     def record_success(self, username: str, client_ip: str | None = None) -> None:
         with self._lock:

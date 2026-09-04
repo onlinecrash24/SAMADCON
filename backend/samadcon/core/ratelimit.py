@@ -41,9 +41,16 @@ class RateLimiter:
 
             bucket.append(now)
 
-            # Keep the table from growing without bound on a busy instance.
+            # Keep the table from growing without bound on a busy instance —
+            # or under a caller that sends a fresh key every time, which the
+            # probe path does (one entry per source address, unauthenticated).
+            # A key whose newest event is already outside the window can never
+            # trip the limit again, so it is dropped, not just the empty ones.
             if len(self._events) > 1024:
-                for stale_key in [k for k, v in self._events.items() if not v]:
+                cutoff = now - self.window
+                for stale_key in [
+                    k for k, v in self._events.items() if not v or v[-1] <= cutoff
+                ]:
                     del self._events[stale_key]
 
     def reset(self, key: str | None = None) -> None:

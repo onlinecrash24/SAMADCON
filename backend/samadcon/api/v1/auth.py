@@ -17,6 +17,7 @@ from samadcon.config import get_settings
 from samadcon.core.audit import get_audit
 from samadcon.core.errors import AuthenticationError, SamadconError
 from samadcon.core.executor import get_registry
+from samadcon.core.ratelimit import probe_limiter
 from samadcon.schemas.requests import LoginRequest
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,17 @@ async def login(payload: LoginRequest, request: Request, response: Response) -> 
     throttle = get_throttle()
     audit = get_audit()
     address = client_ip(request)
+
+    # A typed-in server address makes resolve_target open outbound connections
+    # to whatever was named, on 389 and 636, before anyone is signed in — the
+    # same reach /servers/probe rate-limits for exactly this reason. Without a
+    # limit here, login is a second, unthrottled way to use the container as a
+    # port scanner: a failed resolve records nothing (no principal yet) and can
+    # be repeated as fast as the network answers. A configured profile or the
+    # default is not throttled — those hosts are set by the operator, not the
+    # caller.
+    if payload.server:
+        probe_limiter.check(address or "unknown")
 
     session_id = store.new_id()
     ccache = kerberos.ccache_path_for(settings, session_id)

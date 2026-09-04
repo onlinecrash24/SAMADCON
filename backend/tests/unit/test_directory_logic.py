@@ -229,3 +229,46 @@ def test_ace_is_inserted_after_the_dacl_flags():
 def test_ace_insertion_survives_an_empty_dacl():
     result = sacl._insert_ace("O:DAG:DAD:", "(D;;SDDT;;;WD)")
     assert sacl.is_delete_protected(result)
+
+
+# ---------------------------------------------------------------------------
+# get_ancestors: the DN really is under the base
+# ---------------------------------------------------------------------------
+
+
+class AncestorConnection:
+    """A base DN and a directory that holds nothing.
+
+    get_ancestors only reaches conn.get once it accepts the DN, so a name that
+    ought to be refused must never get that far. When it wrongly does, get
+    returns None and the breadcrumb comes back empty instead of raising — which
+    is the whole failure this checks for.
+    """
+
+    class Info:
+        base_dn = "DC=example,DC=test"
+
+    def __init__(self) -> None:
+        self.info = AncestorConnection.Info()
+
+    def get(self, dn, attrs=None):
+        return None
+
+
+def test_ancestors_of_a_name_outside_the_base_are_refused():
+    """A bare endswith would accept "OU=xDC=example,DC=test": it ends with the
+    base string but not at a component boundary, so it is not under the base at
+    all. The refusal is the point — without it the object resolves to nothing
+    and the caller is told an empty path rather than an error."""
+    conn = AncestorConnection()
+
+    with pytest.raises(InvalidRequest) as excinfo:
+        directory.get_ancestors(conn, "OU=xDC=example,DC=test")
+
+    assert excinfo.value.code == "outside_naming_context"
+
+
+def test_ancestors_of_the_base_itself_are_allowed():
+    conn = AncestorConnection()
+    # The base is its own ancestor list; it must not be refused as "outside".
+    assert directory.get_ancestors(conn, "DC=example,DC=test") == []

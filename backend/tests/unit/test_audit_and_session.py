@@ -338,3 +338,25 @@ def test_throttle_without_client_ip():
     throttle.record_failure("admin", None)
     with pytest.raises(AuthenticationError):
         throttle.check("admin", None)
+
+
+def test_the_failure_table_does_not_grow_without_bound(monkeypatch):
+    """The username half of a key is attacker-chosen, so a run of failures
+    against invented names adds an entry each. record_success and check only
+    ever remove the one they touch, so without pruning the table would hold
+    every name ever tried until the process restarts. Entries past the lockout
+    can block no one and are dropped once the table is large."""
+    import samadcon.auth.session as session_module
+
+    clock = {"t": datetime(2020, 1, 1, tzinfo=UTC)}
+    monkeypatch.setattr(session_module, "_now", lambda: clock["t"])
+
+    throttle = LoginThrottle(max_attempts=3, lockout_minutes=5)
+    for index in range(5000):
+        throttle.record_failure(f"ghost-{index}")  # no ip: one key each
+    assert len(throttle._failures) == 5000  # all fresh, nothing yet to drop
+
+    clock["t"] = clock["t"] + timedelta(minutes=10)
+    throttle.record_failure("one-more")
+    # The 5000 stale names are past the lockout and have been swept.
+    assert len(throttle._failures) < 50

@@ -400,16 +400,20 @@ export interface MemberListing {
   recursive: boolean
 }
 
+/**
+ * What /info says before anyone is signed in.
+ *
+ * Deliberately this small. It used to carry the DC addresses, the workgroup,
+ * and a live count of signed-in administrators — none of which the sign-in
+ * form ever read, all of which anyone reaching the sign-in page could see.
+ * The backend stopped sending them; this stopped claiming them.
+ */
 export interface ServerInfo {
   version: string
   realm: string
-  workgroup: string
-  dc_hosts: string[] | null
-  dc_discovery: 'dns' | 'static'
   ldap_insecure: boolean
   /** Transports this deployment permits, in the order they are tried. */
   ldap_transports: string[]
-  sessions: { active: number; workers: number; idle_timeout_minutes: number }
 }
 
 // ---------------------------------------------------------------------------
