@@ -688,6 +688,9 @@ export const api = {
       trustee_sid: trusteeSid,
       expected_sddl: expectedSddl ?? null,
     }),
+  /** Whether the object is protected against accidental deletion. */
+  protection: (dn: string) =>
+    http.get<{ dn: string; delete_protected: boolean }>(`/security/protection?dn=${dnParam(dn)}`),
   setDeleteProtection: (dn: string, protect: boolean) =>
     http.post<{ dn: string; delete_protected: boolean }>(
       `/security/protection?dn=${dnParam(dn)}`,

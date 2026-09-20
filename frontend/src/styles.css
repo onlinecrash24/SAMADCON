@@ -589,6 +589,19 @@ body.is-resizing { cursor: col-resize; user-select: none; }
    nothing but the scrollbar — making it a column too would be asking its
    sections to negotiate for height they do not need. */
 .sheet-window__panel--fill { display: flex; flex-direction: column; }
+/* The sheet's own footer: status or error on the left, the three buttons on
+   the right in ADUC's order — OK, Cancel, Apply. */
+.sheet-window__footer--sheet { justify-content: space-between; align-items: center; }
+.sheet-footer__status { flex: 1; min-width: 0; }
+.sheet-footer__error { display: flex; flex-direction: column; gap: 4px; }
+.sheet-footer__error .alert { margin: 0; }
+.sheet-tab { padding: 4px 2px 12px; }
+/* A titled box of controls, as ADUC groups account options and the home folder. */
+.radio-group { border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px 4px; margin: 0 0 12px; min-width: 0; }
+.radio-group legend { padding: 0 4px; font-size: 0.85em; color: var(--text-muted); }
+.radio-group--block .field:last-child { margin-bottom: 8px; }
+.boxed-list { border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 8px; max-height: 160px; overflow: auto; }
+.membership__row--removing td:first-child { text-decoration: line-through; opacity: 0.7; }
 .sheet-window__footer {
   display: flex;
   justify-content: flex-end;

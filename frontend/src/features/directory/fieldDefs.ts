@@ -1,10 +1,12 @@
 /**
- * Which fields each object type shows, in which order, under which heading.
+ * The editable fields, by API name.
  *
- * The field names are the API's, not LDAP's — the backend maps them (see
- * USER_FIELDS and friends) and rejects anything it does not know. Layout lives
- * here rather than on the server because it is presentation: the labels are
- * i18n keys, and the server has no business knowing about those.
+ * The names are the API's, not LDAP's — the backend maps them (USER_FIELDS
+ * and friends) and rejects anything it does not know. Which tab a field is on
+ * is decided by the tab, in sheet/tabs; this is only what each field is.
+ *
+ * Labels are i18n keys, because the server has no business knowing about
+ * those.
  */
 
 import type { ObjectType } from '../../api/types'
@@ -28,132 +30,60 @@ export interface FieldDef {
   pickTypes?: ObjectType[]
 }
 
-export interface FieldGroup {
-  title: MessageKey
-  fields: FieldDef[]
-}
+const def = (name: string, label: MessageKey, rest: Omit<FieldDef, 'name' | 'label'> = {}): FieldDef => ({
+  name,
+  label,
+  ...rest,
+})
 
-export const USER_GROUPS: FieldGroup[] = [
-  {
-    title: 'detail.general',
-    fields: [
-      { name: 'first_name', label: 'user.firstName' },
-      { name: 'last_name', label: 'user.lastName' },
-      { name: 'initials', label: 'user.initials', maxLength: 6 },
-      { name: 'display_name', label: 'user.displayName' },
-      { name: 'description', label: 'user.description' },
-      { name: 'office', label: 'user.office' },
-      { name: 'mail', label: 'user.mail', kind: 'email' },
-      { name: 'web_page', label: 'user.webPage', kind: 'url' },
-    ],
-  },
-  {
-    title: 'detail.account',
-    fields: [
-      // sAMAccountName is deliberately absent: changing it is a rename in all
-      // but name and belongs with the rename action, not a text field.
-      { name: 'upn', label: 'user.upn', kind: 'upn', hint: 'user.upnHint' },
-      { name: 'logon_workstations', label: 'user.logonWorkstations', hint: 'user.logonWorkstationsHint' },
-    ],
-  },
-  {
-    title: 'detail.address',
-    fields: [
-      { name: 'street', label: 'user.street', kind: 'multiline' },
-      { name: 'post_office_box', label: 'user.postOfficeBox' },
-      { name: 'city', label: 'user.city' },
-      { name: 'state', label: 'user.state' },
-      { name: 'postal_code', label: 'user.postalCode' },
-      { name: 'country', label: 'user.country', hint: 'user.countryHint', maxLength: 2 },
-    ],
-  },
-  {
-    title: 'detail.telephones',
-    fields: [
-      { name: 'telephone', label: 'user.telephone', kind: 'tel' },
-      { name: 'mobile', label: 'user.mobile', kind: 'tel' },
-      { name: 'home_phone', label: 'user.homePhone', kind: 'tel' },
-      { name: 'pager', label: 'user.pager', kind: 'tel' },
-      { name: 'fax', label: 'user.fax', kind: 'tel' },
-      { name: 'ip_phone', label: 'user.ipPhone' },
-      { name: 'notes', label: 'user.notes', kind: 'multiline' },
-    ],
-  },
-  {
-    title: 'detail.profile',
-    fields: [
-      { name: 'profile_path', label: 'user.profilePath' },
-      { name: 'logon_script', label: 'user.logonScript' },
-      { name: 'home_directory', label: 'user.homeDirectory' },
-      { name: 'home_drive', label: 'user.homeDrive', maxLength: 2 },
-    ],
-  },
-  {
-    title: 'detail.organization',
-    fields: [
-      { name: 'title', label: 'user.title' },
-      { name: 'department', label: 'user.department' },
-      { name: 'company', label: 'user.company' },
-      { name: 'manager', label: 'user.manager', kind: 'dn', pickTypes: ['user', 'contact'] },
-    ],
-  },
-]
-
-export const GROUP_GROUPS: FieldGroup[] = [
-  {
-    title: 'detail.general',
-    fields: [
-      { name: 'display_name', label: 'user.displayName' },
-      { name: 'description', label: 'user.description' },
-      { name: 'mail', label: 'user.mail', kind: 'email' },
-      { name: 'notes', label: 'user.notes', kind: 'multiline' },
-      {
-        name: 'managed_by',
-        label: 'group.managedBy',
-        kind: 'dn',
-        pickTypes: ['user', 'group', 'contact'],
-      },
-    ],
-  },
-]
-
-export const COMPUTER_GROUPS: FieldGroup[] = [
-  {
-    title: 'detail.general',
-    fields: [
-      { name: 'display_name', label: 'user.displayName' },
-      { name: 'description', label: 'user.description' },
-      { name: 'location', label: 'computer.location' },
-      { name: 'dns_host_name', label: 'computer.dnsName' },
-      {
-        name: 'managed_by',
-        label: 'group.managedBy',
-        kind: 'dn',
-        pickTypes: ['user', 'group', 'contact'],
-      },
-    ],
-  },
-]
-
-export const OU_GROUPS: FieldGroup[] = [
-  {
-    title: 'detail.general',
-    fields: [
-      { name: 'description', label: 'user.description' },
-      { name: 'street', label: 'user.street', kind: 'multiline' },
-      { name: 'city', label: 'user.city' },
-      { name: 'state', label: 'user.state' },
-      { name: 'postal_code', label: 'user.postalCode' },
-      { name: 'country', label: 'user.country', hint: 'user.countryHint', maxLength: 2 },
-      {
-        name: 'managed_by',
-        label: 'group.managedBy',
-        kind: 'dn',
-        pickTypes: ['user', 'group', 'contact'],
-      },
-    ],
-  },
-]
+export const FIELDS = {
+  // General
+  first_name: def('first_name', 'user.firstName'),
+  initials: def('initials', 'user.initials', { maxLength: 6 }),
+  last_name: def('last_name', 'user.lastName'),
+  display_name: def('display_name', 'user.displayName'),
+  description: def('description', 'user.description'),
+  office: def('office', 'user.office'),
+  telephone: def('telephone', 'user.telephone', { kind: 'tel' }),
+  mail: def('mail', 'user.mail', { kind: 'email' }),
+  web_page: def('web_page', 'user.webPage', { kind: 'url' }),
+  // Account
+  upn: def('upn', 'user.upn', { kind: 'upn', hint: 'user.upnHint' }),
+  logon_workstations: def('logon_workstations', 'user.logonWorkstations', {
+    hint: 'user.logonWorkstationsHint',
+  }),
+  // Address
+  street: def('street', 'user.street', { kind: 'multiline' }),
+  post_office_box: def('post_office_box', 'user.postOfficeBox'),
+  city: def('city', 'user.city'),
+  state: def('state', 'user.state'),
+  postal_code: def('postal_code', 'user.postalCode'),
+  country: def('country', 'user.country', { hint: 'user.countryHint', maxLength: 2 }),
+  // Telephones
+  home_phone: def('home_phone', 'user.homePhone', { kind: 'tel' }),
+  pager: def('pager', 'user.pager', { kind: 'tel' }),
+  mobile: def('mobile', 'user.mobile', { kind: 'tel' }),
+  fax: def('fax', 'user.fax', { kind: 'tel' }),
+  ip_phone: def('ip_phone', 'user.ipPhone'),
+  notes: def('notes', 'user.notes', { kind: 'multiline' }),
+  // Profile
+  profile_path: def('profile_path', 'user.profilePath'),
+  logon_script: def('logon_script', 'user.logonScript'),
+  home_directory: def('home_directory', 'user.homeDirectory'),
+  home_drive: def('home_drive', 'user.homeDrive', { maxLength: 2 }),
+  // Organization
+  title: def('title', 'user.title'),
+  department: def('department', 'user.department'),
+  company: def('company', 'user.company'),
+  manager: def('manager', 'user.manager', { kind: 'dn', pickTypes: ['user', 'contact'] }),
+  // Groups, computers, OUs
+  managed_by: def('managed_by', 'group.managedBy', {
+    kind: 'dn',
+    pickTypes: ['user', 'group', 'contact'],
+  }),
+  location: def('location', 'computer.location'),
+  dns_host_name: def('dns_host_name', 'computer.dnsName'),
+} satisfies Record<string, FieldDef>
 
 /** Account options that may be toggled, in the order ADUC shows them. */
 export const ACCOUNT_FLAGS: string[] = [
@@ -181,18 +111,13 @@ export const DANGEROUS_FLAGS = new Set([
   'encrypted_text_password_allowed',
 ])
 
-export function groupsForType(type: string): FieldGroup[] {
-  switch (type) {
-    case 'user':
-    case 'managed_service_account':
-      return USER_GROUPS
-    case 'group':
-      return GROUP_GROUPS
-    case 'computer':
-      return COMPUTER_GROUPS
-    case 'organizational_unit':
-      return OU_GROUPS
-    default:
-      return []
-  }
+/** Whether a property sheet exists for this type at all. */
+export function isEditable(type: string): boolean {
+  return (
+    type === 'user' ||
+    type === 'managed_service_account' ||
+    type === 'group' ||
+    type === 'computer' ||
+    type === 'organizational_unit'
+  )
 }

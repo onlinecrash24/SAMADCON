@@ -587,7 +587,6 @@ function Console() {
               <DetailPane
                 object={selected}
                 onChanged={onChanged}
-                onNavigate={(dn) => void navigateTo(dn)}
                 onRetarget={(dn) => void navigateTo(dn)}
               />
             </div>

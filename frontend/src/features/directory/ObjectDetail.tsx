@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import { api } from '../../api/endpoints'
@@ -9,17 +9,10 @@ import type {
   OuDetail,
   UserDetail,
 } from '../../api/types'
-import { AccountControls } from './AccountControls'
-import { AttributeEditor } from './AttributeEditor'
-import { groupsForType } from './fieldDefs'
-import { detailRowActions, type ActionId } from './objectActions'
-import { MembershipEditor } from './MembershipEditor'
-import { PropertySheet } from './PropertySheet'
-import { SecurityTab } from './SecurityTab'
+import { ObjectCommands } from './ObjectCommands'
 import { nameFromDn } from '../../dn'
 import { useI18n } from '../../i18n'
 import type { MessageKey } from '../../i18n/messages'
-import { DeleteDialog, MoveDialog, PasswordDialog, RenameDialog } from '../../components/dialogs'
 import {
   Badge,
   ErrorMessage,
@@ -30,61 +23,31 @@ import {
   useTypeLabel,
 } from '../../components/primitives'
 
-type Tab = 'overview' | 'edit' | 'members' | 'memberOf' | 'attributes' | 'security'
-
 /**
- * Everything a directory object shows about itself.
+ * What the pane beside the list shows about the selected object: the
+ * overview, and the commands that apply to it.
  *
- * Lived inside the detail pane until it had to appear in two places at
- * once — the pane beside the list, and a window somebody keeps open while
- * comparing it with another. Same component in both, so the two cannot
- * come to disagree about what a property sheet contains.
+ * Read-only on purpose. It used to carry the editable fields and three more
+ * tabs, and every one of them had its own idea of when to write. Editing
+ * lives in the property window now — one draft, OK / Apply / Cancel, the
+ * way ADUC's sheet works — and this pane is what ADUC's list pane is: a
+ * place to look, with "Properties" one double-click away.
  */
-const CAN_BE_MEMBER = new Set([
-  'user',
-  'group',
-  'computer',
-  'contact',
-  'managed_service_account',
-])
-
-export interface ObjectDetailProps {
-  object: DirectoryObject
-  onChanged: (message: string) => void
-  onNavigate: (dn: string) => void
-  /**
-   * Which tab to open on.
-   *
-   * Exists so that a "Properties" command can land on the editable fields the
-   * way the original does, rather than on the overview someone has already
-   * read in the pane beside it.
-   */
-  initialTab?: Tab
-  /** A rename or a move changed the DN out from under whoever hosts this. */
-  onRetarget?: (dn: string, name: string) => void
-}
 
 function isUser(type: string): boolean {
   return type === 'user' || type === 'managed_service_account'
 }
 
-export function ObjectDetail({
-  object,
-  onChanged,
-  onNavigate,
-  initialTab,
-  onRetarget,
-}: ObjectDetailProps) {
+export interface ObjectDetailProps {
+  object: DirectoryObject
+  onChanged: (message: string) => void
+  /** A rename or a move changed the DN out from under whoever hosts this. */
+  onRetarget?: (dn: string, name: string) => void
+}
+
+export function ObjectDetail({ object, onChanged, onRetarget }: ObjectDetailProps) {
   const { t } = useI18n()
   const typeLabel = useTypeLabel()
-  const queryClient = useQueryClient()
-
-  const [tab, setTab] = useState<Tab>(initialTab ?? 'overview')
-  const [dialog, setDialog] = useState<'password' | 'rename' | 'move' | 'delete' | null>(
-    null,
-  )
-  const [actionError, setActionError] = useState<unknown>(null)
-  const [saveError, setSaveError] = useState<unknown>(null)
 
   const detail = useQuery({
     queryKey: ['object-detail', object.dn, object.type],
@@ -105,158 +68,39 @@ export function ObjectDetail({
     },
   })
 
-  const invalidate = () => {
-    void queryClient.invalidateQueries({ queryKey: ['object-detail'] })
-    void queryClient.invalidateQueries({ queryKey: ['children'] })
-    void queryClient.invalidateQueries({ queryKey: ['tree'] })
-  }
-
-  const action = useMutation({
-    mutationFn: async (task: () => Promise<string>) => task(),
-    onSuccess: (message) => {
-      setActionError(null)
-      invalidate()
-      onChanged(message)
-    },
-    onError: (error) => setActionError(error),
-  })
-
-  const save = useMutation({
-    mutationFn: (changes: {
-      attributes?: Record<string, string | null>
-      flags?: Record<string, boolean>
-    }) => {
-      switch (object.type) {
-        case 'user':
-        case 'managed_service_account':
-          return api.updateUser(object.dn, changes)
-        case 'group':
-          return api.updateGroup(object.dn, { attributes: changes.attributes })
-        case 'computer':
-          return api.updateComputer(object.dn, changes)
-        case 'organizational_unit':
-          return api.updateOu(object.dn, { attributes: changes.attributes })
-        default:
-          return Promise.reject(new Error('This object type cannot be edited yet.'))
-      }
-    },
-    onSuccess: () => {
-      setSaveError(null)
-      invalidate()
-      onChanged(t('status.saved'))
-    },
-    onError: (error) => setSaveError(error),
-  })
-
   const data = detail.data
   const status = data && 'status' in data ? (data as UserDetail).status : null
-
-  const rowActions = detailRowActions(object, {
-    // The loaded value when there is one, because it is fresher than the row;
-    // otherwise the row's own flag, which is enough to label the button and
-    // more than enough to call the endpoint.
-    disabled: status ? status.disabled : null,
-    // false rather than null while the detail is still loading: unknown means
-    // "offer it anyway", which is right for a list row and would flicker here,
-    // where the precise answer is a moment away.
-    lockedOut: status ? status.locked_out : false,
-  })
-
-  const runRowAction = (id: ActionId) => {
-    switch (id) {
-      case 'enable':
-        action.mutate(async () => {
-          await api.setEnabled(object.dn, true)
-          return t('status.saved')
-        })
-        return
-      case 'disable':
-        action.mutate(async () => {
-          await api.setEnabled(object.dn, false)
-          return t('status.saved')
-        })
-        return
-      case 'unlock':
-        action.mutate(async () => {
-          await api.unlock(object.dn)
-          return t('status.unlocked')
-        })
-        return
-      case 'resetAccount':
-        action.mutate(async () => {
-          await api.resetComputer(object.dn)
-          return t('status.saved')
-        })
-        return
-      case 'resetPassword':
-        setDialog('password')
-        return
-      case 'rename':
-      case 'move':
-      case 'delete':
-        setDialog(id)
-        return
-      default:
-        return
-    }
-  }
-
-  const editable = groupsForType(object.type).length > 0
-  const tabs: Tab[] = ['overview']
-  if (editable) tabs.push('edit')
-  if (object.type === 'group') tabs.push('members')
-  if (CAN_BE_MEMBER.has(object.type)) tabs.push('memberOf')
-  tabs.push('attributes', 'security')
 
   return (
     <>
       <header className="detail__header">
         <Icon type={object.type} className="icon--large" />
         <div>
-          <h2>{object.display_name || object.name}</h2>
+          <h2>{object.name}</h2>
           <p className="detail__type">{typeLabel(object.type)}</p>
         </div>
       </header>
 
-      <ErrorMessage error={actionError} onDismiss={() => setActionError(null)} />
-
-      {/* The same list the right-click menu is built from. Two hand-written
-          descriptions of "what applies to a computer" drift apart the week
-          after they are written: someone adds an action to one of them. */}
-      <div className="detail__actions">
-        {rowActions.map((entry) => (
-          <button
-            key={entry.id}
-            type="button"
-            className={entry.danger ? 'button button--danger' : 'button'}
-            onClick={() => runRowAction(entry.id)}
-          >
-            {t(entry.labelKey)}
-          </button>
-        ))}
-      </div>
-
-      {tabs.length > 1 && (
-        <nav className="tabs" role="tablist">
-          {tabs.map((name) => (
-            <button
-              key={name}
-              type="button"
-              role="tab"
-              aria-selected={tab === name}
-              className={tab === name ? 'tabs__tab tabs__tab--active' : 'tabs__tab'}
-              onClick={() => setTab(name)}
-            >
-              {t(`detail.tab.${name}` as MessageKey)}
-            </button>
-          ))}
-        </nav>
-      )}
+      <ObjectCommands
+        object={object}
+        facts={{
+          // The loaded value when there is one, because it is fresher than the
+          // row; otherwise the row's own flag, which is enough to label the
+          // button and more than enough to call the endpoint.
+          disabled: status ? status.disabled : null,
+          // false rather than null while the detail is still loading: unknown
+          // means "offer it anyway", which is right for a list row and would
+          // flicker here, where the precise answer is a moment away.
+          lockedOut: status ? status.locked_out : false,
+        }}
+        onChanged={onChanged}
+        onRetarget={onRetarget}
+      />
 
       {detail.isLoading && <Spinner label={t('status.loading')} />}
       <ErrorMessage error={detail.error} />
 
-      {data && tab === 'overview' && (
+      {data && (
         <div className="detail__body">
           <CommonSection object={data} />
           {isUser(object.type) && 'status' in data && <UserSection user={data as UserDetail} />}
@@ -271,120 +115,8 @@ export function ObjectDetail({
           )}
           {/* Group membership is deliberately not summarised here: memberOf
               omits the primary group, which would make a normal account look
-              as though it belonged to nothing. The dedicated tab resolves it. */}
+              as though it belonged to nothing. The window's tab resolves it. */}
         </div>
-      )}
-
-      {data && tab === 'edit' && isUser(object.type) && 'status' in data && (
-        <AccountControls
-          user={data as UserDetail}
-          onChanged={(message) => {
-            invalidate()
-            onChanged(message)
-          }}
-        />
-      )}
-
-      {data && tab === 'edit' && 'attributes' in data && (
-        <PropertySheet
-          // Remounts after a successful save so the drafts start from the
-          // freshly loaded values instead of stale ones.
-          key={detail.dataUpdatedAt}
-          groups={groupsForType(object.type)}
-          attributes={(data as { attributes: Record<string, string | null> }).attributes}
-          flags={'flags' in data ? (data as { flags: Record<string, boolean> }).flags : undefined}
-          saving={save.isPending}
-          error={saveError}
-          onDismissError={() => setSaveError(null)}
-          onSave={(changes) => save.mutate(changes)}
-        />
-      )}
-
-      {tab === 'members' && (
-        <MembershipEditor
-          object={object}
-          mode="members"
-          onChanged={(message) => {
-            invalidate()
-            onChanged(message)
-          }}
-          onNavigate={onNavigate}
-        />
-      )}
-
-      {tab === 'memberOf' && (
-        <MembershipEditor
-          object={object}
-          mode="memberOf"
-          onChanged={(message) => {
-            invalidate()
-            onChanged(message)
-          }}
-          onNavigate={onNavigate}
-        />
-      )}
-
-      {tab === 'attributes' && (
-        <AttributeEditor
-          dn={object.dn}
-          onChanged={(message) => {
-            invalidate()
-            onChanged(message)
-          }}
-        />
-      )}
-
-      {tab === 'security' && <SecurityTab object={object} onChanged={onChanged} />}
-
-      {dialog === 'password' && (
-        <PasswordDialog
-          dn={object.dn}
-          onClose={() => setDialog(null)}
-          onDone={(message) => {
-            invalidate()
-            onChanged(message)
-          }}
-        />
-      )}
-      {dialog === 'rename' && (
-        <RenameDialog
-          dn={object.dn}
-          currentName={object.name}
-          onClose={() => setDialog(null)}
-          onDone={(message) => {
-            invalidate()
-            onChanged(message)
-          }}
-          onRelocated={onRetarget}
-        />
-      )}
-      {dialog === 'move' && (
-        <MoveDialog
-          dn={object.dn}
-          name={object.name}
-          onClose={() => setDialog(null)}
-          onDone={(message) => {
-            invalidate()
-            onChanged(message)
-          }}
-          // The DN changed, so whatever is showing this object has to follow
-          // it. The comment that used to sit here said as much and nothing
-          // did it.
-          onRelocated={onRetarget}
-        />
-      )}
-      {dialog === 'delete' && (
-        <DeleteDialog
-          dn={object.dn}
-          name={object.name}
-          isContainer={object.is_container}
-          isOu={object.type === 'organizational_unit'}
-          onClose={() => setDialog(null)}
-          onDone={(message) => {
-            invalidate()
-            onChanged(message)
-          }}
-        />
       )}
     </>
   )

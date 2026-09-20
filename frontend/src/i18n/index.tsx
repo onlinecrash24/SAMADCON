@@ -18,6 +18,7 @@ type PluralKey =
   | 'ou.childCount'
   | 'dns.recordCount'
   | 'sites.serverCount'
+  | 'sheet.pending'
 
 interface I18n {
   language: Language

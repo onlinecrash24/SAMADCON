@@ -16,12 +16,10 @@ import { useI18n } from '../i18n'
 export function DetailPane({
   object,
   onChanged,
-  onNavigate,
   onRetarget,
 }: {
   object: DirectoryObject | null
   onChanged: (message: string) => void
-  onNavigate: (dn: string) => void
   /** A rename or a move from in here changed the DN. */
   onRetarget?: (dn: string, name: string) => void
 }) {
@@ -37,7 +35,6 @@ export function DetailPane({
         key={object.dn}
         object={object}
         onChanged={onChanged}
-        onNavigate={onNavigate}
         onRetarget={onRetarget}
       />
     </aside>
