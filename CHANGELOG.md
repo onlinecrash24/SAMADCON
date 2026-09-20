@@ -14,6 +14,91 @@ release.
 
 ---
 
+## 0.5.10 — 2026-09-20
+
+Two things in one release: a security pass, and the first answers to a tester
+who used the console in production for a while and wrote down where it does
+not behave like the RSAT it replaces.
+
+**The security pass first, because one item is a real one.** A read-through of
+where security is actually decided — sign-in, sessions, CSRF, LDAP filter
+building, archive unpacking, SYSVOL paths, subprocesses, nginx — found the
+fundamentals sound and six gaps next to them. None was a missing guard; each
+was a guard that stopped one step short.
+
+The one that matters: `/auth/login` reached the network probe without the
+probe's rate limit. A typed server address makes the container open
+connections to it on 389 and 636 before anyone is signed in, and that is why
+`/servers/probe` allows 20 a minute per address. Login used the same path with
+no limit and recorded nothing on failure — an unauthenticated caller could use
+the container as a port scanner at network speed. The limit applies to login
+now, only when a server was typed; profiles and the default are the operator's
+hosts, not the caller's.
+
+The rest: `/info` told the sign-in page the DC addresses and a live count of
+signed-in administrators, which nothing read and anyone could see — gone.
+kinit gets `--` before the principal, so a name that begins with a dash is a
+name. The naming-context check in `get_ancestors` compared without the comma
+and let `OU=xDC=a,DC=b` pass as if it sat under `DC=a,DC=b`. Two throttle
+tables grew with attacker-chosen keys and now prune. And three hardenings on
+the SYSVOL paths: a colon in a backup member is refused (a drive letter, or an
+alternate data stream on vfs_streams), the restore caps the archive's declared
+total and not only each member, and the ADMX upload refuses a leading slash
+instead of stripping it — which is what its own docstring promised.
+
+Every one of these was proven the way this project proves things: all the
+source changes removed at once, twelve tests red, every one of them new;
+changes back, all green.
+
+**Then the tester's list.** Seven pages, eighteen screenshots, each point
+compared against the code before answering. Two of the heaviest turned out
+not to be missing features but bugs that made things look missing.
+
+A container with 100 000 users showed 500 of them and said nothing. The 500 is
+`ldap_page_size`. SamDB is opened without ldb's client-side `paged_searches`
+module — checked in libldb's source rather than assumed — so the
+`paged_results` control reached the server as-is, the server answered with one
+page and a cookie for the next, and the cookie was thrown away with the reply.
+The truncation notice then compared against a ceiling one page could never
+reach. The search walks every page now. The other half is a dial the tester
+asked for and ADUC has under View → Filter Options: the list toolbar offers
+500 to 10 000, remembered like the pane widths, and the notice names the number.
+
+The advanced view lacked NTDS Quotas and TPM Devices. The tree filter named
+five object classes and those two were not among them.
+
+Three smaller ones from the same list. The UPN was a text box saying
+"user@domain"; it is name plus a suffix chosen from what the forest offers —
+the domain, the forest's other domains, and what was added under Domains and
+Trusts — in both the property sheet and the new-user dialog. The manager field
+asked for a distinguished name typed by hand; it is a name with Change… and
+Clear now, the picker that already existed, and the overview shows direct
+reports. And the new-user dialog gained a Full name field that follows the
+logon name until overwritten, so the CN can be the logon name without
+retyping it — the one deliberate departure from ADUC, at the tester's request.
+
+**Also since 0.5.9,** on the repository rather than in the console: the
+README has screenshots and a GIF from a live domain, a status line that says
+what the milestone table already said, a changelog generated from these tag
+notes, and GitHub Releases for every tag back to 0.5.0. The console names its
+licence and links to its source from the sign-in card and the top bar —
+AGPL section 13 is the reason. The tab strip puts Group Policy Management
+before Diagnostics. And a new logo went through every place the old one was,
+with the background plates stripped where the console draws it on a card.
+
+**Not verified against a live domain:** the paging loop. The tests drive a
+fake samdb that hands out pages the way libldb prints them and assert the
+exact control string of every request; they prove the loop sends what libldb
+documents, not that Samba answers it. The LabUsers OU is the test, and it is
+the first thing to look at after pulling this.
+
+Along the way, two bugs the new tests caught before anyone else could:
+`values.first` hands back raw bytes, so the UPN suffix list had the domain in
+it twice; and `nameFromDn` split at the first comma, so `CN=Meyer\, Sarah`
+came out as `Meyer\`.
+
+---
+
 ## 0.5.9 — 2026-08-22
 
 Two commits, and both of them are about saying out loud what the console
