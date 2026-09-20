@@ -12,11 +12,12 @@
  * back as untrusted.
  */
 
+import { isColumnId } from './listColumns'
+
 const STORAGE_KEY = 'samadcon.listSort'
 
-export const SORT_COLUMNS = ['name', 'type', 'description'] as const
-
-export type SortColumn = (typeof SORT_COLUMNS)[number]
+/** Any column of the catalogue; the server sorts on every one of them. */
+export type SortColumn = string
 
 export interface ListSort {
   column: SortColumn
@@ -26,7 +27,7 @@ export interface ListSort {
 export const DEFAULT_LIST_SORT: ListSort = { column: 'name', descending: false }
 
 export function isSortColumn(value: unknown): value is SortColumn {
-  return typeof value === 'string' && (SORT_COLUMNS as readonly string[]).includes(value)
+  return isColumnId(value)
 }
 
 /**

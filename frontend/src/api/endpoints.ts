@@ -119,6 +119,7 @@ export const api = {
       limit?: number
       sort?: string
       descending?: boolean
+      columns?: string[]
     } = {},
   ) => {
     const params = new URLSearchParams({ dn })
@@ -128,6 +129,7 @@ export const api = {
     if (options.limit) params.set('limit', String(options.limit))
     if (options.sort) params.set('sort', options.sort)
     if (options.descending) params.set('descending', 'true')
+    if (options.columns?.length) params.set('columns', options.columns.join(','))
     return http.get<ChildListing>(`/directory/children?${params.toString()}`)
   },
   // `advanced` is left out by everything that picks a candidate — a trustee,
@@ -143,6 +145,7 @@ export const api = {
       limit?: number
       sort?: string
       descending?: boolean
+      columns?: string[]
     } = {},
   ) => {
     const params = new URLSearchParams()
@@ -153,6 +156,7 @@ export const api = {
     if (options.limit) params.set('limit', String(options.limit))
     if (options.sort) params.set('sort', options.sort)
     if (options.descending) params.set('descending', 'true')
+    if (options.columns?.length) params.set('columns', options.columns.join(','))
     return http.get<SearchResult>(`/directory/search?${params.toString()}`)
   },
   object: (dn: string) => http.get<DirectoryObject>(`/directory/object?dn=${dnParam(dn)}`),

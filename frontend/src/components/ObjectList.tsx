@@ -4,8 +4,10 @@ import type { DirectoryObject } from '../api/types'
 import { useI18n } from '../i18n'
 import { LIST_LIMITS, isListLimit, type ListLimit } from '../state/listLimit'
 import type { ListSort, SortColumn } from '../state/listSort'
+import { DEFAULT_COLUMNS, columnDef } from '../state/listColumns'
+import { ColumnsDialog } from './ColumnsDialog'
 import { anchorOf } from './ContextMenu'
-import { Badge, Icon, useTypeLabel } from './primitives'
+import { Badge, Icon, useDateFormat, useTypeLabel } from './primitives'
 
 interface ObjectListProps {
   entries: DirectoryObject[]
@@ -20,6 +22,9 @@ interface ObjectListProps {
   /** Which column the server sorted by; a click on a header asks for another. */
   sort?: ListSort
   onSortChange?: (column: SortColumn) => void
+  /** Which columns to draw, name first. Without a handler the default three, fixed. */
+  columns?: string[]
+  onColumnsChange?: (columns: string[]) => void
   selectedDn: string | null
   onSelect: (object: DirectoryObject) => void
   onOpen?: (object: DirectoryObject) => void
@@ -39,6 +44,8 @@ export function ObjectList({
   onLimitChange,
   sort,
   onSortChange,
+  columns = DEFAULT_COLUMNS,
+  onColumnsChange,
   selectedDn,
   onSelect,
   onOpen,
@@ -46,7 +53,9 @@ export function ObjectList({
 }: ObjectListProps) {
   const { t, tn } = useI18n()
   const typeLabel = useTypeLabel()
+  const formatDate = useDateFormat()
   const [filter, setFilter] = useState('')
+  const [choosing, setChoosing] = useState(false)
 
   const visible = useMemo(() => {
     const needle = filter.trim().toLowerCase()
@@ -71,6 +80,11 @@ export function ObjectList({
           onChange={(event) => setFilter(event.target.value)}
         />
         <span className="list__count">{tn('list.count', visible.length)}</span>
+        {onColumnsChange && (
+          <button type="button" className="link list__columns" onClick={() => setChoosing(true)}>
+            {t('columns.button')}
+          </button>
+        )}
         {limit !== undefined && onLimitChange && (
           <label className="list__limit">
             <span>{t('list.limit')}</span>
@@ -91,6 +105,17 @@ export function ObjectList({
         )}
       </div>
 
+      {choosing && onColumnsChange && (
+        <ColumnsDialog
+          columns={columns}
+          onClose={() => setChoosing(false)}
+          onSave={(next) => {
+            onColumnsChange(next)
+            setChoosing(false)
+          }}
+        />
+      )}
+
       {truncated && (
         <div className="alert alert--warning">
           {limit !== undefined
@@ -105,14 +130,15 @@ export function ObjectList({
         <table className="list__table">
           <thead>
             <tr>
-              <SortHeader column="name" label={t('list.name')} sort={sort} onSort={onSortChange} />
-              <SortHeader column="type" label={t('list.type')} sort={sort} onSort={onSortChange} />
-              <SortHeader
-                column="description"
-                label={t('list.description')}
-                sort={sort}
-                onSort={onSortChange}
-              />
+              {columns.map((id) => (
+                <SortHeader
+                  key={id}
+                  column={id}
+                  label={t(columnDef(id)?.label ?? 'list.name')}
+                  sort={sort}
+                  onSort={onSortChange}
+                />
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -147,7 +173,9 @@ export function ObjectList({
                   }
                 }}
               >
-                <td>
+                {columns.map((id) =>
+                  id === 'name' ? (
+                <td key={id}>
                   <span className="list__name">
                     <Icon type={entry.type} />
                     <span
@@ -165,8 +193,18 @@ export function ObjectList({
                     )}
                   </span>
                 </td>
-                <td>{typeLabel(entry.type)}</td>
-                <td className="list__description">{entry.description ?? ''}</td>
+                  ) : id === 'type' ? (
+                    <td key={id}>{typeLabel(entry.type)}</td>
+                  ) : id === 'description' ? (
+                    <td key={id} className="list__description">{entry.description ?? ''}</td>
+                  ) : (
+                    <td key={id} className="list__description">
+                      {columnDef(id)?.kind === 'date'
+                        ? formatDate(entry.columns?.[id] ?? null)
+                        : (entry.columns?.[id] ?? '')}
+                    </td>
+                  ),
+                )}
               </tr>
             ))}
           </tbody>

@@ -774,6 +774,14 @@ body.is-resizing { cursor: col-resize; user-select: none; }
    and not as part of the filter. */
 .list__limit { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: 0.85em; }
 .list__limit select { font-size: inherit; padding: 2px 4px; }
+.list__columns { margin-left: auto; font-size: 0.85em; }
+.list__columns + .list__limit { margin-left: 0; }
+/* Add/Remove Columns: two lists with the movers between and beside them. */
+.columns { display: grid; grid-template-columns: 1fr auto 1fr auto; gap: 10px; align-items: start; }
+.columns__list { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.columns__list select { width: 100%; }
+.columns__between, .columns__side { display: flex; flex-direction: column; gap: 6px; padding-top: 22px; }
+.columns__between .button, .columns__side .button { white-space: nowrap; }
 .list__empty { padding: 20px 12px; color: var(--text-muted); }
 
 .list__table { width: 100%; border-collapse: collapse; }
@@ -948,6 +956,9 @@ body.is-resizing { cursor: col-resize; user-select: none; }
   border-radius: 10px;
   box-shadow: 0 12px 40px rgb(0 0 0 / 25%);
 }
+/* After .modal, not before: at equal specificity the later rule wins, and
+   this one has to. Twice the width, for two lists side by side. */
+.modal--wide { max-width: 760px; }
 .modal__header {
   display: flex;
   align-items: center;

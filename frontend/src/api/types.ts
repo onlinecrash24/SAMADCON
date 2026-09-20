@@ -34,6 +34,8 @@ export interface DirectoryObject {
   dn: string
   name: string
   type: ObjectType
+  /** Extra list columns, present only when the list asked for them. Dates as ISO 8601. */
+  columns?: Record<string, string | null>
   display_name: string | null
   description: string | null
   guid: string | null

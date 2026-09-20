@@ -185,11 +185,17 @@ export function Modal({
   onClose,
   children,
   footer,
+  wide,
 }: {
   title: string
   onClose: () => void
   children: ReactNode
   footer?: ReactNode
+  /**
+   * Twice the width, for a dialog that puts two lists side by side. Not a
+   * general size knob: the one that wanted the screen became a window.
+   */
+  wide?: boolean
 }) {
   // There used to be a `size` for the one dialog that wanted the screen — a
   // tree beside a list of settings. That is a window now, with a title bar and
@@ -266,7 +272,7 @@ export function Modal({
     // console is read against those.
     <div className={isTop ? 'modal__backdrop' : 'modal__backdrop modal__backdrop--stacked'}>
       <div
-        className="modal"
+        className={wide ? 'modal modal--wide' : 'modal'}
         role="dialog"
         aria-modal="true"
         aria-label={title}

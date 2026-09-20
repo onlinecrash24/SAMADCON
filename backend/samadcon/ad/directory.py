@@ -207,6 +207,70 @@ SORT_ATTRIBUTES: dict[str, str] = {
     "description": "description",
 }
 
+# The columns a list may show beyond name, type and description — ADUC's
+# Add/Remove Columns, give or take. Each is one attribute, read only when
+# asked for (a list of 10 000 rows should not carry twenty attributes each
+# for the three that are shown), rendered as text, and sortable on the
+# server like the three above. Dates come out as ISO 8601 for the browser
+# to format; lastLogonTimestamp is a FILETIME, the when* pair is
+# GeneralizedTime, and the two are not the same encoding.
+LIST_COLUMNS: dict[str, str] = {
+    "display_name": "displayName",
+    "sam_account_name": "sAMAccountName",
+    "upn": "userPrincipalName",
+    "mail": "mail",
+    "title": "title",
+    "department": "department",
+    "company": "company",
+    "office": "physicalDeliveryOfficeName",
+    "telephone": "telephoneNumber",
+    "mobile": "mobile",
+    "city": "l",
+    "state": "st",
+    "postal_code": "postalCode",
+    "country": "co",
+    "employee_id": "employeeID",
+    "manager": "manager",
+    "dns_host_name": "dNSHostName",
+    "operating_system": "operatingSystem",
+    "when_created": "whenCreated",
+    "when_changed": "whenChanged",
+    "last_logon": "lastLogonTimestamp",
+}
+_FILETIME_COLUMNS = frozenset({"last_logon"})
+_GENERALIZED_TIME_COLUMNS = frozenset({"when_created", "when_changed"})
+SORT_ATTRIBUTES.update(LIST_COLUMNS)
+
+
+def column_attributes(columns: list[str] | None) -> list[str]:
+    """The attributes to read for *columns*, or an error naming the first unknown."""
+    attrs: list[str] = []
+    for column in columns or []:
+        attribute = LIST_COLUMNS.get(column)
+        if attribute is None:
+            raise InvalidRequest(
+                f"Unknown column: {column}", code="unknown_column", context={"column": column},
+            )
+        if attribute not in attrs:
+            attrs.append(attribute)
+    return attrs
+
+
+def render_columns(entry: Any, columns: list[str] | None) -> dict[str, str | None]:
+    """The requested columns as text, dates as ISO 8601, absent as None."""
+    out: dict[str, str | None] = {}
+    for column in columns or []:
+        attribute = LIST_COLUMNS[column]
+        if column in _FILETIME_COLUMNS:
+            moment = values.as_filetime(entry, attribute)
+            out[column] = moment.isoformat() if moment else None
+        elif column in _GENERALIZED_TIME_COLUMNS:
+            moment = values.as_generalized_time(entry, attribute)
+            out[column] = moment.isoformat() if moment else None
+        else:
+            out[column] = values.as_str(entry, attribute)
+    return out
+
 
 def sort_control(sort: str, descending: bool) -> str:
     """The server-side sort control, in ldb's string form.
@@ -234,6 +298,7 @@ def list_children(
     max_results: int = 2000,
     sort: str = "name",
     descending: bool = False,
+    columns: list[str] | None = None,
 ) -> dict[str, Any]:
     """One level below *dn*, the way ADUC's right-hand pane shows it."""
     expression = build_filter(types=types, query=query, include_advanced=include_advanced)
@@ -241,11 +306,11 @@ def list_children(
         dn,
         scope=SCOPE_ONELEVEL,
         expression=expression,
-        attrs=SUMMARY_ATTRS,
+        attrs=[*SUMMARY_ATTRS, *column_attributes(columns)],
         controls=[sort_control(sort, descending)],
         max_results=max_results,
     )
-    entries = [summarize(entry) for entry in result]
+    entries = [{**summarize(entry), "columns": render_columns(entry, columns)} for entry in result]
     # Containers first, as the MMC does. Python's sort is stable, so within
     # each half the server's order — the one that was asked for — stands.
     # Sorting by name here again would undo a sort by anything else.
@@ -344,6 +409,7 @@ def search_objects(
     max_results: int = 2000,
     sort: str = "name",
     descending: bool = False,
+    columns: list[str] | None = None,
 ) -> dict[str, Any]:
     """Directory-wide search.
 
@@ -356,11 +422,11 @@ def search_objects(
         base or conn.info.base_dn,
         scope=scope,
         expression=expression,
-        attrs=SUMMARY_ATTRS,
+        attrs=[*SUMMARY_ATTRS, *column_attributes(columns)],
         controls=[sort_control(sort, descending)],
         max_results=max_results,
     )
-    entries = [summarize(entry) for entry in result]
+    entries = [{**summarize(entry), "columns": render_columns(entry, columns)} for entry in result]
     return {"entries": entries, "truncated": result.truncated, "base": base or conn.info.base_dn}
 
 

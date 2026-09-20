@@ -59,8 +59,9 @@ async def children(
     q: Annotated[str | None, Query(description="Free-text filter (ANR)")] = None,
     advanced: bool = False,
     limit: Annotated[int, Query(ge=1, le=10000)] = 2000,
-    sort: Annotated[str, Query(pattern="^(name|type|description)$")] = "name",
+    sort: Annotated[str, Query(pattern="^[a-z_]+$")] = "name",
     descending: bool = False,
+    columns: Annotated[str | None, Query(description="Comma-separated extra columns")] = None,
 ) -> dict[str, Any]:
     """Objects directly below *dn* — the list pane."""
     return await ad_read(
@@ -74,6 +75,7 @@ async def children(
         max_results=limit,
         sort=sort,
         descending=descending,
+        columns=split_csv(columns),
         label="directory.children",
     )
 
@@ -90,8 +92,9 @@ async def search(
         bool, Query(description="Include objects marked advanced-only")
     ] = True,
     limit: Annotated[int, Query(ge=1, le=10000)] = 2000,
-    sort: Annotated[str, Query(pattern="^(name|type|description)$")] = "name",
+    sort: Annotated[str, Query(pattern="^[a-z_]+$")] = "name",
     descending: bool = False,
+    columns: Annotated[str | None, Query(description="Comma-separated extra columns")] = None,
 ) -> dict[str, Any]:
     """Find objects anywhere below a base.
 
@@ -117,6 +120,7 @@ async def search(
         max_results=limit,
         sort=sort,
         descending=descending,
+        columns=split_csv(columns),
         label="directory.search",
     )
 

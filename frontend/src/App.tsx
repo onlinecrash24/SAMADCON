@@ -29,6 +29,7 @@ import type { DnsZone } from './api/types'
 import { SNAPINS, panesFor, type SnapinId } from './features/console/snapins'
 import { readListLimit, writeListLimit, type ListLimit } from './state/listLimit'
 import { readListSort, toggleSort, writeListSort, type ListSort } from './state/listSort'
+import { readListColumns, requestedColumns, writeListColumns } from './state/listColumns'
 import { nameFromDn } from './dn'
 import { DiagnosticsView } from './features/diagnostics/DiagnosticsView'
 import { SecurityFindings } from './features/diagnostics/SecurityFindings'
@@ -137,6 +138,9 @@ function Console() {
   // request parameter and part of the query keys, not a reshuffle of what
   // happened to load.
   const [listSort, setListSort] = useState<ListSort>(readListSort)
+  // Which columns, in which order; the server is asked only for the extras.
+  const [listColumns, setListColumns] = useState<string[]>(readListColumns)
+  const extraColumns = requestedColumns(listColumns)
   // Both from the same stored value: the box should show the words that
   // produced the results on screen, not sit empty above them.
   const [searchTerm, setSearchTerm] = useState(restored.search)
@@ -163,13 +167,14 @@ function Console() {
   const serverInfo = useQuery({ queryKey: ['server-info'], queryFn: () => api.info() })
 
   const children = useQuery({
-    queryKey: ['children', currentDn, showAdvanced, listLimit, listSort],
+    queryKey: ['children', currentDn, showAdvanced, listLimit, listSort, extraColumns],
     queryFn: () =>
       api.children(currentDn, {
         advanced: showAdvanced,
         limit: listLimit,
         sort: listSort.column,
         descending: listSort.descending,
+        columns: extraColumns,
       }),
     enabled: activeSearch === '',
   })
@@ -177,13 +182,14 @@ function Console() {
   const search = useQuery({
     // The switch is part of the key, or toggling it would serve the previous
     // answer out of the cache and look like the switch does nothing.
-    queryKey: ['search', activeSearch, showAdvanced, listLimit, listSort],
+    queryKey: ['search', activeSearch, showAdvanced, listLimit, listSort, extraColumns],
     queryFn: () =>
       api.search(activeSearch, {
         advanced: showAdvanced,
         limit: listLimit,
         sort: listSort.column,
         descending: listSort.descending,
+        columns: extraColumns,
       }),
     enabled: activeSearch !== '',
   })
@@ -540,6 +546,17 @@ function Console() {
           <ObjectList
             entries={entries}
             truncated={activeSearch ? search.data?.truncated : children.data?.truncated}
+            columns={listColumns}
+            onColumnsChange={(next) => {
+              writeListColumns(next)
+              setListColumns(next)
+              // A sort on a column no longer shown would be invisible; fall back.
+              if (!next.includes(listSort.column)) {
+                const fallback = { column: 'name', descending: false }
+                writeListSort(fallback)
+                setListSort(fallback)
+              }
+            }}
             sort={listSort}
             onSortChange={(column) => {
               const next = toggleSort(listSort, column)
