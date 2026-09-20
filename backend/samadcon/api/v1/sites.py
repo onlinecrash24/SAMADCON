@@ -6,7 +6,7 @@ from typing import Any
 
 from fastapi import APIRouter
 
-from samadcon.ad import sites
+from samadcon.ad import sites, upn
 from samadcon.ad.access import ad_read, ad_write
 from samadcon.api.common import Audit, DnQuery
 from samadcon.auth.deps import CurrentSession, VerifiedSession, VerifiedWorker, Worker
@@ -19,6 +19,7 @@ from samadcon.schemas.requests import (
     UpdateSiteLinkRequest,
     UpdateSiteRequest,
     UpdateSubnetRequest,
+    UpnSuffixesRequest,
 )
 
 router = APIRouter(prefix="/sites", tags=["sites"])
@@ -130,6 +131,40 @@ async def delete_site(
 # ---------------------------------------------------------------------------
 # Subnets
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# UPN suffixes
+#
+# RSAT keeps these in Domains and Trusts, a console this does not have. They
+# are forest configuration like sites are, so they live here.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/upn-suffixes")
+async def upn_suffixes(worker: Worker, session: CurrentSession) -> dict[str, Any]:
+    """The hand-added suffixes, and the forest's domains beside them."""
+    return await ad_read(worker, session, upn.describe, label="sites.upn_suffixes")
+
+
+@router.put("/upn-suffixes")
+async def set_upn_suffixes(
+    payload: UpnSuffixesRequest,
+    worker: VerifiedWorker,
+    session: VerifiedSession,
+    audit: Audit,
+) -> dict[str, Any]:
+    """Replace the hand-added suffixes. An empty list removes them all."""
+    with audit.operation("sites.set_upn_suffixes", target="CN=Partitions") as record:
+        applied = await ad_write(
+            worker,
+            session,
+            upn.set_suffixes,
+            payload.suffixes,
+            label="sites.set_upn_suffixes",
+        )
+        record["changes"] = applied
+    return {"applied": applied}
 
 
 @router.get("/subnets")

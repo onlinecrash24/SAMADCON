@@ -158,6 +158,11 @@ export const api = {
   object: (dn: string) => http.get<DirectoryObject>(`/directory/object?dn=${dnParam(dn)}`),
   /** Every suffix a UPN may end in, the domain's own first. */
   upnSuffixes: () => http.get<{ suffixes: string[] }>('/directory/upn-suffixes'),
+  /** The hand-added suffixes apart from the forest's domains — for managing them. */
+  upnSuffixDescription: () =>
+    http.get<{ added: string[]; domains: string[] }>('/sites/upn-suffixes'),
+  setUpnSuffixes: (suffixes: string[]) =>
+    http.put<{ applied: Record<string, unknown> }>('/sites/upn-suffixes', { suffixes }),
   path: (dn: string) =>
     http.get<{ dn: string; path: DirectoryObject[] }>(`/directory/object/path?dn=${dnParam(dn)}`),
   attributes: (dn: string) =>

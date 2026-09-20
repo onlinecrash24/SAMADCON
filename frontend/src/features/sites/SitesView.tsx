@@ -16,8 +16,9 @@ import { Badge, ErrorMessage, Modal, Spinner } from '../../components/primitives
 import { useI18n } from '../../i18n'
 import { SiteLinkDialog } from './SiteLinkDialog'
 import { SubnetDialog } from './SubnetDialog'
+import { UpnSuffixesPanel } from './UpnSuffixesPanel'
 
-type Tab = 'sites' | 'subnets' | 'links'
+type Tab = 'sites' | 'subnets' | 'links' | 'upn'
 
 interface SitesViewProps {
   onChanged: (message: string) => void
@@ -88,6 +89,13 @@ export function SitesView({ onChanged }: SitesViewProps) {
           >
             {t('sites.tabLinks')} ({data.links.length})
           </button>
+          <button
+            type="button"
+            className={tab === 'upn' ? 'tabs__tab tabs__tab--active' : 'tabs__tab'}
+            onClick={() => setTab('upn')}
+          >
+            {t('sites.tabUpn')}
+          </button>
         </div>
 
         <div className="pane__actions">
@@ -124,6 +132,8 @@ export function SitesView({ onChanged }: SitesViewProps) {
           onDelete={(subnet) => setConfirm({ kind: 'subnets', dn: subnet.dn, name: subnet.name })}
         />
       )}
+
+      {tab === 'upn' && <UpnSuffixesPanel onChanged={onChanged} />}
 
       {tab === 'links' && (
         <LinkTable

@@ -473,37 +473,18 @@ def upn_suffixes(conn: DirectoryConnection) -> list[str]:
     """Every suffix a user principal name may end in, this domain's first.
 
     The same list ADUC offers beside the logon name: the domain's own DNS
-    name, the DNS name of every other domain in the forest, and whatever was
-    added by hand under Domains and Trusts — which lands in ``uPNSuffixes`` on
-    the Partitions container. Read from there rather than typed, so a suffix
-    that exists in the forest is offered and one that does not is not.
-
-    Domains are the crossRef entries that carry a nETBIOSName; the other
-    crossRefs are the configuration and schema partitions and application
-    partitions such as DomainDnsZones, none of which is a UPN suffix.
+    name, whatever was added by hand under Domains and Trusts, and the DNS
+    name of every other domain in the forest. Read from the directory rather
+    than typed, so a suffix that exists is offered and one that does not is
+    not. The two halves live in samadcon.ad.upn, which also edits the one
+    that can be edited.
     """
-    partitions = f"CN=Partitions,{conn.info.config_dn}"
-    seen: list[str] = []
+    from samadcon.ad import upn
 
-    def add(name: str | None) -> None:
+    seen: list[str] = []
+    for name in [conn.info.dns_domain, *upn.added_suffixes(conn), *upn.forest_domains(conn)]:
         if name and name.lower() not in {s.lower() for s in seen}:
             seen.append(name)
-
-    add(conn.info.dns_domain)
-
-    container = conn.get(partitions, attrs=["uPNSuffixes"])
-    if container is not None:
-        for suffix in values.as_list(container, "uPNSuffixes"):
-            add(suffix)
-
-    for ref in conn.search(
-        partitions,
-        scope=SCOPE_ONELEVEL,
-        expression="(&(objectClass=crossRef)(nETBIOSName=*))",
-        attrs=["dnsRoot"],
-    ):
-        add(values.as_str(ref, "dnsRoot"))
-
     return seen
 
 

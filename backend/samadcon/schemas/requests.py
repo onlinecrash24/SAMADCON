@@ -219,6 +219,12 @@ class UpdateSiteRequest(StrictModel):
     location: str | None = Field(default=None, max_length=1024)
 
 
+class UpnSuffixesRequest(StrictModel):
+    """The hand-added UPN suffixes, in full; the list replaces what is there."""
+
+    suffixes: list[str] = Field(max_length=200)
+
+
 class RenameSiteRequest(StrictModel):
     name: str = Field(min_length=1, max_length=63)
 
