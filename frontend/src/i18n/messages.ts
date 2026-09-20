@@ -221,7 +221,10 @@ export const de = {
 
   'action.change': 'Ändern',
 
-  'user.logonName': 'Anmeldename',
+  'user.logonName': 'Benutzeranmeldename',
+  'user.logonNameHint': 'Der userPrincipalName: Name und Suffix, wie eine E-Mail-Adresse.',
+  'user.samName': 'Benutzeranmeldename (Prä-Windows 2000)',
+  'user.samNameHint': 'sAMAccountName — höchstens 20 Zeichen, eindeutig in der Domäne. Folgt dem Namen oben, bis Sie ihn ändern.',
   'user.fullName': 'Vollständiger Name',
   'dialog.fullNameHint':
     'Wird der CN des Objekts. Vorbelegt mit dem Anmeldenamen — leer lassen, um ihm zu folgen.',
@@ -1554,7 +1557,10 @@ export const en: Record<MessageKey, string> = {
 
   'action.change': 'Change',
 
-  'user.logonName': 'Logon name',
+  'user.logonName': 'User logon name',
+  'user.logonNameHint': 'The userPrincipalName: name and suffix, shaped like an e-mail address.',
+  'user.samName': 'User logon name (pre-Windows 2000)',
+  'user.samNameHint': 'sAMAccountName — at most 20 characters, unique in the domain. Follows the name above until you change it.',
   'user.fullName': 'Full name',
   'dialog.fullNameHint':
     'Becomes the object\'s CN. Prefilled from the logon name — leave it empty to follow it.',

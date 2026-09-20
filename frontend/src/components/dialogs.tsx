@@ -7,6 +7,7 @@ import { ApiError } from '../api/client'
 import { api } from '../api/endpoints'
 import { UpnField } from '../features/directory/UpnField'
 import { splitUpn } from '../features/directory/upn'
+import { useSession } from '../state/session'
 import type { TreeNode } from '../api/types'
 import { isAtOrBelow } from '../dn'
 import { useI18n } from '../i18n'
@@ -44,14 +45,23 @@ function useSubmit(onDone: (message: string) => void, onClose: () => void) {
 
 export function NewUserDialog({ parentDn, onClose, onDone }: DialogProps & { parentDn: string }) {
   const { t } = useI18n()
+  const { session } = useSession()
   const { error, setError, pending, run } = useSubmit(onDone, onClose)
   const [form, setForm] = useState({
     first_name: '',
     last_name: '',
-    sam: '',
-    // The suffix half of the UPN; the name half is the logon name. Empty
-    // means "the domain's own", which the server fills in.
+    // Two logon names, as ADUC has them, and they are not the same thing.
+    // The user principal name is upnLocal@upnSuffix — the modern logon
+    // name, an e-mail-shaped alias. sAMAccountName is the pre-Windows-2000
+    // name, at most 20 characters, unique in the domain, and the one
+    // Kerberos and every legacy client actually use. A tester caught the
+    // dialog treating them as one field: the name before the @ must be
+    // the UPN's, and sAM must stay its own, required, unique field. It
+    // follows the UPN name until someone types into it — ADUC's mirror.
+    upnLocal: '',
     upnSuffix: '',
+    sam: '',
+    samTouched: false,
     // The object's CN. Follows the logon name until someone types into it —
     // a tester's request, and a departure from ADUC, which builds it from
     // first and last name and makes you retype it every time you want the
@@ -66,6 +76,8 @@ export function NewUserDialog({ parentDn, onClose, onDone }: DialogProps & { par
     setForm((current) => ({ ...current, [key]: value }))
 
   const commonName = form.cn || form.sam
+  const suffix = form.upnSuffix || session?.domain.dns_domain || ''
+  const upn = form.upnLocal.trim() ? `${form.upnLocal.trim()}@${suffix}` : ''
   const displayName = [form.first_name, form.last_name].filter(Boolean).join(' ') || commonName
 
   const submit = (event: FormEvent) => {
@@ -79,7 +91,7 @@ export function NewUserDialog({ parentDn, onClose, onDone }: DialogProps & { par
         must_change_password: form.mustChange,
         enabled: form.enabled,
         attributes: {
-          ...(form.upnSuffix ? { upn: `${form.sam.trim()}@${form.upnSuffix}` } : {}),
+          ...(upn ? { upn } : {}),
           ...(form.first_name ? { first_name: form.first_name } : {}),
           ...(form.last_name ? { last_name: form.last_name } : {}),
           ...(displayName ? { display_name: displayName } : {}),
@@ -114,17 +126,36 @@ export function NewUserDialog({ parentDn, onClose, onDone }: DialogProps & { par
             <input value={form.last_name} onChange={(e) => set('last_name', e.target.value)} />
           </Field>
         </div>
-        <Field label={t('user.logonName')} hint="sAMAccountName — max. 20">
+        <Field label={t('user.logonName')} hint={t('user.logonNameHint')}>
           <UpnField
             required
-            maxLength={20}
-            value={form.upnSuffix ? `${form.sam}@${form.upnSuffix}` : form.sam}
+            value={form.upnSuffix ? `${form.upnLocal}@${form.upnSuffix}` : form.upnLocal}
             onChange={(next) => {
               const { local, suffix } = splitUpn(next)
-              set('sam', local.slice(0, 20))
-              set('upnSuffix', suffix)
+              setForm((current) => ({
+                ...current,
+                upnLocal: local,
+                upnSuffix: suffix,
+                // The pre-Windows-2000 name mirrors this one until edited by hand.
+                sam: current.samTouched ? current.sam : local.slice(0, 20),
+              }))
             }}
           />
+        </Field>
+        <Field label={t('user.samName')} hint={t('user.samNameHint')}>
+          <div className="field-inline">
+            <span className="muted mono">{session?.domain.netbios_name}\</span>
+            <input
+              required
+              maxLength={20}
+              autoComplete="off"
+              spellCheck={false}
+              value={form.sam}
+              onChange={(e) =>
+                setForm((current) => ({ ...current, sam: e.target.value, samTouched: true }))
+              }
+            />
+          </div>
         </Field>
         <Field label={t('user.fullName')} hint={t('dialog.fullNameHint')}>
           <input
