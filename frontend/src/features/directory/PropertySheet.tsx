@@ -13,6 +13,7 @@ import { useI18n } from '../../i18n'
 import type { MessageKey } from '../../i18n/messages'
 import { Badge, ErrorMessage, Field } from '../../components/primitives'
 import { ACCOUNT_FLAGS, DANGEROUS_FLAGS, type FieldGroup } from './fieldDefs'
+import { DnField } from './DnField'
 import { UpnField } from './UpnField'
 
 type Attributes = Record<string, string | null>
@@ -107,7 +108,15 @@ export function PropertySheet({
               label={t(field.label)}
               hint={field.hint ? t(field.hint) : undefined}
             >
-              {field.kind === 'upn' ? (
+              {field.kind === 'dn' ? (
+                <DnField
+                  value={value(field.name)}
+                  types={field.pickTypes ?? ['user']}
+                  onChange={(next) =>
+                    setDraft((current) => ({ ...current, [field.name]: next }))
+                  }
+                />
+              ) : field.kind === 'upn' ? (
                 <UpnField
                   value={value(field.name)}
                   onChange={(next) =>
@@ -125,7 +134,7 @@ export function PropertySheet({
                 />
               ) : (
                 <input
-                  // 'upn' and 'multiline' are handled by the branches above,
+                  // 'dn', 'upn' and 'multiline' are handled by the branches above,
                   // so what remains maps directly onto an input type.
                   type={field.kind ?? 'text'}
                   value={value(field.name)}

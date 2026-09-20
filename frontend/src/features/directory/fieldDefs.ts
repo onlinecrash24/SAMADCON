@@ -7,10 +7,14 @@
  * i18n keys, and the server has no business knowing about those.
  */
 
+import type { ObjectType } from '../../api/types'
 import type { MessageKey } from '../../i18n/messages'
 
-/** 'upn' is name plus a suffix chosen from the forest; see UpnField. */
-export type FieldKind = 'text' | 'email' | 'tel' | 'url' | 'multiline' | 'upn'
+/**
+ * 'upn' is name plus a suffix chosen from the forest (UpnField); 'dn' is a
+ * reference to another object, picked rather than typed (DnField).
+ */
+export type FieldKind = 'text' | 'email' | 'tel' | 'url' | 'multiline' | 'upn' | 'dn'
 
 export interface FieldDef {
   /** API field name, sent verbatim in the attributes object. */
@@ -20,6 +24,8 @@ export interface FieldDef {
   /** Free-form note shown under the input. */
   hint?: MessageKey
   maxLength?: number
+  /** For kind 'dn': what the picker offers. */
+  pickTypes?: ObjectType[]
 }
 
 export interface FieldGroup {
@@ -88,7 +94,7 @@ export const USER_GROUPS: FieldGroup[] = [
       { name: 'title', label: 'user.title' },
       { name: 'department', label: 'user.department' },
       { name: 'company', label: 'user.company' },
-      { name: 'manager', label: 'user.manager', hint: 'user.managerHint' },
+      { name: 'manager', label: 'user.manager', kind: 'dn', pickTypes: ['user', 'contact'] },
     ],
   },
 ]
@@ -101,7 +107,12 @@ export const GROUP_GROUPS: FieldGroup[] = [
       { name: 'description', label: 'user.description' },
       { name: 'mail', label: 'user.mail', kind: 'email' },
       { name: 'notes', label: 'user.notes', kind: 'multiline' },
-      { name: 'managed_by', label: 'group.managedBy', hint: 'user.managerHint' },
+      {
+        name: 'managed_by',
+        label: 'group.managedBy',
+        kind: 'dn',
+        pickTypes: ['user', 'group', 'contact'],
+      },
     ],
   },
 ]
@@ -114,7 +125,12 @@ export const COMPUTER_GROUPS: FieldGroup[] = [
       { name: 'description', label: 'user.description' },
       { name: 'location', label: 'computer.location' },
       { name: 'dns_host_name', label: 'computer.dnsName' },
-      { name: 'managed_by', label: 'group.managedBy', hint: 'user.managerHint' },
+      {
+        name: 'managed_by',
+        label: 'group.managedBy',
+        kind: 'dn',
+        pickTypes: ['user', 'group', 'contact'],
+      },
     ],
   },
 ]
@@ -129,7 +145,12 @@ export const OU_GROUPS: FieldGroup[] = [
       { name: 'state', label: 'user.state' },
       { name: 'postal_code', label: 'user.postalCode' },
       { name: 'country', label: 'user.country', hint: 'user.countryHint', maxLength: 2 },
-      { name: 'managed_by', label: 'group.managedBy', hint: 'user.managerHint' },
+      {
+        name: 'managed_by',
+        label: 'group.managedBy',
+        kind: 'dn',
+        pickTypes: ['user', 'group', 'contact'],
+      },
     ],
   },
 ]

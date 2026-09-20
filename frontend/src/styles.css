@@ -293,6 +293,12 @@ button:focus-visible {
 .upn input { flex: 1; min-width: 0; }
 .upn select { width: auto; flex: 0 1 auto; max-width: 60%; }
 .upn__at { color: var(--text-muted); }
+
+/* An object reference: the name, then Change and Clear, as ADUC draws a
+   manager. The name takes the room; the buttons keep their own width. */
+.dn-field { display: flex; align-items: center; gap: 8px; }
+.dn-field__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-alt); }
+.plain-list { list-style: none; margin: 0; padding: 0; }
 .login__server input { flex: 1; }
 .login__probe {
   margin: 10px 0;

@@ -16,6 +16,7 @@ import { detailRowActions, type ActionId } from './objectActions'
 import { MembershipEditor } from './MembershipEditor'
 import { PropertySheet } from './PropertySheet'
 import { SecurityTab } from './SecurityTab'
+import { nameFromDn } from '../../dn'
 import { useI18n } from '../../i18n'
 import type { MessageKey } from '../../i18n/messages'
 import { DeleteDialog, MoveDialog, PasswordDialog, RenameDialog } from '../../components/dialogs'
@@ -452,6 +453,32 @@ function UserSection({ user }: { user: UserDetail }) {
         <TextRow label={t('user.company')} value={attributes.company} />
         <TextRow label={t('user.office')} value={attributes.office} />
       </section>
+
+      {(attributes.manager || user.direct_reports.length > 0) && (
+        <section className="detail__section">
+          <h3>{t('detail.organization')}</h3>
+          {attributes.manager && (
+            <TextRow
+              label={t('user.manager')}
+              value={<span title={attributes.manager}>{nameFromDn(attributes.manager)}</span>}
+            />
+          )}
+          {user.direct_reports.length > 0 && (
+            <TextRow
+              label={t('user.directReports')}
+              value={
+                <ul className="plain-list">
+                  {user.direct_reports.map((dn) => (
+                    <li key={dn} title={dn}>
+                      {nameFromDn(dn)}
+                    </li>
+                  ))}
+                </ul>
+              }
+            />
+          )}
+        </section>
+      )}
 
       <FlagSection flags={user.flags} />
     </>

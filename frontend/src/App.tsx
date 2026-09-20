@@ -28,6 +28,7 @@ import { SourceNote } from './components/SourceNote'
 import type { DnsZone } from './api/types'
 import { SNAPINS, panesFor, type SnapinId } from './features/console/snapins'
 import { readListLimit, writeListLimit, type ListLimit } from './state/listLimit'
+import { nameFromDn } from './dn'
 import { DiagnosticsView } from './features/diagnostics/DiagnosticsView'
 import { SecurityFindings } from './features/diagnostics/SecurityFindings'
 import { DnsView } from './features/dns/DnsView'
@@ -81,11 +82,6 @@ export function App() {
   ) : (
     <LoginView />
   )
-}
-
-/** The leading component of a DN, without its attribute name. */
-function nameFromDn(dn: string): string {
-  return (dn.split(',')[0] ?? dn).replace(/^[A-Za-z]+=/, '')
 }
 
 function Console() {

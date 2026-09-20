@@ -8,6 +8,20 @@
  * selection. Three copies of it would eventually disagree about the comma.
  */
 
+/**
+ * The leading component of a DN, without its attribute name:
+ * "CN=Anna,OU=x" → "Anna".
+ *
+ * The first RDN ends at the first comma that is not escaped, and a name may
+ * carry escaped commas — "CN=Meyer\, Sarah,OU=x" is one object called
+ * "Meyer, Sarah". A plain split on the comma gave "Meyer\" for it. RFC 4514
+ * escapes are undone on the way out, so what is shown is the name.
+ */
+export function nameFromDn(dn: string): string {
+  const first = /^(?:[^,\\]|\\.)*/.exec(dn)?.[0] ?? dn
+  return first.replace(/^[A-Za-z]+=/, '').replace(/\\(.)/g, '$1')
+}
+
 /** Whether *dn* is *ancestor* itself, or sits anywhere below it. */
 export function isAtOrBelow(dn: string | null | undefined, ancestor: string): boolean {
   if (!dn) return false
