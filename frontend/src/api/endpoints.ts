@@ -110,11 +110,15 @@ export const api = {
     ),
   tree: (dn: string, advanced = false) =>
     http.get<TreeListing>(`/directory/tree?dn=${dnParam(dn)}&advanced=${advanced}`),
-  children: (dn: string, options: { types?: string[]; query?: string; advanced?: boolean } = {}) => {
+  children: (
+    dn: string,
+    options: { types?: string[]; query?: string; advanced?: boolean; limit?: number } = {},
+  ) => {
     const params = new URLSearchParams({ dn })
     if (options.types?.length) params.set('types', options.types.join(','))
     if (options.query) params.set('q', options.query)
     if (options.advanced) params.set('advanced', 'true')
+    if (options.limit) params.set('limit', String(options.limit))
     return http.get<ChildListing>(`/directory/children?${params.toString()}`)
   },
   // `advanced` is left out by everything that picks a candidate — a trustee,
@@ -123,13 +127,14 @@ export const api = {
   // box passes it, so that browsing and searching agree.
   search: (
     query: string,
-    options: { base?: string; types?: string[]; advanced?: boolean } = {},
+    options: { base?: string; types?: string[]; advanced?: boolean; limit?: number } = {},
   ) => {
     const params = new URLSearchParams()
     if (query) params.set('q', query)
     if (options.base) params.set('base', options.base)
     if (options.types?.length) params.set('types', options.types.join(','))
     if (options.advanced !== undefined) params.set('advanced', String(options.advanced))
+    if (options.limit) params.set('limit', String(options.limit))
     return http.get<SearchResult>(`/directory/search?${params.toString()}`)
   },
   object: (dn: string) => http.get<DirectoryObject>(`/directory/object?dn=${dnParam(dn)}`),

@@ -2,12 +2,20 @@ import { useMemo, useState } from 'react'
 
 import type { DirectoryObject } from '../api/types'
 import { useI18n } from '../i18n'
+import { LIST_LIMITS, isListLimit, type ListLimit } from '../state/listLimit'
 import { anchorOf } from './ContextMenu'
 import { Badge, Icon, useTypeLabel } from './primitives'
 
 interface ObjectListProps {
   entries: DirectoryObject[]
   truncated?: boolean
+  /**
+   * How many the server was asked for, and the dial to change it. ADUC has
+   * the same under View → Filter Options, and a 100 000-object OU is where
+   * one finds out why: a fixed ceiling is right for nobody in particular.
+   */
+  limit?: ListLimit
+  onLimitChange?: (limit: ListLimit) => void
   selectedDn: string | null
   onSelect: (object: DirectoryObject) => void
   onOpen?: (object: DirectoryObject) => void
@@ -23,6 +31,8 @@ interface ObjectListProps {
 export function ObjectList({
   entries,
   truncated,
+  limit,
+  onLimitChange,
   selectedDn,
   onSelect,
   onOpen,
@@ -55,9 +65,33 @@ export function ObjectList({
           onChange={(event) => setFilter(event.target.value)}
         />
         <span className="list__count">{tn('list.count', visible.length)}</span>
+        {limit !== undefined && onLimitChange && (
+          <label className="list__limit">
+            <span>{t('list.limit')}</span>
+            <select
+              value={limit}
+              onChange={(event) => {
+                const next = Number(event.target.value)
+                if (isListLimit(next)) onLimitChange(next)
+              }}
+            >
+              {LIST_LIMITS.map((choice) => (
+                <option key={choice} value={choice}>
+                  {choice.toLocaleString()}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
 
-      {truncated && <div className="alert alert--warning">{t('list.truncated')}</div>}
+      {truncated && (
+        <div className="alert alert--warning">
+          {limit !== undefined
+            ? t('list.truncatedAt', { limit: limit.toLocaleString() })
+            : t('list.truncated')}
+        </div>
+      )}
 
       {visible.length === 0 ? (
         <p className="list__empty">{t('list.empty')}</p>

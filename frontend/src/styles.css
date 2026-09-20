@@ -739,6 +739,10 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 .list__toolbar { display: flex; gap: 10px; align-items: center; padding: 8px 12px; }
 .list__filter { max-width: 260px; }
 .list__count { color: var(--text-muted); font-size: 0.85em; }
+/* The ceiling dial, at the far end of the toolbar so it reads as a setting
+   and not as part of the filter. */
+.list__limit { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: 0.85em; }
+.list__limit select { font-size: inherit; padding: 2px 4px; }
 .list__empty { padding: 20px 12px; color: var(--text-muted); }
 
 .list__table { width: 100%; border-collapse: collapse; }

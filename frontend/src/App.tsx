@@ -27,6 +27,7 @@ import { ErrorMessage, Icon, Spinner } from './components/primitives'
 import { SourceNote } from './components/SourceNote'
 import type { DnsZone } from './api/types'
 import { SNAPINS, panesFor, type SnapinId } from './features/console/snapins'
+import { readListLimit, writeListLimit, type ListLimit } from './state/listLimit'
 import { DiagnosticsView } from './features/diagnostics/DiagnosticsView'
 import { SecurityFindings } from './features/diagnostics/SecurityFindings'
 import { DnsView } from './features/dns/DnsView'
@@ -132,6 +133,9 @@ function Console() {
   const [currentDn, setCurrentDn] = useState(restored.dn)
   const [selected, setSelected] = useState<DirectoryObject | null>(null)
   const [showAdvanced, setShowAdvanced] = useState(restored.showAdvanced)
+  // How many objects to ask for. Part of both query keys below, so raising
+  // it refetches rather than serving the shorter answer out of the cache.
+  const [listLimit, setListLimit] = useState<ListLimit>(readListLimit)
   // Both from the same stored value: the box should show the words that
   // produced the results on screen, not sit empty above them.
   const [searchTerm, setSearchTerm] = useState(restored.search)
@@ -158,16 +162,16 @@ function Console() {
   const serverInfo = useQuery({ queryKey: ['server-info'], queryFn: () => api.info() })
 
   const children = useQuery({
-    queryKey: ['children', currentDn, showAdvanced],
-    queryFn: () => api.children(currentDn, { advanced: showAdvanced }),
+    queryKey: ['children', currentDn, showAdvanced, listLimit],
+    queryFn: () => api.children(currentDn, { advanced: showAdvanced, limit: listLimit }),
     enabled: activeSearch === '',
   })
 
   const search = useQuery({
     // The switch is part of the key, or toggling it would serve the previous
     // answer out of the cache and look like the switch does nothing.
-    queryKey: ['search', activeSearch, showAdvanced],
-    queryFn: () => api.search(activeSearch, { advanced: showAdvanced }),
+    queryKey: ['search', activeSearch, showAdvanced, listLimit],
+    queryFn: () => api.search(activeSearch, { advanced: showAdvanced, limit: listLimit }),
     enabled: activeSearch !== '',
   })
 
@@ -523,6 +527,11 @@ function Console() {
           <ObjectList
             entries={entries}
             truncated={activeSearch ? search.data?.truncated : children.data?.truncated}
+            limit={listLimit}
+            onLimitChange={(next) => {
+              writeListLimit(next)
+              setListLimit(next)
+            }}
             selectedDn={selected?.dn ?? null}
             onSelect={setSelected}
             onOpen={(object) => {

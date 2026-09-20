@@ -107,6 +107,22 @@ class TransportState:
         }
 
 
+def _paging_cookie(controls: Any) -> str:
+    """The cookie for the next page, or "" when the server has no more.
+
+    ldb prints a reply control as ``paged_results:<critical>:<cookie>`` and
+    parses a request control as ``paged_results:<critical>:<size>[:<cookie>]``
+    — the cookie is the last field in both, base64, and base64 has no colon.
+    Splitting on the last colon is therefore right for either shape, which
+    matters because the two are printed by different code in libldb.
+    """
+    for control in controls or ():
+        text = str(control)
+        if text.startswith("paged_results") and text.count(":") >= 2:
+            return text.rsplit(":", 1)[1]
+    return ""
+
+
 @dataclass
 class SearchResult:
     entries: list[Any]
@@ -165,32 +181,45 @@ class DirectoryConnection:
         controls: list[str] | None = None,
         max_results: int = DEFAULT_MAX_RESULTS,
     ) -> SearchResult:
+        # Paged, and the pages are walked here. SamDB is opened without the
+        # client-side paged_searches module, so a paged_results control goes to
+        # the server as-is: the server answers with one page and a cookie for
+        # the next, and nothing fetches it unless we do. Until this loop, the
+        # cookie was thrown away with the reply — every container showed
+        # exactly ldap_page_size objects, and "truncated" stayed false because
+        # it compared against max_results, which one page never reached.
         page_size = self.settings.ldap_page_size
-        all_controls = list(controls or [])
-        if not any(c.startswith("paged_results") for c in all_controls):
-            all_controls.append(f"paged_results:1:{page_size}")
+        others = [c for c in (controls or []) if not c.startswith("paged_results")]
+        target_base = base if base is not None else self.info.base_dn
 
-        try:
-            raw = self.samdb.search(
-                base=base if base is not None else self.info.base_dn,
-                scope=scope,
-                expression=expression,
-                attrs=attrs,
-                controls=all_controls,
-            )
-        except Exception as exc:
-            raise translate(exc) from exc
+        entries: list[Any] = []
+        cookie = ""
+        while True:
+            paging = f"paged_results:1:{page_size}" + (f":{cookie}" if cookie else "")
+            try:
+                raw = self.samdb.search(
+                    base=target_base,
+                    scope=scope,
+                    expression=expression,
+                    attrs=attrs,
+                    controls=[*others, paging],
+                )
+            except Exception as exc:
+                raise translate(exc) from exc
 
-        entries = list(raw)
-        if len(entries) > max_results:
-            logger.info(
-                "search truncated at %d entries (base=%s filter=%s)",
-                max_results,
-                base,
-                expression,
-            )
-            return SearchResult(entries[:max_results], truncated=True)
-        return SearchResult(entries)
+            entries.extend(raw)
+            if len(entries) > max_results:
+                logger.info(
+                    "search truncated at %d entries (base=%s filter=%s)",
+                    max_results,
+                    base,
+                    expression,
+                )
+                return SearchResult(entries[:max_results], truncated=True)
+
+            cookie = _paging_cookie(getattr(raw, "controls", None))
+            if not cookie:
+                return SearchResult(entries)
 
     def get(self, dn: str, attrs: list[str] | None = None) -> Any | None:
         """Read one object, or None when it does not exist."""

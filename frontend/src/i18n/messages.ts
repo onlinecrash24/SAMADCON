@@ -108,6 +108,9 @@ export const de = {
 
   'list.empty': 'Keine Objekte in diesem Container.',
   'list.truncated': 'Anzeige gekürzt. Grenzen Sie die Suche weiter ein.',
+  'list.truncatedAt':
+    'Es gibt mehr als {limit} Objekte; angezeigt werden die ersten {limit}. Grenze anheben oder die Suche eingrenzen.',
+  'list.limit': 'Höchstens',
   'list.name': 'Name',
   'list.type': 'Typ',
   'list.description': 'Beschreibung',
@@ -1433,6 +1436,9 @@ export const en: Record<MessageKey, string> = {
 
   'list.empty': 'No objects in this container.',
   'list.truncated': 'Results truncated. Narrow the search further.',
+  'list.truncatedAt':
+    'There are more than {limit} objects; the first {limit} are shown. Raise the limit or narrow the search.',
+  'list.limit': 'At most',
   'list.name': 'Name',
   'list.type': 'Type',
   'list.description': 'Description',
