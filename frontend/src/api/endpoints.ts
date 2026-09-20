@@ -138,6 +138,8 @@ export const api = {
     return http.get<SearchResult>(`/directory/search?${params.toString()}`)
   },
   object: (dn: string) => http.get<DirectoryObject>(`/directory/object?dn=${dnParam(dn)}`),
+  /** Every suffix a UPN may end in, the domain's own first. */
+  upnSuffixes: () => http.get<{ suffixes: string[] }>('/directory/upn-suffixes'),
   path: (dn: string) =>
     http.get<{ dn: string; path: DirectoryObject[] }>(`/directory/object/path?dn=${dnParam(dn)}`),
   attributes: (dn: string) =>

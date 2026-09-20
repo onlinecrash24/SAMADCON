@@ -248,7 +248,7 @@ export const de = {
 
   'user.initials': 'Initialen',
   'user.webPage': 'Webseite',
-  'user.upnHint': 'Anmeldename in der Form benutzer@domäne',
+  'user.upnHint': 'Name und Suffix; die Suffixe kommen aus der Gesamtstruktur.',
   'user.logonWorkstations': 'Anmeldung an Arbeitsstationen',
   'user.logonWorkstationsHint': 'Computernamen, durch Komma getrennt. Leer bedeutet: überall.',
   'user.street': 'Straße',
@@ -1577,7 +1577,7 @@ export const en: Record<MessageKey, string> = {
 
   'user.initials': 'Initials',
   'user.webPage': 'Web page',
-  'user.upnHint': 'Logon name in the form user@domain',
+  'user.upnHint': 'Name and suffix; the suffixes come from the forest.',
   'user.logonWorkstations': 'Log on to workstations',
   'user.logonWorkstationsHint': 'Comma-separated computer names. Empty means anywhere.',
   'user.street': 'Street',

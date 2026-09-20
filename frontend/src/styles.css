@@ -286,6 +286,13 @@ button:focus-visible {
 .login__card .button--primary { width: 100%; margin-top: 8px; padding: 9px; }
 
 .login__server { display: flex; gap: 8px; }
+
+/* name @ suffix, the way ADUC draws a UPN. The name takes what is left
+   after the suffix has what it needs; both are the same control height. */
+.upn { display: flex; align-items: center; gap: 6px; }
+.upn input { flex: 1; min-width: 0; }
+.upn select { width: auto; flex: 0 1 auto; max-width: 60%; }
+.upn__at { color: var(--text-muted); }
 .login__server input { flex: 1; }
 .login__probe {
   margin: 10px 0;

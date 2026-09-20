@@ -22,6 +22,15 @@ async def roots(worker: Worker, session: CurrentSession) -> dict[str, Any]:
     return {"roots": contexts}
 
 
+@router.get("/upn-suffixes")
+async def upn_suffixes(worker: Worker, session: CurrentSession) -> dict[str, Any]:
+    """The suffixes a user principal name may take, the domain's own first."""
+    suffixes = await ad_read(
+        worker, session, directory.upn_suffixes, label="directory.upn_suffixes",
+    )
+    return {"suffixes": suffixes}
+
+
 @router.get("/tree")
 async def tree(
     worker: Worker,

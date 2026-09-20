@@ -5,6 +5,8 @@ import { useState, type FormEvent } from 'react'
 
 import { ApiError } from '../api/client'
 import { api } from '../api/endpoints'
+import { UpnField } from '../features/directory/UpnField'
+import { splitUpn } from '../features/directory/upn'
 import type { TreeNode } from '../api/types'
 import { isAtOrBelow } from '../dn'
 import { useI18n } from '../i18n'
@@ -47,6 +49,9 @@ export function NewUserDialog({ parentDn, onClose, onDone }: DialogProps & { par
     first_name: '',
     last_name: '',
     sam: '',
+    // The suffix half of the UPN; the name half is the logon name. Empty
+    // means "the domain's own", which the server fills in.
+    upnSuffix: '',
     // The object's CN. Follows the logon name until someone types into it —
     // a tester's request, and a departure from ADUC, which builds it from
     // first and last name and makes you retype it every time you want the
@@ -74,6 +79,7 @@ export function NewUserDialog({ parentDn, onClose, onDone }: DialogProps & { par
         must_change_password: form.mustChange,
         enabled: form.enabled,
         attributes: {
+          ...(form.upnSuffix ? { upn: `${form.sam.trim()}@${form.upnSuffix}` } : {}),
           ...(form.first_name ? { first_name: form.first_name } : {}),
           ...(form.last_name ? { last_name: form.last_name } : {}),
           ...(displayName ? { display_name: displayName } : {}),
@@ -109,11 +115,15 @@ export function NewUserDialog({ parentDn, onClose, onDone }: DialogProps & { par
           </Field>
         </div>
         <Field label={t('user.logonName')} hint="sAMAccountName — max. 20">
-          <input
+          <UpnField
             required
             maxLength={20}
-            value={form.sam}
-            onChange={(e) => set('sam', e.target.value)}
+            value={form.upnSuffix ? `${form.sam}@${form.upnSuffix}` : form.sam}
+            onChange={(next) => {
+              const { local, suffix } = splitUpn(next)
+              set('sam', local.slice(0, 20))
+              set('upnSuffix', suffix)
+            }}
           />
         </Field>
         <Field label={t('user.fullName')} hint={t('dialog.fullNameHint')}>

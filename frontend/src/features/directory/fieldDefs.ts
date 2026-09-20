@@ -9,7 +9,8 @@
 
 import type { MessageKey } from '../../i18n/messages'
 
-export type FieldKind = 'text' | 'email' | 'tel' | 'url' | 'multiline'
+/** 'upn' is name plus a suffix chosen from the forest; see UpnField. */
+export type FieldKind = 'text' | 'email' | 'tel' | 'url' | 'multiline' | 'upn'
 
 export interface FieldDef {
   /** API field name, sent verbatim in the attributes object. */
@@ -45,7 +46,7 @@ export const USER_GROUPS: FieldGroup[] = [
     fields: [
       // sAMAccountName is deliberately absent: changing it is a rename in all
       // but name and belongs with the rename action, not a text field.
-      { name: 'upn', label: 'user.upn', hint: 'user.upnHint' },
+      { name: 'upn', label: 'user.upn', kind: 'upn', hint: 'user.upnHint' },
       { name: 'logon_workstations', label: 'user.logonWorkstations', hint: 'user.logonWorkstationsHint' },
     ],
   },

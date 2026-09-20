@@ -13,6 +13,7 @@ import { useI18n } from '../../i18n'
 import type { MessageKey } from '../../i18n/messages'
 import { Badge, ErrorMessage, Field } from '../../components/primitives'
 import { ACCOUNT_FLAGS, DANGEROUS_FLAGS, type FieldGroup } from './fieldDefs'
+import { UpnField } from './UpnField'
 
 type Attributes = Record<string, string | null>
 type Flags = Record<string, boolean>
@@ -106,7 +107,14 @@ export function PropertySheet({
               label={t(field.label)}
               hint={field.hint ? t(field.hint) : undefined}
             >
-              {field.kind === 'multiline' ? (
+              {field.kind === 'upn' ? (
+                <UpnField
+                  value={value(field.name)}
+                  onChange={(next) =>
+                    setDraft((current) => ({ ...current, [field.name]: next }))
+                  }
+                />
+              ) : field.kind === 'multiline' ? (
                 <textarea
                   rows={2}
                   value={value(field.name)}
@@ -117,8 +125,8 @@ export function PropertySheet({
                 />
               ) : (
                 <input
-                  // 'multiline' is handled by the branch above, so what
-                  // remains maps directly onto an input type.
+                  // 'upn' and 'multiline' are handled by the branches above,
+                  // so what remains maps directly onto an input type.
                   type={field.kind ?? 'text'}
                   value={value(field.name)}
                   maxLength={field.maxLength}

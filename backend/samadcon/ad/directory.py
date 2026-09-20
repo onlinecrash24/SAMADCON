@@ -429,6 +429,44 @@ def get_attributes(conn: DirectoryConnection, dn: str) -> dict[str, Any]:
     }
 
 
+def upn_suffixes(conn: DirectoryConnection) -> list[str]:
+    """Every suffix a user principal name may end in, this domain's first.
+
+    The same list ADUC offers beside the logon name: the domain's own DNS
+    name, the DNS name of every other domain in the forest, and whatever was
+    added by hand under Domains and Trusts — which lands in ``uPNSuffixes`` on
+    the Partitions container. Read from there rather than typed, so a suffix
+    that exists in the forest is offered and one that does not is not.
+
+    Domains are the crossRef entries that carry a nETBIOSName; the other
+    crossRefs are the configuration and schema partitions and application
+    partitions such as DomainDnsZones, none of which is a UPN suffix.
+    """
+    partitions = f"CN=Partitions,{conn.info.config_dn}"
+    seen: list[str] = []
+
+    def add(name: str | None) -> None:
+        if name and name.lower() not in {s.lower() for s in seen}:
+            seen.append(name)
+
+    add(conn.info.dns_domain)
+
+    container = conn.get(partitions, attrs=["uPNSuffixes"])
+    if container is not None:
+        for suffix in values.as_list(container, "uPNSuffixes"):
+            add(suffix)
+
+    for ref in conn.search(
+        partitions,
+        scope=SCOPE_ONELEVEL,
+        expression="(&(objectClass=crossRef)(nETBIOSName=*))",
+        attrs=["dnsRoot"],
+    ):
+        add(values.as_str(ref, "dnsRoot"))
+
+    return seen
+
+
 def get_ancestors(conn: DirectoryConnection, dn: str) -> list[dict[str, Any]]:
     """Path from the domain root down to *dn*, for breadcrumbs."""
     base_dn = conn.info.base_dn
