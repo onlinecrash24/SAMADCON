@@ -14,6 +14,68 @@ release.
 
 ---
 
+## 0.5.12 — 2026-09-20
+
+The property sheet is ADUC's now. This is the release the tester's list was
+really about.
+
+A tester who used the console in production for a while wrote down where it
+did not behave like the RSAT it replaces, and the heaviest item was this:
+changes must not happen the moment a control is touched, the sheet as a whole
+must write with OK or Apply, and everything else is confusing. They were
+describing three rules on one window. The editable fields waited for a Save
+button; "must change password", the account expiry and every membership
+change wrote on the click. The difference was invisible until something had
+already changed.
+
+There is one rule now. The property window holds one draft for everything on
+it — fields, account options, expiry, unlock, group scope and type,
+memberships, protection from deletion — and nothing reaches the directory
+until OK or Apply. Cancel discards. The footer is fixed with the three buttons
+in ADUC's order; the tabs scroll above it.
+
+The tabs are ADUC's, in ADUC's order, with ADUC's fields in ADUC's layout.
+Users: General, Address, Account, Profile, Telephones, Organization, Member
+Of, Object, Security, Attribute Editor. Groups: General with scope and type as
+radio groups, Members, Member Of, Managed By, Object, Security, Attribute
+Editor. Computers and OUs their subsets. First name beside initials, city
+beside state, the home folder as "local path" or "connect drive to", the
+expiry as "never" or "end of".
+
+Apply writes in steps — fields and options in one call, then each thing with
+an endpoint of its own, memberships last because they touch other objects. A
+step that fails stops the rest: what was written leaves the draft, what was
+not stays where it was typed, and the error names the step. "Half of it
+happened" is something the screen says.
+
+Membership shows what the directory will hold after OK: a pending addition
+carries a badge, a pending removal stays in the list struck through with
+"Keep" beside it. The Object tab is new — canonical name, class, created,
+changed, both update sequence numbers, and protection from accidental
+deletion for every type, not only OUs. The pane beside the list is read-only,
+as ADUC's list pane is: the overview and the commands, with Properties a
+double-click away.
+
+Two smaller things from the same days of feedback. The new-user dialog has
+two logon names, because the directory has two: the user principal name as
+name @ suffix, and the pre-Windows-2000 name (sAMAccountName) beneath it —
+required, capped at 20, unique, and following the first until edited by hand.
+And the forest's UPN suffixes can be managed, as a fourth tab under Sites and
+Services, laid out as RSAT's Domains and Trusts lays it out: a field, Add,
+the list of alternative suffixes, Remove, written on Save. A suffix is
+checked as a DNS name first, and a domain's own name is refused.
+
+The draft model is pure and has 13 tests of its own. Measured against the
+built stylesheet in a 520px window: the footer sits at the same pixel before
+and after scrolling to the end, and the last field is fully visible with
+nothing behind it.
+
+Verified against a live domain by the tester: the sheet opens with the tabs,
+and edits across them apply. Two tabs still write on their own dialogs'
+confirmation, the attribute editor and the security tab — ADUC's do the same.
+
+---
+
 ## 0.5.11 — 2026-09-20
 
 One change, and it is the other half of 0.5.10's paging fix.
