@@ -14,6 +14,56 @@ release.
 
 ---
 
+## 0.5.13 — 2026-09-20
+
+Three more of the tester's list, all in the direction of ADUC: the primary
+group, the "Other…" lists, and the column chooser.
+
+**The primary group can be set.** A tester with Linux clients asked: the
+primary group is what POSIX sees, and the sheet showed which one it was with
+no way to change it. Member Of now has ADUC's line naming the primary group,
+with its note that only Macintosh and POSIX care, and "Set Primary Group" on
+every row that is a member and not primary already. It queues in the draft
+like everything else — the row says "becomes primary" — and OK or Apply
+writes it after the additions, because the directory insists the account
+already be a member and a group added in the same draft is one by then. The
+server refuses with a reason what the directory would refuse with
+"constraint violation": a non-member, a group from another domain. Six
+tests on a fake with real SIDs in wire form.
+
+**"Other…" beside the numbers and the web page.** The directory keeps a
+second, multi-valued attribute beside telephone, home, pager, mobile, fax, IP
+phone and the web page, and ADUC shows it in a small list dialog. Seven such
+fields now, read as lists and written as lists; a list sent to a
+single-valued field is refused with a code rather than mangled into one. The
+button carries a count when the list is not empty, and opens the original's
+dialog: new value and Add, current values, Edit and Remove, OK and Cancel.
+The dialog edits a copy and hands it to the draft; the draft waits for the
+sheet's OK. Two levels of "not yet", nested as ADUC nests them.
+
+**The columns can be chosen.** ADUC's Add/Remove Columns, under "Columns…"
+in the list toolbar: available on the left, displayed on the right, Add and
+Remove between, Move Up and Move Down beside, Restore Defaults. A catalogue
+of 24 — the three a row always carries and 21 more, from display name and
+both logon names through the address fields to operating system and last
+logon. The server reads only the columns asked for, so a list of 10 000 rows
+does not carry twenty attributes each for the three that are shown, and
+every column sorts on the server by a click on its header. Name stays first
+and cannot be removed. Remembered like the ceiling and the sort; a column a
+later version no longer offers is dropped, so the list shrinks rather than
+breaks after an upgrade.
+
+With display name available as a column, the list can show both:
+labuser000140 under Name, as ADUC does, and "Peter Richter" beside it.
+
+Measured: the column dialog at a desktop width is 760px with 211px per list,
+enough for the longest label. Not verified against a live domain: the
+primary-group write and the server sort on the new columns — the tests
+prove the requests, and the LabUsers OU with Department added and clicked is
+the check.
+
+---
+
 ## 0.5.12 — 2026-09-20
 
 The property sheet is ADUC's now. This is the release the tester's list was
