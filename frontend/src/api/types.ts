@@ -186,7 +186,7 @@ export interface AccountStatus {
 
 export interface UserDetail extends DirectoryObject {
   sam_account_name: string
-  attributes: Record<string, string | null>
+  attributes: Record<string, string | string[] | null>
   flags: Record<string, boolean>
   user_account_control: number
   status: AccountStatus
@@ -199,7 +199,7 @@ export interface UserDetail extends DirectoryObject {
 
 export interface GroupDetail extends DirectoryObject {
   sam_account_name: string
-  attributes: Record<string, string | null>
+  attributes: Record<string, string | string[] | null>
   scope: 'global' | 'domain_local' | 'universal' | null
   security_group: boolean
   group_type: number | null
@@ -209,7 +209,7 @@ export interface GroupDetail extends DirectoryObject {
 
 export interface ComputerDetail extends DirectoryObject {
   sam_account_name: string
-  attributes: Record<string, string | null>
+  attributes: Record<string, string | string[] | null>
   flags: Record<string, boolean>
   role: string
   operating_system: { name: string | null; version: string | null; service_pack: string | null }
@@ -219,7 +219,7 @@ export interface ComputerDetail extends DirectoryObject {
 }
 
 export interface OuDetail extends DirectoryObject {
-  attributes: Record<string, string | null>
+  attributes: Record<string, string | string[] | null>
   gp_link: string | null
   block_inheritance: boolean
   child_count: number

@@ -18,8 +18,11 @@
 import type { DirectoryObject } from '../../../api/types'
 
 /** What the directory said when the sheet opened — the thing a draft is against. */
+/** A field's value: one string, or — for the "Other…" lists — several. */
+export type FieldValue = string | string[]
+
 export interface SheetBase {
-  attributes: Record<string, string | null>
+  attributes: Record<string, FieldValue | null>
   flags?: Record<string, boolean>
   /** ISO timestamp, or null for "never". Undefined when the type has none. */
   accountExpires?: string | null
@@ -33,7 +36,7 @@ export interface SheetBase {
 }
 
 export interface Draft {
-  attributes: Record<string, string>
+  attributes: Record<string, FieldValue>
   flags: Record<string, boolean>
   /** yyyy-mm-dd, or '' for "never". Absent until touched. */
   accountExpires?: string
@@ -59,7 +62,7 @@ export const EMPTY_DRAFT: Draft = {
 
 /** What has to be sent: only the parts that differ from the base. */
 export interface Changes {
-  attributes?: Record<string, string | null>
+  attributes?: Record<string, FieldValue | null>
   flags?: Record<string, boolean>
   /** ISO timestamp for the end of the chosen day, or null for "never". */
   accountExpires?: string | null
@@ -92,11 +95,22 @@ export function fromDateInput(value: string): string | null {
 }
 
 export function changesOf(draft: Draft, base: SheetBase): Changes {
-  const attributes: Record<string, string | null> = {}
+  const attributes: Record<string, FieldValue | null> = {}
   for (const [name, next] of Object.entries(draft.attributes)) {
-    const current = base.attributes[name] ?? ''
+    if (Array.isArray(next)) {
+      // A list: trimmed, blanks dropped, compared in order. Emptied means
+      // "remove the attribute", as for a single value.
+      const cleaned = next.map((v) => v.trim()).filter(Boolean)
+      const current = base.attributes[name]
+      const before = Array.isArray(current) ? current : current ? [current] : []
+      if (JSON.stringify(cleaned) === JSON.stringify(before)) continue
+      attributes[name] = cleaned.length ? cleaned : null
+      continue
+    }
+    const current = base.attributes[name]
+    const before = Array.isArray(current) ? current.join(', ') : (current ?? '')
     const trimmed = next.trim()
-    if (trimmed === current) continue
+    if (trimmed === before) continue
     // An emptied field means "remove the attribute": null, not ''.
     attributes[name] = trimmed === '' ? null : trimmed
   }

@@ -602,6 +602,11 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 .radio-group--block .field:last-child { margin-bottom: 8px; }
 .boxed-list { border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 8px; max-height: 160px; overflow: auto; }
 .membership__row--removing td:first-child { text-decoration: line-through; opacity: 0.7; }
+/* The "Other…" list dialog: value on the left, Edit and Remove on the right. */
+.others__row { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+.others__value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.others__actions { display: inline-flex; gap: 10px; }
+.others__count { margin-left: 6px; padding: 0 6px; border-radius: 9px; background: var(--selected); font-size: 0.8em; }
 .sheet-window__footer {
   display: flex;
   justify-content: flex-end;

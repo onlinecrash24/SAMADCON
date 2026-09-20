@@ -199,7 +199,7 @@ export const api = {
     enabled?: boolean
     attributes?: Record<string, string>
   }) => http.post<UserDetail>('/users', payload),
-  updateUser: (dn: string, payload: { attributes?: Record<string, string | null>; flags?: Record<string, boolean> }) =>
+  updateUser: (dn: string, payload: { attributes?: Record<string, string | string[] | null>; flags?: Record<string, boolean> }) =>
     http.patch<{ dn: string; applied: Record<string, unknown> }>(`/users?dn=${dnParam(dn)}`, payload),
   setPassword: (dn: string, password: string, mustChange: boolean) =>
     http.post<{ dn: string }>(`/users/password?dn=${dnParam(dn)}`, {
@@ -238,7 +238,7 @@ export const api = {
   updateGroup: (
     dn: string,
     payload: {
-      attributes?: Record<string, string | null>
+      attributes?: Record<string, string | string[] | null>
       scope?: string
       security?: boolean
     },
@@ -266,7 +266,7 @@ export const api = {
     http.post<ComputerDetail>('/computers', payload),
   updateComputer: (
     dn: string,
-    payload: { attributes?: Record<string, string | null>; flags?: Record<string, boolean> },
+    payload: { attributes?: Record<string, string | string[] | null>; flags?: Record<string, boolean> },
   ) =>
     http.patch<{ dn: string; applied: Record<string, unknown> }>(
       `/computers?dn=${dnParam(dn)}`,
@@ -710,7 +710,7 @@ export const api = {
     description?: string
     protect_from_deletion?: boolean
   }) => http.post<OuDetail>('/ous', payload),
-  updateOu: (dn: string, payload: { attributes?: Record<string, string | null>; protect_from_deletion?: boolean }) =>
+  updateOu: (dn: string, payload: { attributes?: Record<string, string | string[] | null>; protect_from_deletion?: boolean }) =>
     http.patch<{ dn: string }>(`/ous?dn=${dnParam(dn)}`, payload),
   deleteOu: (dn: string, recursive = false) =>
     http.delete<{ dn: string }>(`/ous?dn=${dnParam(dn)}&recursive=${recursive}`),

@@ -255,8 +255,16 @@ export function PropertiesSheet({
     base,
     draft,
     setDraft: (update) => setDraft((current) => update(current)),
-    get: (name) => (name in draft.attributes ? draft.attributes[name]! : base.attributes[name] ?? ''),
+    get: (name) => {
+      const value = name in draft.attributes ? draft.attributes[name]! : base.attributes[name]
+      return Array.isArray(value) ? value.join(', ') : (value ?? '')
+    },
     set: (name, value) => setDraft((d) => ({ ...d, attributes: { ...d.attributes, [name]: value } })),
+    getList: (name) => {
+      const value = name in draft.attributes ? draft.attributes[name]! : base.attributes[name]
+      return Array.isArray(value) ? value : value ? [value] : []
+    },
+    setList: (name, values) => setDraft((d) => ({ ...d, attributes: { ...d.attributes, [name]: values } })),
     flag: (name) => (name in draft.flags ? draft.flags[name]! : Boolean(base.flags?.[name])),
     setFlag: (name, value) => setDraft((d) => ({ ...d, flags: { ...d.flags, [name]: value } })),
     busy: apply.isPending,

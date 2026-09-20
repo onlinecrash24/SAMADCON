@@ -20,6 +20,9 @@ export interface SheetApi {
   /** A field's current value: the draft's if touched, else the directory's. */
   get: (name: string) => string
   set: (name: string, value: string) => void
+  /** The "Other…" lists: several values under one name. */
+  getList: (name: string) => string[]
+  setList: (name: string, values: string[]) => void
   flag: (name: string) => boolean
   setFlag: (name: string, value: boolean) => void
   /** Apply is running; inputs go quiet rather than accepting a second edit mid-write. */

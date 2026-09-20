@@ -28,6 +28,8 @@ export interface FieldDef {
   maxLength?: number
   /** For kind 'dn': what the picker offers. */
   pickTypes?: ObjectType[]
+  /** The multi-valued field behind an "Other…" button beside this one. */
+  others?: string
 }
 
 const def = (name: string, label: MessageKey, rest: Omit<FieldDef, 'name' | 'label'> = {}): FieldDef => ({
@@ -44,9 +46,9 @@ export const FIELDS = {
   display_name: def('display_name', 'user.displayName'),
   description: def('description', 'user.description'),
   office: def('office', 'user.office'),
-  telephone: def('telephone', 'user.telephone', { kind: 'tel' }),
+  telephone: def('telephone', 'user.telephone', { kind: 'tel', others: 'other_telephone' }),
   mail: def('mail', 'user.mail', { kind: 'email' }),
-  web_page: def('web_page', 'user.webPage', { kind: 'url' }),
+  web_page: def('web_page', 'user.webPage', { kind: 'url', others: 'other_web_page' }),
   // Account
   upn: def('upn', 'user.upn', { kind: 'upn', hint: 'user.upnHint' }),
   logon_workstations: def('logon_workstations', 'user.logonWorkstations', {
@@ -60,11 +62,11 @@ export const FIELDS = {
   postal_code: def('postal_code', 'user.postalCode'),
   country: def('country', 'user.country', { hint: 'user.countryHint', maxLength: 2 }),
   // Telephones
-  home_phone: def('home_phone', 'user.homePhone', { kind: 'tel' }),
-  pager: def('pager', 'user.pager', { kind: 'tel' }),
-  mobile: def('mobile', 'user.mobile', { kind: 'tel' }),
-  fax: def('fax', 'user.fax', { kind: 'tel' }),
-  ip_phone: def('ip_phone', 'user.ipPhone'),
+  home_phone: def('home_phone', 'user.homePhone', { kind: 'tel', others: 'other_home_phone' }),
+  pager: def('pager', 'user.pager', { kind: 'tel', others: 'other_pager' }),
+  mobile: def('mobile', 'user.mobile', { kind: 'tel', others: 'other_mobile' }),
+  fax: def('fax', 'user.fax', { kind: 'tel', others: 'other_fax' }),
+  ip_phone: def('ip_phone', 'user.ipPhone', { others: 'other_ip_phone' }),
   notes: def('notes', 'user.notes', { kind: 'multiline' }),
   // Profile
   profile_path: def('profile_path', 'user.profilePath'),

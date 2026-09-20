@@ -62,6 +62,21 @@ USER_FIELDS: dict[str, str] = {
     "logon_workstations": "userWorkstations",
 }
 
+# The "Other…" lists beside the single-valued ones: ADUC keeps a second
+# telephone number, a second web page and so on in these, and shows them in a
+# small list dialog. Multi-valued in the directory, so they are read as lists
+# and written as lists — a string sent to one of these is one value, and a list
+# sent to a single-valued field above is refused.
+USER_MULTI_FIELDS: dict[str, str] = {
+    "other_telephone": "otherTelephone",
+    "other_home_phone": "otherHomePhone",
+    "other_pager": "otherPager",
+    "other_mobile": "otherMobile",
+    "other_fax": "otherFacsimileTelephoneNumber",
+    "other_ip_phone": "otherIpPhone",
+    "other_web_page": "url",
+}
+
 # Read-only, but shown on the account tab.
 STATUS_ATTRS = [
     "lastLogon",
@@ -76,6 +91,13 @@ STATUS_ATTRS = [
     "whenChanged",
     "msDS-UserPasswordExpiryTimeComputed",
     "primaryGroupID",
+    "otherTelephone",
+    "otherHomePhone",
+    "otherPager",
+    "otherMobile",
+    "otherFacsimileTelephoneNumber",
+    "otherIpPhone",
+    "url",
 ]
 
 DETAIL_ATTRS = [
@@ -159,9 +181,11 @@ def _render_user(conn: DirectoryConnection, entry: Any) -> dict[str, Any]:
     dn = values.as_str(entry, "distinguishedName") or str(entry.dn)
     uac_value = values.as_int(entry, "userAccountControl", 0) or 0
 
-    attributes = {
+    attributes: dict[str, Any] = {
         field: values.as_str(entry, attribute) for field, attribute in USER_FIELDS.items()
     }
+    for field, attribute in USER_MULTI_FIELDS.items():
+        attributes[field] = values.as_list(entry, attribute)
 
     lockout_time = values.as_filetime(entry, "lockoutTime")
     pwd_last_set_raw = values.as_int(entry, "pwdLastSet")
@@ -348,11 +372,29 @@ def update_user(
     if attributes:
         changes: dict[str, Any] = {}
         for field, value in attributes.items():
-            attribute = USER_FIELDS.get(field)
+            attribute = USER_FIELDS.get(field) or USER_MULTI_FIELDS.get(field)
             if attribute is None:
                 raise InvalidRequest(
                     f"Unknown field '{field}'.",
                     code="unknown_field",
+                    context={"field": field},
+                )
+            if field in USER_MULTI_FIELDS:
+                if value is None:
+                    value = []
+                elif isinstance(value, str):
+                    value = [value]
+                if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+                    raise InvalidRequest(
+                        f"'{field}' takes a list of strings.",
+                        code="field_takes_a_list",
+                        context={"field": field},
+                    )
+                value = [v.strip() for v in value if v.strip()]
+            elif isinstance(value, list):
+                raise InvalidRequest(
+                    f"'{field}' takes a single value.",
+                    code="field_takes_one_value",
                     context={"field": field},
                 )
             changes[attribute] = value

@@ -43,6 +43,16 @@ describe('what a draft would send', () => {
     expect(changesOf(draft, BASE).attributes).toEqual({ first_name: null })
   })
 
+  it('compares a list in order and sends it whole', () => {
+    const base = { ...BASE, attributes: { ...BASE.attributes, other_telephone: ['1', '2'] } }
+    expect(changesOf({ ...EMPTY_DRAFT, attributes: { other_telephone: [' 1 ', '2', ''] } }, base).attributes).toBeUndefined()
+    expect(changesOf({ ...EMPTY_DRAFT, attributes: { other_telephone: ['2', '1'] } }, base).attributes).toEqual({ other_telephone: ['2', '1'] })
+    expect(changesOf({ ...EMPTY_DRAFT, attributes: { other_telephone: [] } }, base).attributes).toEqual({ other_telephone: null })
+    // A list where the directory had none is a change; an empty one where it had none is not.
+    expect(changesOf({ ...EMPTY_DRAFT, attributes: { other_pager: ['x'] } }, base).attributes).toEqual({ other_pager: ['x'] })
+    expect(changesOf({ ...EMPTY_DRAFT, attributes: { other_pager: [] } }, base).attributes).toBeUndefined()
+  })
+
   it('sends a flag only when it flipped', () => {
     const draft: Draft = { ...EMPTY_DRAFT, flags: { account_disabled: true, password_never_expires: true } }
     expect(changesOf(draft, BASE).flags).toEqual({ account_disabled: true })

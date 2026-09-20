@@ -189,7 +189,7 @@ function UserSection({ user }: { user: UserDetail }) {
       {(attributes.manager || user.direct_reports.length > 0) && (
         <section className="detail__section">
           <h3>{t('detail.organization')}</h3>
-          {attributes.manager && (
+          {typeof attributes.manager === 'string' && attributes.manager && (
             <TextRow
               label={t('user.manager')}
               value={<span title={attributes.manager}>{nameFromDn(attributes.manager)}</span>}
