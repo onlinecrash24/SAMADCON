@@ -14,6 +14,54 @@ release.
 
 ---
 
+## 0.5.14 — 2026-09-20
+
+Published Certificates — the last item on the tester's list, and with it the
+list is done.
+
+ADUC's tab shows the X.509 certificates on an account: issued to, issued by,
+intended purposes, expiry, with View, Add from Store, Add from File, Remove
+and Copy to File. This release has that tab, less one button.
+
+The one left out is Add from Store. In ADUC it reaches into the Windows
+certificate store on the administrator's own machine, and a browser has no
+such thing to reach into. A button that cannot work is worse than the line
+that now says why. Add from File takes DER or PEM; Copy to File hands the
+DER back as a .cer; View shows everything down to the PEM.
+
+Add and Remove queue in the draft and reach the directory with OK or Apply,
+like every other tab since 0.5.12. A file picked is parsed by the server
+first — one round trip that writes nothing — so the row shows what ADUC
+shows before anything is committed, and a file that is not a certificate is
+refused when it is picked rather than at OK. The same certificate twice is
+refused by fingerprint, on the server and in the draft.
+
+Each certificate is identified by its SHA-256 fingerprint rather than its
+position in the attribute: two certificates for the same name are not the
+same certificate, and an index into a multi-valued attribute does not survive
+a write. Removal deletes exactly the one value with that fingerprint. A value
+on the attribute that will not parse is listed as such rather than hidden.
+
+X.509 parsing comes from `cryptography`, a new runtime dependency and the
+first in some time. Its floor is 50.0.0: pip-audit on the floors — the check
+the CI runs — reported six advisories at 46.0.0 and none at 50, so the floor
+was raised before the first commit rather than found by a reader afterwards.
+The tests generate their certificates rather than paste them, so they cannot
+rot. The build with the new dependency is green in all three jobs.
+
+Not verified against a live domain: the add and remove writes on
+userCertificate. The tests prove the message the writer builds; the check is
+to add a .cer to an account, press OK, and find one value in the attribute
+editor whose Copy to File returns the same bytes.
+
+With this, the seven pages of feedback that opened 0.5.10 are closed:
+the paging, the sort, the containers, the two logon names, the UPN suffixes,
+the manager, the column chooser, the sheet on ADUC's model, the primary
+group, the "Other…" lists, and the certificates. What remains is what the
+domain will find.
+
+---
+
 ## 0.5.13 — 2026-09-20
 
 Three more of the tester's list, all in the direction of ADUC: the primary
