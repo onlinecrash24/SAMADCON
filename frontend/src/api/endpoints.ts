@@ -112,13 +112,22 @@ export const api = {
     http.get<TreeListing>(`/directory/tree?dn=${dnParam(dn)}&advanced=${advanced}`),
   children: (
     dn: string,
-    options: { types?: string[]; query?: string; advanced?: boolean; limit?: number } = {},
+    options: {
+      types?: string[]
+      query?: string
+      advanced?: boolean
+      limit?: number
+      sort?: string
+      descending?: boolean
+    } = {},
   ) => {
     const params = new URLSearchParams({ dn })
     if (options.types?.length) params.set('types', options.types.join(','))
     if (options.query) params.set('q', options.query)
     if (options.advanced) params.set('advanced', 'true')
     if (options.limit) params.set('limit', String(options.limit))
+    if (options.sort) params.set('sort', options.sort)
+    if (options.descending) params.set('descending', 'true')
     return http.get<ChildListing>(`/directory/children?${params.toString()}`)
   },
   // `advanced` is left out by everything that picks a candidate — a trustee,
@@ -127,7 +136,14 @@ export const api = {
   // box passes it, so that browsing and searching agree.
   search: (
     query: string,
-    options: { base?: string; types?: string[]; advanced?: boolean; limit?: number } = {},
+    options: {
+      base?: string
+      types?: string[]
+      advanced?: boolean
+      limit?: number
+      sort?: string
+      descending?: boolean
+    } = {},
   ) => {
     const params = new URLSearchParams()
     if (query) params.set('q', query)
@@ -135,6 +151,8 @@ export const api = {
     if (options.types?.length) params.set('types', options.types.join(','))
     if (options.advanced !== undefined) params.set('advanced', String(options.advanced))
     if (options.limit) params.set('limit', String(options.limit))
+    if (options.sort) params.set('sort', options.sort)
+    if (options.descending) params.set('descending', 'true')
     return http.get<SearchResult>(`/directory/search?${params.toString()}`)
   },
   object: (dn: string) => http.get<DirectoryObject>(`/directory/object?dn=${dnParam(dn)}`),

@@ -28,6 +28,7 @@ import { SourceNote } from './components/SourceNote'
 import type { DnsZone } from './api/types'
 import { SNAPINS, panesFor, type SnapinId } from './features/console/snapins'
 import { readListLimit, writeListLimit, type ListLimit } from './state/listLimit'
+import { readListSort, toggleSort, writeListSort, type ListSort } from './state/listSort'
 import { nameFromDn } from './dn'
 import { DiagnosticsView } from './features/diagnostics/DiagnosticsView'
 import { SecurityFindings } from './features/diagnostics/SecurityFindings'
@@ -132,6 +133,10 @@ function Console() {
   // How many objects to ask for. Part of both query keys below, so raising
   // it refetches rather than serving the shorter answer out of the cache.
   const [listLimit, setListLimit] = useState<ListLimit>(readListLimit)
+  // Which column, which way. The server sorts before it cuts, so this is a
+  // request parameter and part of the query keys, not a reshuffle of what
+  // happened to load.
+  const [listSort, setListSort] = useState<ListSort>(readListSort)
   // Both from the same stored value: the box should show the words that
   // produced the results on screen, not sit empty above them.
   const [searchTerm, setSearchTerm] = useState(restored.search)
@@ -158,16 +163,28 @@ function Console() {
   const serverInfo = useQuery({ queryKey: ['server-info'], queryFn: () => api.info() })
 
   const children = useQuery({
-    queryKey: ['children', currentDn, showAdvanced, listLimit],
-    queryFn: () => api.children(currentDn, { advanced: showAdvanced, limit: listLimit }),
+    queryKey: ['children', currentDn, showAdvanced, listLimit, listSort],
+    queryFn: () =>
+      api.children(currentDn, {
+        advanced: showAdvanced,
+        limit: listLimit,
+        sort: listSort.column,
+        descending: listSort.descending,
+      }),
     enabled: activeSearch === '',
   })
 
   const search = useQuery({
     // The switch is part of the key, or toggling it would serve the previous
     // answer out of the cache and look like the switch does nothing.
-    queryKey: ['search', activeSearch, showAdvanced, listLimit],
-    queryFn: () => api.search(activeSearch, { advanced: showAdvanced, limit: listLimit }),
+    queryKey: ['search', activeSearch, showAdvanced, listLimit, listSort],
+    queryFn: () =>
+      api.search(activeSearch, {
+        advanced: showAdvanced,
+        limit: listLimit,
+        sort: listSort.column,
+        descending: listSort.descending,
+      }),
     enabled: activeSearch !== '',
   })
 
@@ -523,6 +540,12 @@ function Console() {
           <ObjectList
             entries={entries}
             truncated={activeSearch ? search.data?.truncated : children.data?.truncated}
+            sort={listSort}
+            onSortChange={(column) => {
+              const next = toggleSort(listSort, column)
+              writeListSort(next)
+              setListSort(next)
+            }}
             limit={listLimit}
             onLimitChange={(next) => {
               writeListLimit(next)

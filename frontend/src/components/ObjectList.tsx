@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import type { DirectoryObject } from '../api/types'
 import { useI18n } from '../i18n'
 import { LIST_LIMITS, isListLimit, type ListLimit } from '../state/listLimit'
+import type { ListSort, SortColumn } from '../state/listSort'
 import { anchorOf } from './ContextMenu'
 import { Badge, Icon, useTypeLabel } from './primitives'
 
@@ -16,6 +17,9 @@ interface ObjectListProps {
    */
   limit?: ListLimit
   onLimitChange?: (limit: ListLimit) => void
+  /** Which column the server sorted by; a click on a header asks for another. */
+  sort?: ListSort
+  onSortChange?: (column: SortColumn) => void
   selectedDn: string | null
   onSelect: (object: DirectoryObject) => void
   onOpen?: (object: DirectoryObject) => void
@@ -33,6 +37,8 @@ export function ObjectList({
   truncated,
   limit,
   onLimitChange,
+  sort,
+  onSortChange,
   selectedDn,
   onSelect,
   onOpen,
@@ -99,9 +105,14 @@ export function ObjectList({
         <table className="list__table">
           <thead>
             <tr>
-              <th>{t('list.name')}</th>
-              <th>{t('list.type')}</th>
-              <th>{t('list.description')}</th>
+              <SortHeader column="name" label={t('list.name')} sort={sort} onSort={onSortChange} />
+              <SortHeader column="type" label={t('list.type')} sort={sort} onSort={onSortChange} />
+              <SortHeader
+                column="description"
+                label={t('list.description')}
+                sort={sort}
+                onSort={onSortChange}
+              />
             </tr>
           </thead>
           <tbody>
@@ -139,7 +150,15 @@ export function ObjectList({
                 <td>
                   <span className="list__name">
                     <Icon type={entry.type} />
-                    <span>{entry.display_name || entry.name}</span>
+                    <span
+                      title={
+                        entry.display_name && entry.display_name !== entry.name
+                          ? entry.display_name
+                          : undefined
+                      }
+                    >
+                      {entry.name}
+                    </span>
                     {entry.disabled && <Badge tone="muted">{t('user.status.disabled')}</Badge>}
                     {entry.primary_group_member && (
                       <Badge tone="muted">{t('group.primaryMember')}</Badge>
@@ -154,5 +173,42 @@ export function ObjectList({
         </table>
       )}
     </div>
+  )
+}
+
+/**
+ * A column header that sorts. Without a handler it is a plain header, which
+ * is what the pickers get: they show a handful of candidates and have no
+ * server sort to ask for.
+ *
+ * aria-sort on the cell, so a screen reader hears which column the list is
+ * ordered by; the arrow is for everyone else, and is drawn only on that one
+ * column — three arrows would say nothing.
+ */
+function SortHeader({
+  column,
+  label,
+  sort,
+  onSort,
+}: {
+  column: SortColumn
+  label: string
+  sort?: ListSort
+  onSort?: (column: SortColumn) => void
+}) {
+  const active = sort?.column === column
+  const direction = active ? (sort.descending ? 'descending' : 'ascending') : undefined
+  if (!onSort) return <th>{label}</th>
+  return (
+    <th aria-sort={direction ?? 'none'}>
+      <button type="button" className="list__sort" onClick={() => onSort(column)}>
+        {label}
+        {active && (
+          <span className="list__sort-arrow" aria-hidden="true">
+            {sort.descending ? '\u25BE' : '\u25B4'}
+          </span>
+        )}
+      </button>
+    </th>
   )
 }

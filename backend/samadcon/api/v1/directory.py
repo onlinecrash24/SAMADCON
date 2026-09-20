@@ -59,6 +59,8 @@ async def children(
     q: Annotated[str | None, Query(description="Free-text filter (ANR)")] = None,
     advanced: bool = False,
     limit: Annotated[int, Query(ge=1, le=10000)] = 2000,
+    sort: Annotated[str, Query(pattern="^(name|type|description)$")] = "name",
+    descending: bool = False,
 ) -> dict[str, Any]:
     """Objects directly below *dn* — the list pane."""
     return await ad_read(
@@ -70,6 +72,8 @@ async def children(
         query=q,
         include_advanced=advanced,
         max_results=limit,
+        sort=sort,
+        descending=descending,
         label="directory.children",
     )
 
@@ -86,6 +90,8 @@ async def search(
         bool, Query(description="Include objects marked advanced-only")
     ] = True,
     limit: Annotated[int, Query(ge=1, le=10000)] = 2000,
+    sort: Annotated[str, Query(pattern="^(name|type|description)$")] = "name",
+    descending: bool = False,
 ) -> dict[str, Any]:
     """Find objects anywhere below a base.
 
@@ -109,6 +115,8 @@ async def search(
         scope=directory.base_scope(scope),
         include_advanced=advanced,
         max_results=limit,
+        sort=sort,
+        descending=descending,
         label="directory.search",
     )
 

@@ -190,6 +190,39 @@ def is_security_group(group_type: int | None) -> bool:
 # Reading
 # ---------------------------------------------------------------------------
 
+# The columns a list can be sorted by, and the attribute the server sorts on.
+#
+# Sorting happens on the server, with the LDAP server-side sort control, and
+# it has to: a list capped at 2 000 of 10 000 objects is only "the first
+# 2 000" if the server orders them before it cuts. Sorted here afterwards,
+# the 2 000 are whichever ones the server happened to return first, and
+# the tester saw exactly that — user 000140, then 000497, then 000581.
+#
+# "name" is the RDN, as ADUC's Name column is. "type" sorts by
+# objectCategory, a single-valued DN that groups the classes the way the
+# column shows them; objectClass would not do, being multi-valued.
+SORT_ATTRIBUTES: dict[str, str] = {
+    "name": "name",
+    "type": "objectCategory",
+    "description": "description",
+}
+
+
+def sort_control(sort: str, descending: bool) -> str:
+    """The server-side sort control, in ldb's string form.
+
+    ``server_sort:<critical>:<reverse>:<attribute>`` — read out of
+    ldb_controls.c rather than remembered. Not critical: a server without
+    the control answers unsorted rather than refusing, and unsorted is what
+    this had anyway. Samba's AD DC loads the server_sort module, so it does
+    honour it.
+    """
+    if sort not in SORT_ATTRIBUTES:
+        raise InvalidRequest(
+            f"Unknown sort column: {sort}", code="unknown_sort_column",
+        )
+    return f"server_sort:0:{1 if descending else 0}:{SORT_ATTRIBUTES[sort]}"
+
 
 def list_children(
     conn: DirectoryConnection,
@@ -199,6 +232,8 @@ def list_children(
     query: str | None = None,
     include_advanced: bool = False,
     max_results: int = 2000,
+    sort: str = "name",
+    descending: bool = False,
 ) -> dict[str, Any]:
     """One level below *dn*, the way ADUC's right-hand pane shows it."""
     expression = build_filter(types=types, query=query, include_advanced=include_advanced)
@@ -207,11 +242,14 @@ def list_children(
         scope=SCOPE_ONELEVEL,
         expression=expression,
         attrs=SUMMARY_ATTRS,
+        controls=[sort_control(sort, descending)],
         max_results=max_results,
     )
     entries = [summarize(entry) for entry in result]
-    # Containers first, then alphabetically — same ordering as the MMC.
-    entries.sort(key=lambda item: (not item["is_container"], (item["name"] or "").lower()))
+    # Containers first, as the MMC does. Python's sort is stable, so within
+    # each half the server's order — the one that was asked for — stands.
+    # Sorting by name here again would undo a sort by anything else.
+    entries.sort(key=lambda item: not item["is_container"])
     return {"parent": dn, "entries": entries, "truncated": result.truncated}
 
 
@@ -304,6 +342,8 @@ def search_objects(
     scope: int = SCOPE_SUBTREE,
     include_advanced: bool = True,
     max_results: int = 2000,
+    sort: str = "name",
+    descending: bool = False,
 ) -> dict[str, Any]:
     """Directory-wide search.
 
@@ -317,10 +357,10 @@ def search_objects(
         scope=scope,
         expression=expression,
         attrs=SUMMARY_ATTRS,
+        controls=[sort_control(sort, descending)],
         max_results=max_results,
     )
     entries = [summarize(entry) for entry in result]
-    entries.sort(key=lambda item: (item["name"] or "").lower())
     return {"entries": entries, "truncated": result.truncated, "base": base or conn.info.base_dn}
 
 
