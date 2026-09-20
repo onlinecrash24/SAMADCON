@@ -28,6 +28,8 @@ export interface SheetBase {
   /** Groups only. */
   scope?: string | null
   securityGroup?: boolean
+  /** The DN of the account's primary group, when the sheet knows it. */
+  primaryGroup?: string | null
 }
 
 export interface Draft {
@@ -44,6 +46,8 @@ export interface Draft {
   /** Objects to add to, and DNs to take out of, the membership this sheet shows. */
   memberAdd: DirectoryObject[]
   memberRemove: string[]
+  /** The group to make primary, by DN. Applied after additions, so a group added in the same draft qualifies. */
+  primaryGroup?: string
 }
 
 export const EMPTY_DRAFT: Draft = {
@@ -66,6 +70,7 @@ export interface Changes {
   securityGroup?: boolean
   memberAdd: DirectoryObject[]
   memberRemove: string[]
+  primaryGroup?: string
 }
 
 /** ISO timestamp → yyyy-mm-dd for <input type="date">, or '' when unset. */
@@ -124,6 +129,12 @@ export function changesOf(draft: Draft, base: SheetBase): Changes {
   if (draft.securityGroup !== undefined && draft.securityGroup !== Boolean(base.securityGroup)) {
     out.securityGroup = draft.securityGroup
   }
+  if (
+    draft.primaryGroup !== undefined &&
+    draft.primaryGroup.toLowerCase() !== (base.primaryGroup ?? '').toLowerCase()
+  ) {
+    out.primaryGroup = draft.primaryGroup
+  }
   return out
 }
 
@@ -139,7 +150,8 @@ export function countChanges(changes: Changes): number {
     (changes.scope !== undefined ? 1 : 0) +
     (changes.securityGroup !== undefined ? 1 : 0) +
     changes.memberAdd.length +
-    changes.memberRemove.length
+    changes.memberRemove.length +
+    (changes.primaryGroup !== undefined ? 1 : 0)
   )
 }
 
@@ -183,6 +195,7 @@ export type Step =
   | 'group'
   | 'memberAdd'
   | 'memberRemove'
+  | 'primaryGroup'
 
 export function withoutApplied(draft: Draft, applied: Step[]): Draft {
   let next = draft
@@ -222,6 +235,11 @@ export function withoutApplied(draft: Draft, applied: Step[]): Draft {
       case 'memberRemove':
         next = { ...next, memberRemove: [] }
         break
+      case 'primaryGroup': {
+        const { primaryGroup: _drop, ...rest } = next
+        next = rest as Draft
+        break
+      }
     }
   }
   return next

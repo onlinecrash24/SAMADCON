@@ -7,6 +7,7 @@ import { Badge, ErrorMessage, Icon, Modal, Spinner } from '../../../components/p
 import { useI18n } from '../../../i18n'
 import { ObjectPicker } from '../ObjectPicker'
 import { withMemberAdded, withMemberRemoved } from './draft'
+import { nameFromDn } from '../../../dn'
 import { useSheet } from './SheetContext'
 
 /**
@@ -29,7 +30,10 @@ export function MembershipTab({
   onNavigate: (dn: string) => void
 }) {
   const { t } = useI18n()
-  const { object, draft, setDraft, busy } = useSheet()
+  const { object, base, draft, setDraft, busy } = useSheet()
+  // Only an account has a primary group, and only on this side of the relation.
+  const canSetPrimary = mode === 'memberOf' && base.primaryGroup !== undefined
+  const primaryDn = (draft.primaryGroup ?? base.primaryGroup ?? '').toLowerCase()
   const [adding, setAdding] = useState(false)
 
   const listing = useQuery({
@@ -75,7 +79,11 @@ export function MembershipTab({
         <table className="acl membership">
           <tbody>
             {rows.map(({ entry, state }) => {
-              const primary = entry.primary_group_member || entry.primary_group
+              // What the directory will hold after OK: the draft's choice wins.
+              const primary = canSetPrimary
+                ? entry.dn.toLowerCase() === primaryDn
+                : entry.primary_group_member || entry.primary_group
+              const pendingPrimary = canSetPrimary && draft.primaryGroup !== undefined && primary
               return (
                 <tr key={entry.dn} className={state === 'removing' ? 'membership__row--removing' : undefined}>
                   <td>
@@ -83,12 +91,26 @@ export function MembershipTab({
                       <Icon type={entry.type} />
                       <span>{entry.name}</span>
                     </button>
-                    {primary && <Badge tone="muted">{t('group.primaryMember')}</Badge>}
+                    {primary && (
+                      <Badge tone={pendingPrimary ? 'ok' : 'muted'}>
+                        {t(pendingPrimary ? 'membership.pendingPrimary' : 'group.primaryMember')}
+                      </Badge>
+                    )}
                     {state === 'adding' && <Badge tone="ok">{t('membership.pendingAdd')}</Badge>}
                     {state === 'removing' && <Badge tone="warn">{t('membership.pendingRemove')}</Badge>}
                     {entry.type === 'unresolved' && <Badge tone="warn">{t('type.unresolved')}</Badge>}
                   </td>
                   <td className="attrs__action">
+                    {canSetPrimary && !primary && state !== 'removing' && (
+                      <button
+                        type="button"
+                        className="link"
+                        disabled={busy}
+                        onClick={() => setDraft((d) => ({ ...d, primaryGroup: entry.dn }))}
+                      >
+                        {t('membership.setPrimary')}
+                      </button>
+                    )}{' '}
                     {state === 'removing' ? (
                       <button
                         type="button"
@@ -118,6 +140,15 @@ export function MembershipTab({
             })}
           </tbody>
         </table>
+      )}
+
+      {canSetPrimary && (
+        <p className="muted small">
+          {t('membership.primaryIs')}{' '}
+          <strong>{primaryDn ? nameFromDn(draft.primaryGroup ?? base.primaryGroup ?? '') : '—'}</strong>
+          {' · '}
+          {t('membership.primaryHint')}
+        </p>
       )}
 
       <div className="detail__actions">

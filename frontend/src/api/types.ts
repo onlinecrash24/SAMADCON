@@ -193,6 +193,8 @@ export interface UserDetail extends DirectoryObject {
   member_of: string[]
   direct_reports: string[]
   primary_group_id: number | null
+  /** The primary group resolved to its DN, or null when it could not be. */
+  primary_group_dn: string | null
 }
 
 export interface GroupDetail extends DirectoryObject {

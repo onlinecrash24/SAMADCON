@@ -105,6 +105,7 @@ function baseOf(object: DirectoryObject, detail: Detail, deleteProtected: boolea
     base.scope = group.scope
     base.securityGroup = group.security_group
   }
+  if ('primary_group_dn' in detail) base.primaryGroup = (detail as UserDetail).primary_group_dn
   if ('delete_protected' in detail && (detail as OuDetail).delete_protected !== null) {
     base.deleteProtected = Boolean((detail as OuDetail).delete_protected)
   }
@@ -227,6 +228,11 @@ export function PropertiesSheet({
             else await api.addMembers(member.dn, [object.dn])
           }
         })
+      }
+      // After the additions: the directory insists the account already be a
+      // member, and a group added in this same draft is one by now.
+      if (what.primaryGroup !== undefined) {
+        await run('primaryGroup', () => api.setPrimaryGroup(object.dn, what.primaryGroup!))
       }
       return applied
     },

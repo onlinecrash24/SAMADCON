@@ -130,6 +130,31 @@ def get_user(conn: DirectoryConnection, dn: str) -> dict[str, Any]:
     return _render_user(conn, entry)
 
 
+def primary_group_dn(conn: DirectoryConnection, entry: Any) -> str | None:
+    """The primary group as a DN, from the RID in primaryGroupID.
+
+    The RID is only meaningful together with the account's own domain SID —
+    the group is the object whose SID is that domain with this RID on the end.
+    One indexed search; None when either half is missing or nothing matches,
+    which the sheet shows as a dash rather than as a number nobody can read.
+    """
+    rid = values.as_int(entry, "primaryGroupID")
+    account_sid = values.sid_to_str(values.as_bytes(entry, "objectSid"))
+    if rid is None or not account_sid:
+        return None
+    domain_sid = account_sid.rsplit("-", 1)[0]
+    result = conn.search(
+        conn.info.base_dn,
+        scope=SCOPE_SUBTREE,
+        expression=f"(objectSid={values.escape_filter(f'{domain_sid}-{rid}')})",
+        attrs=["distinguishedName"],
+        max_results=1,
+    )
+    if not len(result):
+        return None
+    return values.as_str(result.entries[0], "distinguishedName")
+
+
 def _render_user(conn: DirectoryConnection, entry: Any) -> dict[str, Any]:
     dn = values.as_str(entry, "distinguishedName") or str(entry.dn)
     uac_value = values.as_int(entry, "userAccountControl", 0) or 0
@@ -168,6 +193,7 @@ def _render_user(conn: DirectoryConnection, entry: Any) -> dict[str, Any]:
         "member_of": sorted(values.as_list(entry, "memberOf"), key=str.lower),
         "direct_reports": sorted(values.as_list(entry, "directReports"), key=str.lower),
         "primary_group_id": values.as_int(entry, "primaryGroupID"),
+        "primary_group_dn": primary_group_dn(conn, entry),
     }
     return detail
 
@@ -452,6 +478,58 @@ def set_account_expiry(
     message["accountExpires"] = ldb.MessageElement(raw, ldb.FLAG_MOD_REPLACE, "accountExpires")
     conn.modify(message)
     return {"accountExpires": {"new": expires_at.isoformat() if expires_at else None}}
+
+
+def set_primary_group(conn: DirectoryConnection, dn: str, group_dn: str) -> dict[str, Any]:
+    """Make *group_dn* the account's primary group.
+
+    The primary group is not a membership entry; it is the group's RID in the
+    account's ``primaryGroupID``. The directory insists the account already be
+    a member of the group — a rule ADUC surfaces as a greyed-out "Set Primary
+    Group" button — so that is checked here and refused with a reason, rather
+    than left to the directory's less helpful "constraint violation".
+
+    Only the domain's own groups can be primary: the RID is looked up in the
+    account's SID, so a group from another domain has no RID here to write.
+    """
+    import ldb
+
+    entry = conn.get(dn, attrs=["memberOf", "primaryGroupID", "objectSid"])
+    if entry is None:
+        raise NotFound("The object does not exist.", context={"dn": dn})
+    group = conn.get(group_dn, attrs=["objectSid", "objectClass", "groupType"])
+    if group is None:
+        raise NotFound("The group does not exist.", context={"dn": group_dn})
+    if "group" not in {c.lower() for c in values.as_list(group, "objectClass")}:
+        raise InvalidRequest("The primary group must be a group.", code="not_a_group")
+
+    account_sid = values.sid_to_str(values.as_bytes(entry, "objectSid")) or ""
+    group_sid = values.sid_to_str(values.as_bytes(group, "objectSid")) or ""
+    if account_sid.rsplit("-", 1)[0] != group_sid.rsplit("-", 1)[0]:
+        raise InvalidRequest(
+            "The primary group must belong to the account's own domain.",
+            code="primary_group_foreign_domain",
+        )
+    rid = values.rid_of(group_sid)
+    if rid is None:
+        raise InvalidRequest("The group has no usable SID.", code="primary_group_no_rid")
+
+    current = values.as_int(entry, "primaryGroupID")
+    if current == rid:
+        return {}
+
+    member_of = {g.lower() for g in values.as_list(entry, "memberOf")}
+    if group_dn.lower() not in member_of:
+        raise InvalidRequest(
+            "The account must be a member of the group before it can be its primary group.",
+            code="primary_group_not_a_member",
+        )
+
+    message = ldb.Message()
+    message.dn = ldb.Dn(conn.samdb, dn)
+    message["primaryGroupID"] = ldb.MessageElement(str(rid), ldb.FLAG_MOD_REPLACE, "primaryGroupID")
+    conn.modify(message)
+    return {"primaryGroupID": {"old": current, "new": rid}}
 
 
 # ---------------------------------------------------------------------------

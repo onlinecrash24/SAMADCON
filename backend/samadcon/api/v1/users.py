@@ -15,6 +15,7 @@ from samadcon.schemas.requests import (
     CreateUserRequest,
     EnabledRequest,
     MustChangePasswordRequest,
+    PrimaryGroupRequest,
     SetPasswordRequest,
     UpdateUserRequest,
 )
@@ -179,6 +180,28 @@ async def set_expiry(
         )
         record["changes"] = applied
     return {"dn": dn, "expires_at": payload.expires_at}
+
+
+@router.post("/primary-group")
+async def set_primary_group(
+    payload: PrimaryGroupRequest,
+    worker: VerifiedWorker,
+    session: VerifiedSession,
+    audit: Audit,
+    dn: DnQuery,
+) -> dict[str, Any]:
+    """Make a group the account's primary group. It must already be a member."""
+    with audit.operation("user.set_primary_group", target=dn, group=payload.group_dn) as record:
+        applied = await ad_write(
+            worker,
+            session,
+            users.set_primary_group,
+            dn,
+            payload.group_dn,
+            label="user.set_primary_group",
+        )
+        record["changes"] = applied
+    return {"dn": dn, "primary_group": payload.group_dn, "applied": applied}
 
 
 @router.get("/locked")

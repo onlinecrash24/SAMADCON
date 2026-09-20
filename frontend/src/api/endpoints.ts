@@ -214,6 +214,11 @@ export const api = {
     http.post<{ dn: string; expires_at: string | null }>(`/users/expiry?dn=${dnParam(dn)}`, {
       expires_at: expiresAt,
     }),
+  /** Make a group the account's primary group; it must already be a member. */
+  setPrimaryGroup: (dn: string, groupDn: string) =>
+    http.post<{ dn: string; primary_group: string }>(`/users/primary-group?dn=${dnParam(dn)}`, {
+      group_dn: groupDn,
+    }),
   setMustChangePassword: (dn: string, mustChange: boolean) =>
     http.post<{ dn: string }>(`/users/must-change-password?dn=${dnParam(dn)}`, {
       must_change: mustChange,

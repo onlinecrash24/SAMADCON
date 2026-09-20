@@ -106,6 +106,10 @@ class MustChangePasswordRequest(StrictModel):
     must_change: bool
 
 
+class PrimaryGroupRequest(StrictModel):
+    group_dn: str = Field(min_length=3, max_length=1024)
+
+
 class AccountExpiryRequest(StrictModel):
     expires_at: datetime | None = Field(
         default=None, description="null clears the expiry date"

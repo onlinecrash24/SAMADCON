@@ -66,6 +66,12 @@ describe('what a draft would send', () => {
     expect(fromDateInput('')).toBeNull()
   })
 
+  it('sends the primary group only when it is a different one', () => {
+    const base = { ...BASE, primaryGroup: 'CN=Domain Users,CN=Users,DC=x' }
+    expect(changesOf({ ...EMPTY_DRAFT, primaryGroup: 'cn=domain users,cn=users,dc=x' }, base).primaryGroup).toBeUndefined()
+    expect(changesOf({ ...EMPTY_DRAFT, primaryGroup: 'CN=Staff,DC=x' }, base).primaryGroup).toBe('CN=Staff,DC=x')
+  })
+
   it('counts everything Apply would do', () => {
     const draft: Draft = {
       attributes: { first_name: 'Berta', description: 'x' },
@@ -76,8 +82,9 @@ describe('what a draft would send', () => {
       deleteProtected: true,
       memberAdd: [obj('CN=A,OU=g')],
       memberRemove: ['CN=B,OU=g'],
+      primaryGroup: 'CN=A,OU=g',
     }
-    expect(countChanges(changesOf(draft, BASE))).toBe(9)
+    expect(countChanges(changesOf(draft, BASE))).toBe(10)
   })
 })
 
@@ -120,6 +127,7 @@ describe('after a partial apply', () => {
     securityGroup: false,
     memberAdd: [obj('CN=A,OU=g')],
     memberRemove: ['CN=B,OU=g'],
+    primaryGroup: 'CN=A,OU=g',
   }
 
   it('drops what was written and keeps what was not', () => {
@@ -135,7 +143,7 @@ describe('after a partial apply', () => {
 
   it('is empty once every step ran', () => {
     const left = withoutApplied(full, [
-      'attributes', 'accountExpires', 'mustChangePassword', 'unlock', 'deleteProtected', 'group', 'memberAdd', 'memberRemove',
+      'attributes', 'accountExpires', 'mustChangePassword', 'unlock', 'deleteProtected', 'group', 'memberAdd', 'memberRemove', 'primaryGroup',
     ])
     expect(countChanges(changesOf(left, BASE))).toBe(0)
   })
