@@ -14,6 +14,60 @@ release.
 
 ---
 
+## 0.5.11 — 2026-09-20
+
+One change, and it is the other half of 0.5.10's paging fix.
+
+The tester's screenshot after 0.5.10 showed two things at once. The paging
+holds against Samba — "more than 500 objects" can only be said once a second
+page was fetched, and before 0.5.10 the list stopped at 500 and said nothing.
+And the numbers still jumped: user 000140, then 000497, then 000581, in a
+list that claimed to be sorted by name.
+
+That was the same bug from the other side. The list was cut at the ceiling in
+whatever order the server returned, and sorted by name afterwards — so "the
+first 500" were 500 arbitrary objects, alphabetically. ADUC's first 500 are
+the first 500 because it asks the server to sort before it cuts.
+
+So the server sorts now. Both the container list and the search send the LDAP
+server-side sort control — `server_sort:<critical>:<reverse>:<attribute>`,
+read out of ldb_controls.c — and Samba's AD DC loads the `server_sort` module
+in its chain, checked in samba_dsdb.c rather than assumed. Not critical: a
+server without it answers unsorted, which is what this had. The re-sort by
+name that ran afterwards is gone, because it would have undone a sort by
+anything else; containers still come first, by a stable partition that leaves
+the server's order intact within each half. Six tests, all red without.
+
+In the list, the three column headers are buttons. A new column sorts
+ascending; the same one again flips. The choice is a request parameter and
+part of both query keys, remembered like the ceiling, and read back as
+untrusted. `aria-sort` on the cell; one arrow, on the sorted column only.
+Measured against the built stylesheet: the header is 29px with the button and
+without, same face, no chrome.
+
+Name sorts on the RDN, as ADUC's Name column is. Type sorts on
+objectCategory — single-valued, unlike objectClass, and it groups the classes
+the way the column shows them. Description on description.
+
+One visible change alongside, and a deliberate one: the Name column shows the
+RDN, as ADUC's does, where it showed the display name when there was one. For
+objects created in RSAT the two are the same string; for a lab built with
+`--use-username-as-cn` it now reads labuser000001, labuser000002 — which is
+what the tester asked to see, and what their own ADUC screenshot shows. The
+display name is on the title. A column of its own for it comes with the
+column chooser.
+
+Two testers, independently, called sorting by column essential. This release
+is that.
+
+Not verified against a live domain: that Samba honours the control. The tests
+prove the request carries it and that nothing here reorders the answer; the
+LabUsers OU at a ceiling of 500, sorted by Name, is the test — the
+descriptions should read 000001, 000002, 000003, and flip to 010000 downwards
+on the second click. A browser sort would only have reversed the 500 it had.
+
+---
+
 ## 0.5.10 — 2026-09-20
 
 Two things in one release: a security pass, and the first answers to a tester
