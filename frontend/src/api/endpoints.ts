@@ -12,6 +12,7 @@ import type {
   AdmxStore,
   AdmxTree,
   AttributeListing,
+  Certificate,
   ChildListing,
   ComputerDetail,
   DelegationTemplate,
@@ -217,6 +218,17 @@ export const api = {
   setExpiry: (dn: string, expiresAt: string | null) =>
     http.post<{ dn: string; expires_at: string | null }>(`/users/expiry?dn=${dnParam(dn)}`, {
       expires_at: expiresAt,
+    }),
+  certificates: (dn: string) =>
+    http.get<{ dn: string; certificates: Certificate[] }>(`/users/certificates?dn=${dnParam(dn)}`),
+  /** Parse an upload without writing it: what the row would show. */
+  inspectCertificate: (data: string) =>
+    http.post<Certificate>('/users/certificates/inspect', { data }),
+  addCertificate: (dn: string, data: string) =>
+    http.post<{ dn: string; added: string }>(`/users/certificates?dn=${dnParam(dn)}`, { data }),
+  removeCertificate: (dn: string, fingerprint: string) =>
+    http.delete<{ dn: string; removed: string }>(`/users/certificates?dn=${dnParam(dn)}`, {
+      fingerprint,
     }),
   /** Make a group the account's primary group; it must already be a member. */
   setPrimaryGroup: (dn: string, groupDn: string) =>

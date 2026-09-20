@@ -15,7 +15,7 @@
  * anything, has to be sent.
  */
 
-import type { DirectoryObject } from '../../../api/types'
+import type { Certificate, DirectoryObject } from '../../../api/types'
 
 /** What the directory said when the sheet opened — the thing a draft is against. */
 /** A field's value: one string, or — for the "Other…" lists — several. */
@@ -51,6 +51,9 @@ export interface Draft {
   memberRemove: string[]
   /** The group to make primary, by DN. Applied after additions, so a group added in the same draft qualifies. */
   primaryGroup?: string
+  /** Certificates to publish (the upload, base64, and what the server parsed from it) and to remove, by fingerprint. */
+  certAdd: { data: string; info: Certificate }[]
+  certRemove: string[]
 }
 
 export const EMPTY_DRAFT: Draft = {
@@ -58,6 +61,8 @@ export const EMPTY_DRAFT: Draft = {
   flags: {},
   memberAdd: [],
   memberRemove: [],
+  certAdd: [],
+  certRemove: [],
 }
 
 /** What has to be sent: only the parts that differ from the base. */
@@ -74,6 +79,8 @@ export interface Changes {
   memberAdd: DirectoryObject[]
   memberRemove: string[]
   primaryGroup?: string
+  certAdd: { data: string; info: Certificate }[]
+  certRemove: string[]
 }
 
 /** ISO timestamp → yyyy-mm-dd for <input type="date">, or '' when unset. */
@@ -123,6 +130,8 @@ export function changesOf(draft: Draft, base: SheetBase): Changes {
   const out: Changes = {
     memberAdd: draft.memberAdd,
     memberRemove: draft.memberRemove,
+    certAdd: draft.certAdd,
+    certRemove: draft.certRemove,
   }
   if (Object.keys(attributes).length) out.attributes = attributes
   if (Object.keys(flags).length) out.flags = flags
@@ -165,7 +174,9 @@ export function countChanges(changes: Changes): number {
     (changes.securityGroup !== undefined ? 1 : 0) +
     changes.memberAdd.length +
     changes.memberRemove.length +
-    (changes.primaryGroup !== undefined ? 1 : 0)
+    (changes.primaryGroup !== undefined ? 1 : 0) +
+    changes.certAdd.length +
+    changes.certRemove.length
   )
 }
 
@@ -210,6 +221,7 @@ export type Step =
   | 'memberAdd'
   | 'memberRemove'
   | 'primaryGroup'
+  | 'certificates'
 
 export function withoutApplied(draft: Draft, applied: Step[]): Draft {
   let next = draft
@@ -254,6 +266,9 @@ export function withoutApplied(draft: Draft, applied: Step[]): Draft {
         next = rest as Draft
         break
       }
+      case 'certificates':
+        next = { ...next, certAdd: [], certRemove: [] }
+        break
     }
   }
   return next

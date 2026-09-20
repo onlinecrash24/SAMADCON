@@ -106,6 +106,16 @@ class MustChangePasswordRequest(StrictModel):
     must_change: bool
 
 
+class CertificateUploadRequest(StrictModel):
+    """One certificate, DER or PEM, as base64. 64 KiB decoded is more than any."""
+
+    data: str = Field(min_length=1, max_length=96 * 1024)
+
+
+class CertificateRemoveRequest(StrictModel):
+    fingerprint: str = Field(min_length=64, max_length=64, pattern="^[0-9a-fA-F]{64}$")
+
+
 class PrimaryGroupRequest(StrictModel):
     group_dn: str = Field(min_length=3, max_length=1024)
 

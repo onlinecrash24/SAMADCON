@@ -172,6 +172,24 @@ export interface TreeListing {
   nodes: TreeNode[]
 }
 
+/** One published X.509 certificate, as /users/certificates describes it. */
+export interface Certificate {
+  fingerprint: string
+  subject: string | null
+  issuer: string | null
+  subject_dn?: string
+  issuer_dn?: string
+  serial?: string
+  not_before?: string
+  not_after?: string
+  purposes?: string[]
+  /** The DER, base64 — for Copy to File. */
+  der: string
+  pem?: string
+  /** A value on the attribute that is not a certificate at all. */
+  unparseable?: boolean
+}
+
 export interface AccountStatus {
   disabled: boolean
   locked_out: boolean

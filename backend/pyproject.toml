@@ -46,6 +46,9 @@ dependencies = [
     # and four endpoints take uploads.
     "python-multipart>=0.0.32",
     "dnspython>=2.8.0",
+    # X.509 for the Published Certificates tab: parsing what is on the
+    # account and validating what is uploaded before it goes anywhere.
+    "cryptography>=50.0.0",
 ]
 
 [project.optional-dependencies]

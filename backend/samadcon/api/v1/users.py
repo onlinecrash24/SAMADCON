@@ -6,12 +6,14 @@ from typing import Any
 
 from fastapi import APIRouter
 
-from samadcon.ad import users
+from samadcon.ad import certificates, users
 from samadcon.ad.access import ad_read, ad_write
 from samadcon.api.common import Audit, DnQuery
 from samadcon.auth.deps import CurrentSession, VerifiedSession, VerifiedWorker, Worker
 from samadcon.schemas.requests import (
     AccountExpiryRequest,
+    CertificateRemoveRequest,
+    CertificateUploadRequest,
     CreateUserRequest,
     EnabledRequest,
     MustChangePasswordRequest,
@@ -202,6 +204,74 @@ async def set_primary_group(
         )
         record["changes"] = applied
     return {"dn": dn, "primary_group": payload.group_dn, "applied": applied}
+
+
+# ---------------------------------------------------------------------------
+# Published certificates
+# ---------------------------------------------------------------------------
+
+
+@router.get("/certificates")
+async def list_certificates(
+    worker: Worker, session: CurrentSession, dn: DnQuery
+) -> dict[str, Any]:
+    """The X.509 certificates published on the account, as the tab shows them."""
+    found = await ad_read(
+        worker, session, certificates.list_certificates, dn, label="user.certificates",
+    )
+    return {"dn": dn, "certificates": found}
+
+
+@router.post("/certificates/inspect")
+async def inspect_certificate(
+    payload: CertificateUploadRequest, session: CurrentSession
+) -> dict[str, Any]:
+    """What an uploaded file would look like on the tab. Parses; writes nothing."""
+    return certificates.inspect(payload.data)
+
+
+@router.post("/certificates")
+async def add_certificate(
+    payload: CertificateUploadRequest,
+    worker: VerifiedWorker,
+    session: VerifiedSession,
+    audit: Audit,
+    dn: DnQuery,
+) -> dict[str, Any]:
+    with audit.operation("user.add_certificate", target=dn) as record:
+        applied = await ad_write(
+            worker,
+            session,
+            certificates.add_certificate,
+            dn,
+            payload.data,
+            label="user.add_certificate",
+        )
+        record["changes"] = applied
+    return {"dn": dn, **applied}
+
+
+@router.delete("/certificates")
+async def remove_certificate(
+    payload: CertificateRemoveRequest,
+    worker: VerifiedWorker,
+    session: VerifiedSession,
+    audit: Audit,
+    dn: DnQuery,
+) -> dict[str, Any]:
+    with audit.operation(
+        "user.remove_certificate", target=dn, fingerprint=payload.fingerprint,
+    ) as record:
+        applied = await ad_write(
+            worker,
+            session,
+            certificates.remove_certificate,
+            dn,
+            payload.fingerprint,
+            label="user.remove_certificate",
+        )
+        record["changes"] = applied
+    return {"dn": dn, **applied}
 
 
 @router.get("/locked")

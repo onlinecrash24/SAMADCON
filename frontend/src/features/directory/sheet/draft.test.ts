@@ -93,8 +93,10 @@ describe('what a draft would send', () => {
       memberAdd: [obj('CN=A,OU=g')],
       memberRemove: ['CN=B,OU=g'],
       primaryGroup: 'CN=A,OU=g',
+      certAdd: [{ data: 'AA==', info: { fingerprint: 'f1', subject: 'x', issuer: 'y', der: 'AA==' } }],
+      certRemove: ['f0'],
     }
-    expect(countChanges(changesOf(draft, BASE))).toBe(10)
+    expect(countChanges(changesOf(draft, BASE))).toBe(12)
   })
 })
 
@@ -138,6 +140,8 @@ describe('after a partial apply', () => {
     memberAdd: [obj('CN=A,OU=g')],
     memberRemove: ['CN=B,OU=g'],
     primaryGroup: 'CN=A,OU=g',
+    certAdd: [{ data: 'AA==', info: { fingerprint: 'f1', subject: 'x', issuer: 'y', der: 'AA==' } }],
+    certRemove: ['f0'],
   }
 
   it('drops what was written and keeps what was not', () => {
@@ -153,7 +157,7 @@ describe('after a partial apply', () => {
 
   it('is empty once every step ran', () => {
     const left = withoutApplied(full, [
-      'attributes', 'accountExpires', 'mustChangePassword', 'unlock', 'deleteProtected', 'group', 'memberAdd', 'memberRemove', 'primaryGroup',
+      'attributes', 'accountExpires', 'mustChangePassword', 'unlock', 'deleteProtected', 'group', 'memberAdd', 'memberRemove', 'primaryGroup', 'certificates',
     ])
     expect(countChanges(changesOf(left, BASE))).toBe(0)
   })

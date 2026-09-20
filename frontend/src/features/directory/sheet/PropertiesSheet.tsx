@@ -16,6 +16,7 @@ import { AttributeEditor } from '../AttributeEditor'
 import { ObjectCommands } from '../ObjectCommands'
 import { SecurityTab } from '../SecurityTab'
 import { AccountTab } from './AccountTab'
+import { CertificatesTab } from './CertificatesTab'
 import {
   EMPTY_DRAFT,
   changesOf,
@@ -66,6 +67,7 @@ export type TabId =
   | 'profile'
   | 'telephones'
   | 'organization'
+  | 'certificates'
   | 'managedBy'
   | 'members'
   | 'memberOf'
@@ -81,7 +83,7 @@ function tabsFor(type: string): TabId[] {
   if (isUser(type)) {
     return [
       'general', 'address', 'account', 'profile', 'telephones', 'organization',
-      'memberOf', 'object', 'security', 'attributes',
+      'certificates', 'memberOf', 'object', 'security', 'attributes',
     ]
   }
   if (type === 'group') return ['general', 'members', 'memberOf', 'managedBy', 'object', 'security', 'attributes']
@@ -150,6 +152,7 @@ export function PropertiesSheet({
     void queryClient.invalidateQueries({ queryKey: ['members'] })
     void queryClient.invalidateQueries({ queryKey: ['memberOf'] })
     void queryClient.invalidateQueries({ queryKey: ['protection'] })
+    void queryClient.invalidateQueries({ queryKey: ['certificates'] })
   }
 
   /**
@@ -227,6 +230,12 @@ export function PropertiesSheet({
             if (object.type === 'group') await api.addMembers(object.dn, [member.dn])
             else await api.addMembers(member.dn, [object.dn])
           }
+        })
+      }
+      if (what.certRemove.length || what.certAdd.length) {
+        await run('certificates', async () => {
+          for (const fingerprint of what.certRemove) await api.removeCertificate(object.dn, fingerprint)
+          for (const entry of what.certAdd) await api.addCertificate(object.dn, entry.data)
         })
       }
       // After the additions: the directory insists the account already be a
@@ -331,6 +340,7 @@ export function PropertiesSheet({
           {tab === 'profile' && <ProfileTab />}
           {tab === 'telephones' && <TelephonesTab />}
           {tab === 'organization' && <OrganizationTab user={user} />}
+          {tab === 'certificates' && <CertificatesTab />}
           {tab === 'managedBy' && <ManagedByTab />}
           {tab === 'members' && <MembershipTab mode="members" onNavigate={onNavigate} />}
           {tab === 'memberOf' && <MembershipTab mode="memberOf" onNavigate={onNavigate} />}
