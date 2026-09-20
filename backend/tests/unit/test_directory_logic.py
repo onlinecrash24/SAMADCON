@@ -272,3 +272,19 @@ def test_ancestors_of_the_base_itself_are_allowed():
     conn = AncestorConnection()
     # The base is its own ancestor list; it must not be refused as "outside".
     assert directory.get_ancestors(conn, "DC=example,DC=test") == []
+
+
+def test_the_advanced_tree_names_every_container_aduc_shows():
+    """Compared against ADUC with "Advanced Features" on, the tree lacked NTDS
+    Quotas and TPM Devices. Both carry showInAdvancedViewOnly, so the plain
+    view hides them by itself — but a class the filter does not name is absent
+    from both views, which is what the tester saw."""
+    advanced = directory._tree_filter(include_advanced=True)
+    for cls in ("msDS-QuotaContainer", "msTPM-InformationObjectsContainer"):
+        assert f"(objectClass={cls})" in advanced, cls
+        # And they open like any container, rather than as a leaf of unknown type.
+        assert directory.type_for_class(cls) == "container"
+
+    # The plain view still leaves advanced-only objects out.
+    plain = directory._tree_filter(include_advanced=False)
+    assert "(!(showInAdvancedViewOnly=TRUE))" in plain

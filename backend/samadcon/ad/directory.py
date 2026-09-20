@@ -60,6 +60,13 @@ _TYPE_BY_CLASS: list[tuple[str, str]] = [
     ("dnsZone", "dns_zone"),
     ("dnsNode", "dns_node"),
     ("lostAndFound", "container"),
+    # Two more of ADUC's advanced-view containers. Both carry
+    # showInAdvancedViewOnly, so the plain view leaves them out on its own —
+    # but the tree filter has to name their classes or they never appear at
+    # all, and a tester comparing against the original saw exactly these two
+    # missing.
+    ("msDS-QuotaContainer", "container"),
+    ("msTPM-InformationObjectsContainer", "container"),
     ("container", "container"),
 ]
 
@@ -211,7 +218,8 @@ def list_children(
 # Object classes that make a node a branch of the navigation tree.
 CONTAINER_FILTER = (
     "(|(objectClass=organizationalUnit)(objectClass=container)"
-    "(objectClass=builtinDomain)(objectClass=domainDNS)(objectClass=lostAndFound))"
+    "(objectClass=builtinDomain)(objectClass=domainDNS)(objectClass=lostAndFound)"
+    "(objectClass=msDS-QuotaContainer)(objectClass=msTPM-InformationObjectsContainer))"
 )
 
 # Above this many siblings, the per-node "can this be expanded?" probe is
