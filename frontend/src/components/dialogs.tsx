@@ -47,6 +47,11 @@ export function NewUserDialog({ parentDn, onClose, onDone }: DialogProps & { par
     first_name: '',
     last_name: '',
     sam: '',
+    // The object's CN. Follows the logon name until someone types into it —
+    // a tester's request, and a departure from ADUC, which builds it from
+    // first and last name and makes you retype it every time you want the
+    // logon name instead. Cleared, it follows the logon name again.
+    cn: '',
     password: '',
     mustChange: true,
     enabled: true,
@@ -55,7 +60,8 @@ export function NewUserDialog({ parentDn, onClose, onDone }: DialogProps & { par
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
     setForm((current) => ({ ...current, [key]: value }))
 
-  const commonName = [form.first_name, form.last_name].filter(Boolean).join(' ') || form.sam
+  const commonName = form.cn || form.sam
+  const displayName = [form.first_name, form.last_name].filter(Boolean).join(' ') || commonName
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
@@ -70,7 +76,7 @@ export function NewUserDialog({ parentDn, onClose, onDone }: DialogProps & { par
         attributes: {
           ...(form.first_name ? { first_name: form.first_name } : {}),
           ...(form.last_name ? { last_name: form.last_name } : {}),
-          ...(commonName ? { display_name: commonName } : {}),
+          ...(displayName ? { display_name: displayName } : {}),
         },
       })
       return t('status.created', { name: created.name })
@@ -108,6 +114,14 @@ export function NewUserDialog({ parentDn, onClose, onDone }: DialogProps & { par
             maxLength={20}
             value={form.sam}
             onChange={(e) => set('sam', e.target.value)}
+          />
+        </Field>
+        <Field label={t('user.fullName')} hint={t('dialog.fullNameHint')}>
+          <input
+            maxLength={64}
+            value={commonName}
+            placeholder={form.sam}
+            onChange={(e) => set('cn', e.target.value)}
           />
         </Field>
         <Field label={t('login.password')}>

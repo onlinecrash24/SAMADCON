@@ -222,6 +222,9 @@ export const de = {
   'action.change': 'Ändern',
 
   'user.logonName': 'Anmeldename',
+  'user.fullName': 'Vollständiger Name',
+  'dialog.fullNameHint':
+    'Wird der CN des Objekts. Vorbelegt mit dem Anmeldenamen — leer lassen, um ihm zu folgen.',
   'user.upn': 'UPN',
   'user.firstName': 'Vorname',
   'user.lastName': 'Nachname',
@@ -1548,6 +1551,9 @@ export const en: Record<MessageKey, string> = {
   'action.change': 'Change',
 
   'user.logonName': 'Logon name',
+  'user.fullName': 'Full name',
+  'dialog.fullNameHint':
+    'Becomes the object\'s CN. Prefilled from the logon name — leave it empty to follow it.',
   'user.upn': 'UPN',
   'user.firstName': 'First name',
   'user.lastName': 'Last name',
