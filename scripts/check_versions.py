@@ -15,7 +15,12 @@ left is checked here:
 * the git tag, on a tag build. This catches the case the structural fix cannot:
   tagging v0.5.4 and forgetting to raise anything at all;
 * that the single-source arrangement is still in place, so it cannot be undone
-  by someone putting a literal ``version`` back into ``pyproject.toml``.
+  by someone putting a literal ``version`` back into ``pyproject.toml``;
+* that the two copies of the deployment compose file still describe the same
+  stack. One is in the project root, where ``docker compose`` finds it without
+  being told; the other sits under ``docker/`` beside the Dockerfile. Two files
+  holding one thing is exactly the arrangement the version check exists for, so
+  it is checked here rather than remembered.
 
 Imports nothing from ``samadcon``: this runs in the lint job, which has no
 samba bindings, and parsing beats importing for a value that must be a literal
@@ -32,6 +37,7 @@ import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+COMPOSE = (ROOT / "docker-compose.yml", ROOT / "docker" / "docker-compose.yml")
 INIT = ROOT / "backend" / "samadcon" / "__init__.py"
 PYPROJECT = ROOT / "backend" / "pyproject.toml"
 PACKAGE_JSON = ROOT / "frontend" / "package.json"
@@ -78,6 +84,8 @@ def problems(version: str) -> list[str]:
             f"{INIT.name} says {version!r}"
         )
 
+    found.extend(compose_problems())
+
     # Set by the workflow only on a tag build; empty every other time.
     tag = (os.environ.get("EXPECTED_TAG") or "").strip().lstrip("v")
     if tag and tag != version:
@@ -89,17 +97,51 @@ def problems(version: str) -> list[str]:
     return found
 
 
+def _body(text: str) -> str:
+    """Everything from ``services:`` on — the file without its header.
+
+    The two headers differ on purpose: each says where the other one is. Below
+    that, the files are one file, comments included, because the comments are
+    where the settings are explained and a reader of either copy should get
+    the same explanation.
+    """
+    marker = "\nservices:"
+    at = text.find(marker)
+    return text[at:].replace("\r\n", "\n") if at >= 0 else text
+
+
+def compose_problems() -> list[str]:
+    """The two deployment compose files must be the same file.
+
+    Compared as text rather than as parsed YAML, for two reasons: the lint job
+    installs ruff and pip-audit and nothing else, so there is no YAML parser to
+    reach for; and a comment that drifted would pass a parsed comparison while
+    telling the two readers different things.
+    """
+    root, copy = COMPOSE
+    if not copy.exists():
+        return [f"{copy} is missing; it is the copy of {root.name} kept beside the Dockerfile"]
+    if _body(root.read_text(encoding="utf-8")) != _body(copy.read_text(encoding="utf-8")):
+        return [
+            f"{root} and {copy} have drifted apart below their headers. "
+            f"They are two copies of one file on purpose — change both, or "
+            f"copy one over the other from `services:` down."
+        ]
+    return []
+
+
 def main() -> int:
     version = source_version()
     found = problems(version)
 
     if found:
-        print("The version does not agree with itself:\n", file=sys.stderr)
+        print("Something that has to agree with itself does not:\n", file=sys.stderr)
         for problem in found:
             print(f"  - {problem}", file=sys.stderr)
         print(
-            f"\nThe version lives in {INIT.relative_to(ROOT)} and nowhere else. "
-            f"Raise it there and in frontend/package.json.",
+            f"\nThe version lives in {INIT.relative_to(ROOT)} and nowhere else — "
+            f"raise it there and in frontend/package.json. The two deployment "
+            f"compose files are one file in two places.",
             file=sys.stderr,
         )
         return 1

@@ -369,6 +369,7 @@ SAMADCON/
 ├── docker-compose_source_build.yml   the whole configuration
 ├── .dockerignore               keeps node_modules and local secrets out of the image
 ├── docker/
+│   ├── docker-compose.yml      the same file again, beside the rest of the docker assets
 │   ├── Dockerfile
 │   ├── entrypoint.sh
 │   ├── nginx.conf.template

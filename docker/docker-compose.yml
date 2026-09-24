@@ -1,0 +1,180 @@
+# SAMADCON — the published image.
+#
+# This is the file to deploy: it pulls a built image and needs nothing on the
+# host prepared. Paste it into a Portainer stack, or:
+#
+#   docker compose up -d
+#
+# This is a copy of the docker-compose.yml in the project root, kept here
+# beside the other docker assets. The two are compared by
+# scripts/check_versions.py, so they cannot drift apart.
+#
+# To build from source instead — which is what the integration tests need —
+# use docker-compose_source_build.yml in the project root.
+#
+# **Named volumes, not bind mounts.** A Portainer stack has no directory of its
+# own on the host: a relative path like ./tls is resolved by the Docker daemon
+# rather than by Portainer, and Docker creates what is missing as a directory
+# owned by root. This container runs as uid 1000, so the entrypoint could not
+# write its certificate there. The image creates /etc/samadcon/tls, ca and
+# servers and gives them to uid 1000, and docker seeds a named volume from the
+# image directory with that ownership — so everything below just works.
+#
+# To keep files on the host after all — a real certificate, a servers.json —
+# use an **absolute** path: /srv/samadcon/tls:/etc/samadcon/tls. That works in
+# a stack; a relative one does not.
+#
+# **No container_name.** Portainer names the container after the stack and the
+# service. Setting it here as well means a second stack of this image cannot
+# start, and renaming the stack does not reach it.
+#
+# **Never write a password into this file.** The console does not take one from
+# the environment anyway: it asks whoever signs in.
+
+services:
+  samadcon:
+    # The newest release. Pin a version — samadcon:0.5.14 — where an upgrade
+    # should be a decision rather than a side effect of pulling.
+    image: ghcr.io/onlinecrash24/samadcon:latest
+    restart: unless-stopped
+
+    environment:
+      # --- The web front end ----------------------------------------------
+      # The name the console is reached under. It becomes the CN and the SAN of
+      # the self-signed certificate and the target of the HTTP-to-HTTPS
+      # redirect, so a wrong value here is a certificate warning for everyone.
+      # **The one value practically every installation must change.**
+      SAMADCON_PUBLIC_HOST: "samadcon.example.lan"
+      # The port people reach — the one published below, not the one nginx
+      # listens on. Only the redirect uses it, and it would otherwise assume
+      # 443 and send them to a port nothing listens on.
+      SAMADCON_PUBLIC_HTTPS_PORT: "8443"
+
+      # --- The domain -----------------------------------------------------
+      # Both may stay empty: the sign-in form then asks for a server address
+      # and works the domain out from it. An IP is fine — the DC's own name
+      # comes from its rootDSE.
+      SAMADCON_REALM: ""
+      SAMADCON_DC_HOSTS: ""
+      SAMADCON_WORKGROUP: ""
+
+      # --- Pre-configured domains (optional) ------------------------------
+      # A JSON file listing domains to offer in the sign-in form. With the
+      # named volume below, put servers.json into it; see
+      # docker/servers/servers.example.json in the repository for the shape.
+      SAMADCON_SERVERS_FILE: ""
+      # 0 allows only the configured domains — administrators can then no
+      # longer type an arbitrary address.
+      SAMADCON_ALLOW_CUSTOM_SERVERS: "1"
+
+      # --- LDAP -----------------------------------------------------------
+      # Which transports may be tried, in the order they are tried. Both
+      # encrypt: ldap with the Kerberos session key (sign-and-seal required,
+      # not requested), ldaps with TLS. Restricting to one is a policy
+      # decision, not an upgrade — and a deployment that permits only ldaps
+      # and cannot reach port 636 has no other way in.
+      SAMADCON_LDAP_TRANSPORTS: "ldap,ldaps"
+      # CA that signed the DCs' certificates, inside the container. A Samba DC
+      # keeps its own at /var/lib/samba/private/tls/ca.pem — copy it into the
+      # samadcon-ca volume and name it here, e.g. /etc/samadcon/ca/ca.pem.
+      SAMADCON_LDAP_CA_FILE: ""
+      # Turns certificate validation off for every connection. Prefer the
+      # per-session checkbox in the sign-in form over this switch.
+      SAMADCON_LDAP_INSECURE: "0"
+
+      # --- The reverse proxy, if there is one -------------------------------
+      # Only an address named here is believed about who the caller is, because
+      # X-Forwarded-For is a plain header anyone can send — and the audit log is
+      # the thing that would record the lie. The proxy's own host address,
+      # comma or space separated, addresses or CIDR ranges:
+      #
+      #   SAMADCON_TRUSTED_PROXIES: "192.168.1.5, 10.0.0.0/8"
+      #
+      # Empty means no proxy: the address that connected is the one recorded.
+      # Leave it empty rather than guessing — a wrong entry is worse than none.
+      # Never 0.0.0.0/0. That is not a generous setting, it is no setting:
+      # every host becomes trusted and the audit log records claims.
+      SAMADCON_TRUSTED_PROXIES: ""
+
+      # --- Sessions --------------------------------------------------------
+      SAMADCON_TICKET_LIFETIME: "10h"
+      SAMADCON_RENEW_LIFETIME: "7d"
+      SAMADCON_SESSION_IDLE_MINUTES: "60"
+      # Failed sign-ins per account before SAMADCON stops forwarding attempts to
+      # the DC. Protects against triggering AD account lockout through the
+      # web form.
+      SAMADCON_LOGIN_MAX_ATTEMPTS: "5"
+      SAMADCON_LOGIN_LOCKOUT_MINUTES: "5"
+
+      # --- Logging ---------------------------------------------------------
+      SAMADCON_LOG_LEVEL: "INFO"
+      # Every write operation lands here: who, what, DN, attribute diff.
+      SAMADCON_AUDIT_FILE: "/var/log/samadcon/audit.jsonl"
+      # Raise for Samba protocol traces. Noisy — 0 outside a hunt.
+      SAMADCON_SAMBA_LOG_LEVEL: "0"
+      # Extra diagnostics and a more talkative error surface.
+      SAMADCON_DEV_MODE: "0"
+
+    # Every interface, because the machine reaching the console is rarely the
+    # one running Docker. Behind a reverse proxy on this same host, bind to
+    # loopback instead: "127.0.0.1:8443:8443".
+    #
+    # 8080 only serves the redirect to HTTPS. Publish it if people will type a
+    # bare hostname; leave it out and they have to type https:// themselves.
+    ports:
+      - "8443:8443"
+      - "8080:8080"
+
+    # Finding a DC through SRV records takes a resolver that serves the domain,
+    # which is usually the DC itself. Not needed when SAMADCON_DC_HOSTS names
+    # the controllers directly.
+    #
+    #   dns: ["192.168.1.10"]
+    #   dns_search: ["example.lan"]
+    #
+    # Kerberos needs the DC's own FQDN to resolve. Where DNS does not provide
+    # it:
+    #
+    #   extra_hosts: ["dc1.example.lan:192.168.1.10"]
+
+    volumes:
+      # A certificate of your own goes in here; without one the entrypoint
+      # generates a self-signed certificate on first start. To replace it
+      # later, put server.crt and server.key into this volume and restart.
+      - samadcon-tls:/etc/samadcon/tls
+      # CA bundles for validating the DCs' LDAPS certificates. Optional: the
+      # primary path is LDAP with Kerberos encryption and needs none.
+      - samadcon-ca:/etc/samadcon/ca
+      # Pre-configured domains, if SAMADCON_SERVERS_FILE names one.
+      - samadcon-servers:/etc/samadcon/servers
+      - samadcon-cache:/var/cache/samadcon
+      - samadcon-data:/var/lib/samadcon
+      # The audit trail should outlive the container.
+      - samadcon-logs:/var/log/samadcon
+
+    # Kerberos credential caches live in /dev/shm and must never hit a disk.
+    shm_size: 64m
+    tmpfs:
+      # uid/gid are required: a tmpfs mount belongs to root by default, and
+      # nginx and supervisor run as uid 1000 and write their pid and socket
+      # files here.
+      - /run/samadcon:mode=0700,uid=1000,gid=1000,size=8m
+
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  samadcon-tls:
+  samadcon-ca:
+  samadcon-servers:
+  samadcon-cache:
+  samadcon-data:
+  samadcon-logs:
