@@ -118,11 +118,11 @@ only. The ordinary case needs neither a certificate nor a CA file.
 
 ### Running the published image
 
-Every push to the default branch builds an image and pushes it to the GitHub container registry.
-Nothing has to be cloned or built:
+Every release is built and pushed to the GitHub container registry. Nothing has to be cloned
+or built:
 
 ```bash
-docker pull ghcr.io/onlinecrash24/samadcon:latest
+docker pull ghcr.io/onlinecrash24/samadcon:0.5.14
 ```
 
 A `docker-compose.yml` for that image, complete as it stands — put it in an empty directory:
@@ -130,12 +130,17 @@ A `docker-compose.yml` for that image, complete as it stands — put it in an em
 ```yaml
 services:
   samadcon:
-    image: ghcr.io/onlinecrash24/samadcon:latest
+    # A version, not `latest` — see "Which tag" below.
+    image: ghcr.io/onlinecrash24/samadcon:0.5.14
     container_name: samadcon
     restart: unless-stopped
     environment:
       # The name people type. Becomes the CN and SAN of the self-signed certificate.
       SAMADCON_PUBLIC_HOST: "samadcon.example.lan"
+      # The port people reach, which is the one published below. Only the
+      # HTTP-to-HTTPS redirect uses it, and it defaults to 443 — so without
+      # this line a redirect would send them to a port nothing listens on.
+      SAMADCON_PUBLIC_HTTPS_PORT: "8443"
       # The Kerberos realm, upper case.
       SAMADCON_REALM: "EXAMPLE.LAN"
       # The domain controller. An IP is fine: its own name is read from the rootDSE.
@@ -192,9 +197,20 @@ mkdir -p tls ca && sudo chown -R 1000:1000 tls
 docker compose up -d
 ```
 
-**Which tag.** `latest` follows the default branch, `DEV` names it explicitly, and every build
-also carries `sha-<short>`. For anything that matters, pin the `sha-` tag: `latest` moves under
-you on the next push.
+**Which tag.**
+
+| Tag | What it is |
+|---|---|
+| `0.5.14` | One release, and it never changes. **Pin this.** |
+| `0.5` | The newest release of that minor series. |
+| `latest` | The newest release. Moves when one is tagged. |
+| `dev` | The tip of the DEV branch: what is being worked on, before a release. |
+| `sha-<short>` | One commit. Every build carries one. |
+
+Only a push to `DEV` and a version tag build an image; a push to `main` builds nothing. So
+`latest` is the newest *release*, not the newest commit on the default branch, and `dev` is
+the only tag that moves with day-to-day work. Deploy a version; take `dev` when you are
+testing something that is not released yet, and expect it to change under you.
 
 ### Behind a reverse proxy
 

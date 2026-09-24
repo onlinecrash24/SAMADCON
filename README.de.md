@@ -120,11 +120,11 @@ Stufe 2. Für den Normalfall ist weder ein Zertifikat noch eine CA-Datei nötig.
 
 ### Das fertige Image verwenden
 
-Jeder Push auf den Standardbranch baut ein Image und legt es in der GitHub Container Registry ab.
-Es muss nichts geklont und nichts gebaut werden:
+Jedes Release wird gebaut und in der GitHub Container Registry abgelegt. Es muss nichts
+geklont und nichts gebaut werden:
 
 ```bash
-docker pull ghcr.io/onlinecrash24/samadcon:latest
+docker pull ghcr.io/onlinecrash24/samadcon:0.5.14
 ```
 
 Eine `docker-compose.yml` für dieses Image, vollständig so wie sie dasteht — in ein leeres
@@ -133,12 +133,17 @@ Verzeichnis legen:
 ```yaml
 services:
   samadcon:
-    image: ghcr.io/onlinecrash24/samadcon:latest
+    # Eine Version, nicht `latest` — siehe „Welcher Tag“ weiter unten.
+    image: ghcr.io/onlinecrash24/samadcon:0.5.14
     container_name: samadcon
     restart: unless-stopped
     environment:
       # Der Name, den die Leute eintippen. Wird CN und SAN des selbstsignierten Zertifikats.
       SAMADCON_PUBLIC_HOST: "samadcon.example.lan"
+      # Der Port, den die Leute erreichen — der unten veröffentlichte. Nur die
+      # Weiterleitung von HTTP auf HTTPS benutzt ihn, und sie nimmt sonst 443
+      # an: ohne diese Zeile führte sie auf einen Port, an dem niemand lauscht.
+      SAMADCON_PUBLIC_HTTPS_PORT: "8443"
       # Der Kerberos-Realm, in Großbuchstaben.
       SAMADCON_REALM: "EXAMPLE.LAN"
       # Der Domänencontroller. Eine IP genügt: Sein Name kommt aus der rootDSE.
@@ -195,9 +200,21 @@ mkdir -p tls ca && sudo chown -R 1000:1000 tls
 docker compose up -d
 ```
 
-**Welcher Tag.** `latest` folgt dem Standardbranch, `DEV` benennt ihn ausdrücklich, und jeder Bau
-trägt zusätzlich `sha-<kurz>`. Für alles, woran etwas hängt, den `sha-`Tag festnageln: `latest`
-wandert beim nächsten Push unter Ihnen weg.
+**Welcher Tag.**
+
+| Tag | Was er ist |
+|---|---|
+| `0.5.14` | Ein Release, und es ändert sich nie. **Diesen festnageln.** |
+| `0.5` | Das neueste Release dieser Nebenversionsreihe. |
+| `latest` | Das neueste Release. Wandert, sobald eines getaggt wird. |
+| `dev` | Die Spitze des DEV-Zweigs: woran gerade gearbeitet wird, vor einem Release. |
+| `sha-<kurz>` | Ein einzelner Commit. Jeder Bau trägt einen. |
+
+Nur ein Push auf `DEV` und ein Versions-Tag lösen einen Bau aus; ein Push auf `main` baut nichts.
+`latest` ist deshalb das neueste *Release*, nicht der neueste Commit auf dem Standardzweig, und
+`dev` ist der einzige Tag, der mit der täglichen Arbeit mitwandert. Im Betrieb eine Version
+einsetzen; `dev` nehmen, wenn Sie etwas noch nicht Veröffentlichtes testen — und damit rechnen,
+dass es sich unter Ihnen ändert.
 
 ### Hinter einem Reverse Proxy
 
