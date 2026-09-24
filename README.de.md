@@ -216,6 +216,78 @@ Nur ein Push auf `DEV` und ein Versions-Tag lösen einen Bau aus; ein Push auf `
 einsetzen; `dev` nehmen, wenn Sie etwas noch nicht Veröffentlichtes testen — und damit rechnen,
 dass es sich unter Ihnen ändert.
 
+### Portainer-Stacks
+
+Der Block oben benutzt Bind-Mounts — `./tls`, `./ca` — und ein Portainer-Stack kann das nicht. Ein
+in Portainers Web-Editor eingefügter Stack hat kein eigenes Verzeichnis auf dem Host: Einen
+relativen Pfad löst der Docker-Daemon auf, nicht Portainer, und Docker legt Fehlendes als
+Verzeichnis an, das root gehört. Der Container läuft als uid 1000, kann das Zertifikat dort also
+nicht schreiben und weicht mit einer Warnung im Log auf ein Volume aus.
+
+Benannte Volumes haben dieses Problem nicht. Das Image legt `/etc/samadcon/tls`,
+`/etc/samadcon/ca` und `/etc/samadcon/servers` an und übereignet sie uid 1000, und Docker befüllt
+ein benanntes Volume aus dem Verzeichnis im Image — samt Eigentümer. Das Zertifikat landet also,
+wo es hingehört, ohne dass auf dem Host etwas vorbereitet werden muss:
+
+```yaml
+services:
+  samadcon:
+    image: ghcr.io/onlinecrash24/samadcon:0.5.14
+    restart: unless-stopped
+    environment:
+      SAMADCON_PUBLIC_HOST: "samadcon.example.lan"
+      SAMADCON_PUBLIC_HTTPS_PORT: "8443"
+      SAMADCON_REALM: "EXAMPLE.LAN"
+      SAMADCON_DC_HOSTS: "192.168.1.1"
+      SAMADCON_LOG_LEVEL: "INFO"
+      # Nur hinter einem Reverse Proxy, und dann dessen Host-Adresse. Nie 0.0.0.0/0.
+      SAMADCON_TRUSTED_PROXIES: ""
+    ports:
+      - "8443:8443"
+    volumes:
+      # Ein eigenes Zertifikat kommt hier hinein; ohne eines wird beim ersten
+      # Start ein selbstsigniertes erzeugt. Zum Austausch server.crt und
+      # server.key in dieses Volume kopieren und den Stack neu starten.
+      - samadcon-tls:/etc/samadcon/tls
+      # CA-Bündel zur Prüfung der LDAPS-Zertifikate der DCs. Optional: der
+      # Hauptweg ist LDAP mit Kerberos-Verschlüsselung und braucht keines.
+      - samadcon-ca:/etc/samadcon/ca
+      - samadcon-cache:/var/cache/samadcon
+      - samadcon-data:/var/lib/samadcon
+      - samadcon-logs:/var/log/samadcon
+    shm_size: 64m
+    tmpfs:
+      - /run/samadcon:mode=0700,uid=1000,gid=1000,size=8m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  samadcon-tls:
+  samadcon-ca:
+  samadcon-cache:
+  samadcon-data:
+  samadcon-logs:
+```
+
+Drei Unterschiede zum Block darüber, alle gehen auf Portainer zurück:
+
+- **Kein `container_name`.** Portainer benennt den Container nach Stack und Dienst. Ihn zusätzlich
+  festzulegen heißt, dass ein zweiter Stack desselben Images nicht starten kann und eine
+  Umbenennung in Portainer ihn nicht erreicht.
+- **Benannte Volumes statt Bind-Mounts**, aus dem genannten Grund. Wer Dateien lieber auf dem Host
+  hält — ein echtes Zertifikat, eine `servers.json` —, nimmt einen **absoluten** Pfad:
+  `/srv/samadcon/tls:/etc/samadcon/tls`. Das funktioniert im Stack, ein relativer nicht.
+- **`8443:8443` auf allen Schnittstellen**, weil die Maschine, von der aus die Konsole erreicht
+  wird, selten die ist, auf der Portainer läuft. Hinter einem Proxy auf demselben Host:
+  `127.0.0.1:8443:8443`.
+
+Die Umgebungsvariablen können auch aus Portainers eigenen Feldern kommen statt aus der Datei:
+`SAMADCON_REALM: "${REALM}"` schreiben und `REALM` unter dem Stack ausfüllen. Nicht für das
+Kennwort des Domänenadministrators — die Konsole nimmt keines aus der Umgebung, sie fragt den,
+der sich anmeldet.
+
 ### Hinter einem Reverse Proxy
 
 Der Block oben veröffentlicht auf jeder Schnittstelle, weil ein Proxy auf einer anderen Maschine

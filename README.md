@@ -212,6 +212,77 @@ Only a push to `DEV` and a version tag build an image; a push to `main` builds n
 the only tag that moves with day-to-day work. Deploy a version; take `dev` when you are
 testing something that is not released yet, and expect it to change under you.
 
+### Portainer stacks
+
+The block above uses bind mounts — `./tls`, `./ca` — and a Portainer stack cannot. A stack
+pasted into Portainer's web editor has no directory of its own on the host: a relative path is
+resolved by the Docker daemon, not by Portainer, and Docker creates whatever is missing as a
+directory owned by root. The container runs as uid 1000, so the entrypoint cannot write the
+certificate there and falls back to a volume with a warning in the log.
+
+Named volumes have none of that problem. The image creates `/etc/samadcon/tls`, `/etc/samadcon/ca`
+and `/etc/samadcon/servers` and gives them to uid 1000, and Docker seeds a named volume from the
+image directory with its ownership — so the certificate lands where it belongs, with nothing to
+prepare on the host:
+
+```yaml
+services:
+  samadcon:
+    image: ghcr.io/onlinecrash24/samadcon:0.5.14
+    restart: unless-stopped
+    environment:
+      SAMADCON_PUBLIC_HOST: "samadcon.example.lan"
+      SAMADCON_PUBLIC_HTTPS_PORT: "8443"
+      SAMADCON_REALM: "EXAMPLE.LAN"
+      SAMADCON_DC_HOSTS: "192.168.1.1"
+      SAMADCON_LOG_LEVEL: "INFO"
+      # Only behind a reverse proxy, and then its host's address. Never 0.0.0.0/0.
+      SAMADCON_TRUSTED_PROXIES: ""
+    ports:
+      - "8443:8443"
+    volumes:
+      # A certificate of your own goes in here; without one a self-signed one is
+      # made on first start. To replace it later, copy server.crt and server.key
+      # into this volume and restart the stack.
+      - samadcon-tls:/etc/samadcon/tls
+      # CA bundles for validating the DCs' LDAPS certificates. Optional: the
+      # primary path is LDAP with Kerberos encryption and needs no certificate.
+      - samadcon-ca:/etc/samadcon/ca
+      - samadcon-cache:/var/cache/samadcon
+      - samadcon-data:/var/lib/samadcon
+      - samadcon-logs:/var/log/samadcon
+    shm_size: 64m
+    tmpfs:
+      - /run/samadcon:mode=0700,uid=1000,gid=1000,size=8m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  samadcon-tls:
+  samadcon-ca:
+  samadcon-cache:
+  samadcon-data:
+  samadcon-logs:
+```
+
+Three differences from the block above, all of them Portainer's:
+
+- **No `container_name`.** Portainer names the container after the stack and the service. Setting
+  it as well means a second stack of the same image cannot start, and a rename in Portainer does
+  not reach it.
+- **Named volumes, not bind mounts**, for the reason above. If you would rather keep files on the
+  host — a real certificate, a `servers.json` — use an **absolute** path: `/srv/samadcon/tls:/etc/samadcon/tls`.
+  That works in a stack; a relative one does not.
+- **`8443:8443` on every interface**, because the machine reaching the console is rarely the one
+  running Portainer. Behind a proxy on the same host, `127.0.0.1:8443:8443`.
+
+Environment variables can also come from Portainer's own fields rather than the file: write
+`SAMADCON_REALM: "${REALM}"` and fill `REALM` in under the stack. Do not use it for the domain
+administrator's password — the console never takes one from the environment; it asks whoever
+signs in.
+
 ### Behind a reverse proxy
 
 The block above publishes on every interface, because a proxy on another machine has to be able
