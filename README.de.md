@@ -124,7 +124,7 @@ Jedes Release wird gebaut und in der GitHub Container Registry abgelegt. Es muss
 geklont und nichts gebaut werden:
 
 ```bash
-docker pull ghcr.io/onlinecrash24/samadcon:0.5.14
+docker pull ghcr.io/onlinecrash24/samadcon:latest
 ```
 
 Eine `docker-compose.yml` für dieses Image, vollständig so wie sie dasteht — in ein leeres
@@ -133,8 +133,8 @@ Verzeichnis legen:
 ```yaml
 services:
   samadcon:
-    # Eine Version, nicht `latest` — siehe „Welcher Tag“ weiter unten.
-    image: ghcr.io/onlinecrash24/samadcon:0.5.14
+    # Das neueste Release. Im Betrieb eine Version festnageln — siehe „Welcher Tag“ unten.
+    image: ghcr.io/onlinecrash24/samadcon:latest
     container_name: samadcon
     restart: unless-stopped
     environment:
@@ -204,17 +204,20 @@ docker compose up -d
 
 | Tag | Was er ist |
 |---|---|
-| `0.5.14` | Ein Release, und es ändert sich nie. **Diesen festnageln.** |
+| `latest` | Das neueste Release. Wandert, sobald eines getaggt wird — das benutzen die Beispiele oben. |
+| `0.5.14` | Ein Release, und es ändert sich nie. **Dort festnageln, wo ein Upgrade eine Entscheidung sein soll.** |
 | `0.5` | Das neueste Release dieser Nebenversionsreihe. |
-| `latest` | Das neueste Release. Wandert, sobald eines getaggt wird. |
 | `dev` | Die Spitze des DEV-Zweigs: woran gerade gearbeitet wird, vor einem Release. |
 | `sha-<kurz>` | Ein einzelner Commit. Jeder Bau trägt einen. |
 
 Nur ein Push auf `DEV` und ein Versions-Tag lösen einen Bau aus; ein Push auf `main` baut nichts.
 `latest` ist deshalb das neueste *Release*, nicht der neueste Commit auf dem Standardzweig, und
-`dev` ist der einzige Tag, der mit der täglichen Arbeit mitwandert. Im Betrieb eine Version
-einsetzen; `dev` nehmen, wenn Sie etwas noch nicht Veröffentlichtes testen — und damit rechnen,
-dass es sich unter Ihnen ändert.
+`dev` ist der einzige Tag, der mit der täglichen Arbeit mitwandert.
+
+`latest` ist die richtige Vorgabe: es ist ein Release, es wurde geprüft, und es veraltet nicht
+so wie eine Versionsnummer, die in einem Dokument steht. Eine Version festnageln, wo ein
+Upgrade eine Entscheidung sein soll und keine Nebenwirkung des Ziehens. `dev` nur, um etwas
+noch nicht Veröffentlichtes auszuprobieren — und damit rechnen, dass es sich ändert.
 
 ### Portainer-Stacks
 
@@ -232,7 +235,7 @@ wo es hingehört, ohne dass auf dem Host etwas vorbereitet werden muss:
 ```yaml
 services:
   samadcon:
-    image: ghcr.io/onlinecrash24/samadcon:0.5.14
+    image: ghcr.io/onlinecrash24/samadcon:latest
     restart: unless-stopped
     environment:
       SAMADCON_PUBLIC_HOST: "samadcon.example.lan"

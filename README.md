@@ -122,7 +122,7 @@ Every release is built and pushed to the GitHub container registry. Nothing has 
 or built:
 
 ```bash
-docker pull ghcr.io/onlinecrash24/samadcon:0.5.14
+docker pull ghcr.io/onlinecrash24/samadcon:latest
 ```
 
 A `docker-compose.yml` for that image, complete as it stands — put it in an empty directory:
@@ -130,8 +130,8 @@ A `docker-compose.yml` for that image, complete as it stands — put it in an em
 ```yaml
 services:
   samadcon:
-    # A version, not `latest` — see "Which tag" below.
-    image: ghcr.io/onlinecrash24/samadcon:0.5.14
+    # The newest release. For production, pin a version — see "Which tag" below.
+    image: ghcr.io/onlinecrash24/samadcon:latest
     container_name: samadcon
     restart: unless-stopped
     environment:
@@ -201,16 +201,20 @@ docker compose up -d
 
 | Tag | What it is |
 |---|---|
-| `0.5.14` | One release, and it never changes. **Pin this.** |
+| `latest` | The newest release. Moves when one is tagged, which is what the examples above use. |
+| `0.5.14` | One release, and it never changes. **Pin this where an upgrade should be a decision.** |
 | `0.5` | The newest release of that minor series. |
-| `latest` | The newest release. Moves when one is tagged. |
 | `dev` | The tip of the DEV branch: what is being worked on, before a release. |
 | `sha-<short>` | One commit. Every build carries one. |
 
 Only a push to `DEV` and a version tag build an image; a push to `main` builds nothing. So
 `latest` is the newest *release*, not the newest commit on the default branch, and `dev` is
-the only tag that moves with day-to-day work. Deploy a version; take `dev` when you are
-testing something that is not released yet, and expect it to change under you.
+the only tag that moves with day-to-day work.
+
+`latest` is the right default: it is a release, it was tested, and it does not go stale the
+way a version written into a document does. Pin a version where an upgrade should be a
+decision rather than a side effect of pulling. Take `dev` only to try something that is not
+released yet, and expect it to change under you.
 
 ### Portainer stacks
 
@@ -228,7 +232,7 @@ prepare on the host:
 ```yaml
 services:
   samadcon:
-    image: ghcr.io/onlinecrash24/samadcon:0.5.14
+    image: ghcr.io/onlinecrash24/samadcon:latest
     restart: unless-stopped
     environment:
       SAMADCON_PUBLIC_HOST: "samadcon.example.lan"
