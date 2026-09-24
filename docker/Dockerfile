@@ -138,7 +138,7 @@ CMD ["supervisor"]
 #
 # Adds the test suite and pytest on top of the runtime image, so integration
 # tests exercise exactly the image that ships. Selected with SAMADCON_TARGET=test
-# in .env, which docker-compose.yml passes through as the build target.
+# in the shell, which docker-compose_source_build.yml passes through as the build target.
 # ---------------------------------------------------------------------------
 FROM runtime AS test
 

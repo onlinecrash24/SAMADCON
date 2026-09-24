@@ -125,7 +125,9 @@ or built:
 docker pull ghcr.io/onlinecrash24/samadcon:latest
 ```
 
-A `docker-compose.yml` for that image, complete as it stands — put it in an empty directory:
+The repository ships a [`docker-compose.yml`](docker-compose.yml) that does this, ready to copy
+or to paste into a Portainer stack. A smaller one, if you would rather start from the essentials
+— put it in an empty directory:
 
 ```yaml
 services:
@@ -291,8 +293,9 @@ signs in.
 
 The block above publishes on every interface, because a proxy on another machine has to be able
 to reach it. With the proxy on this host, bind to loopback instead — `127.0.0.1:8443:8443` — and
-then nothing outside the host can reach the console at all. (The `docker-compose.yml` in this
-repository reads the address from `SAMADCON_BIND` and defaults to loopback.)
+then nothing outside the host can reach the console at all. (`docker-compose_source_build.yml` reads the address
+from `SAMADCON_BIND` and defaults to loopback; the published-image file publishes on every
+interface, because that is what a stack on another machine needs.)
 
 **A proxy on another machine** needs the opposite of loopback: SAMADCON has to answer on an
 address the proxy host can reach. Everything else follows from four settings, and each of the
@@ -345,11 +348,13 @@ inherits the right to claim any identity in your audit trail.
 ```bash
 git clone https://github.com/onlinecrash24/SAMADCON.git
 cd SAMADCON
-docker compose up -d --build
+docker compose -f docker-compose_source_build.yml up -d --build
 ```
 
-No `.env` is needed — the whole configuration lives in `docker-compose.yml`. With no domain
-configured, the sign-in form asks for a server address and works the rest out itself.
+The `-f` is not optional: `docker-compose.yml` pulls the published image, and
+`docker-compose_source_build.yml` is the one that builds. No `.env` is needed either way — the whole
+configuration lives in the file. With no domain configured, the sign-in form asks for a
+server address and works the rest out itself.
 
 The interface then runs on `https://<host>:8443`. Without a mounted certificate the container
 generates a self-signed one on first start.
@@ -360,7 +365,8 @@ generates a self-signed one on first start.
 
 ```
 SAMADCON/
-├── docker-compose.yml          the whole configuration
+├── docker-compose.yml          for the published image; not used by a source build
+├── docker-compose_source_build.yml   the whole configuration
 ├── .dockerignore               keeps node_modules and local secrets out of the image
 ├── docker/
 │   ├── Dockerfile
@@ -392,7 +398,7 @@ None of this is needed when running the published image: it carries everything.
 
 ### What has to be configured
 
-**No `.env`.** Everything is in `docker-compose.yml` with the value it should have — no second
+**No `.env`.** Everything is in `docker-compose_source_build.yml` with the value it should have — no second
 place to keep in step, and nothing that quietly falls back to an empty string because a variable
 was not exported.
 
@@ -412,10 +418,10 @@ that file is in version control.
 
 ### Steps
 
-Adjust `docker-compose.yml`, at least `SAMADCON_PUBLIC_HOST`. Then:
+Adjust `docker-compose_source_build.yml`, at least `SAMADCON_PUBLIC_HOST`. Then:
 
 ```bash
-docker compose up -d --build
+docker compose -f docker-compose_source_build.yml up -d --build
 ```
 
 For a real certificate put `server.crt` and `server.key` into `docker/tls/`. One catch: the
@@ -430,11 +436,11 @@ mkdir -p docker/tls docker/ca && chown -R 1000:1000 docker/tls
 Check:
 
 ```bash
-docker compose ps
+docker compose -f docker-compose_source_build.yml ps
 ```
 
 The container has a health check on `/api/v1/health` and reports `healthy` after about twenty
-seconds. If it does not, `docker compose logs samadcon` says why. The connection to the DC can be
+seconds. If it does not, `docker compose -f docker-compose_source_build.yml logs samadcon` says why. The connection to the DC can be
 checked without credentials:
 
 ```bash
@@ -445,7 +451,7 @@ Updating is the same command as installing. The volumes `samadcon-cache`, `samad
 `samadcon-logs` — the audit trail lives in the last one — survive it:
 
 ```bash
-docker compose up -d --build
+docker compose -f docker-compose_source_build.yml up -d --build
 ```
 
 ## Testing against an existing Samba AD
@@ -460,13 +466,14 @@ produced, kept in `backend/tests/data/` with a note on
 The tests live in the image rather than in a mount, which is what the `test` build target is for:
 
 ```bash
-SAMADCON_TARGET=test docker compose up -d --build
+SAMADCON_TARGET=test docker compose -f docker-compose_source_build.yml up -d --build
 ```
 
 Integration tests against that domain:
 
 ```bash
-TEST_DC_HOST=dc1.example.lan TEST_ADMIN_PASSWORD=... docker compose exec samadcon python -m pytest tests/integration -q
+TEST_DC_HOST=dc1.example.lan TEST_ADMIN_PASSWORD=... \
+  docker compose -f docker-compose_source_build.yml exec samadcon python -m pytest tests/integration -q
 ```
 
 > A changed test is copied into the image at build time. After every change to the tests, run

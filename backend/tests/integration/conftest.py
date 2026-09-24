@@ -11,8 +11,8 @@ Point them at your own test domain:
     SAMADCON_COOKIE_SECURE=0   # TestClient speaks http, a Secure cookie
                                # would be set and never sent back
 
-    docker compose up -d --build
-    docker compose exec samadcon python -m pytest tests/integration -q
+    docker compose -f docker-compose_source_build.yml up -d --build
+    docker compose -f docker-compose_source_build.yml exec samadcon python -m pytest tests/integration -q
 
 Or without touching a running deployment — the tests need no server of their
 own, TestClient runs the application in-process::
