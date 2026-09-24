@@ -32,6 +32,7 @@ from __future__ import annotations
 import ast
 import json
 import os
+import re
 import sys
 import tomllib
 from pathlib import Path
@@ -105,9 +106,13 @@ def _body(text: str) -> str:
     where the settings are explained and a reader of either copy should get
     the same explanation.
     """
-    marker = "\nservices:"
-    at = text.find(marker)
-    return text[at:].replace("\r\n", "\n") if at >= 0 else text
+    normalised = text.replace("\r\n", "\n")
+    # Anchored at the start of a line, which includes the very first one: one
+    # copy has a header above `services:` and the other begins with it, and
+    # searching for "\nservices:" made that missing newline look like a
+    # difference in the stack. It did, once, before this line was written.
+    found = re.search(r"^services:", normalised, re.MULTILINE)
+    return normalised[found.start():] if found else normalised
 
 
 def compose_problems() -> list[str]:
