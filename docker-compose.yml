@@ -1,19 +1,25 @@
 # SAMADCON — the published image.
 #
 # This is the file to deploy: it pulls a built image and needs nothing on the
-# host prepared. Paste it into a Portainer stack, or:
+# host prepared. To build from source instead — which is what the integration
+# tests need — use docker-compose_source_build.yml beside this one.
 #
+# **The settings come out of the environment, and this file states none of
+# them.** That is deliberate: the values belong to your domain, not to the
+# repository, and a stack updated from here never overwrites them.
+#
+#   cp .env.example .env
+#   $EDITOR .env
 #   docker compose up -d
 #
-# To build from source instead — which is what the integration tests need —
-# use docker-compose_source_build.yml beside this one.
-#
-# **The settings come from the environment, with a default each.** Copy
-# .env.example to .env and change what you need; anything left out keeps the
-# default written below, which is the value this file used to state outright.
-# In Portainer there is no .env: type the same names into the stack's
+# In Portainer there is no .env file. Type the same names into the stack's
 # environment fields, or upload one with "Load variables from .env file". The
-# compose file stays as it is either way.
+# compose file is not touched either way, which is the point of it.
+#
+# Nothing here is optional. A missing variable becomes an empty string, and an
+# empty resolver or realm is a container that starts and then does not work.
+# The README has a shorter stack with the values written in, for a deployment
+# that does not want a second file.
 #
 # Every setting not named below takes its own default, and those were checked
 # against the code rather than assumed. What is left is what an installation
@@ -31,10 +37,6 @@
 # use an **absolute** path: /srv/samadcon/tls:/etc/samadcon/tls. That works in
 # a stack; a relative one does not.
 #
-# **No container_name.** Portainer names the container after the stack and the
-# service. Setting it here as well means a second stack of this image cannot
-# start, and renaming the stack does not reach it.
-#
 # **Never write a password into this file, or into the .env.** The console does
 # not take one from the environment anyway: it asks whoever signs in.
 
@@ -42,34 +44,45 @@ services:
   samadcon:
     image: ghcr.io/onlinecrash24/samadcon:latest
     restart: unless-stopped
+    container_name: samadcon
     environment:
-      # Every value below falls back to what this file used to state outright,
-      # so a stack with no .env behaves exactly as it did before.
-      SAMADCON_PUBLIC_HOST: "${SAMADCON_PUBLIC_HOST:-samadcon.example.lan}"
-      # The port people reach. Without a reverse proxy that is the one published
-      # below, so it follows it; behind one it is the proxy's port — 443 — and
-      # is then the only reason to set this separately.
-      SAMADCON_PUBLIC_HTTPS_PORT: "${SAMADCON_PUBLIC_HTTPS_PORT:-${SAMADCON_HTTPS_PORT:-8443}}"
-      SAMADCON_REALM: "${SAMADCON_REALM:-EXAMPLE.LAN}"
-      SAMADCON_DC_HOSTS: "${SAMADCON_DC_HOSTS:-192.168.1.1}"
-      SAMADCON_LOG_LEVEL: "${SAMADCON_LOG_LEVEL:-INFO}"
+      # The name the console is reached under. It becomes the CN and the SAN of
+      # the self-signed certificate, and that is the only thing it does — leave
+      # it empty and the certificate is called samadcon.local, which matches no
+      # one.
+      SAMADCON_PUBLIC_HOST: "${SAMADCON_PUBLIC_HOST}"
+      # Only for a deployment that also publishes port 8080. That is where the
+      # redirect from HTTP to HTTPS lives, and this is the port it sends people
+      # to. With 8443 alone published, as below, nothing reads this.
+#      SAMADCON_PUBLIC_HTTPS_PORT: "${SAMADCON_PUBLIC_HTTPS_PORT:-8443}"
+      # The Kerberos realm, upper case, and the domain controller. Both may be
+      # empty: the sign-in form then asks for a server address.
+      SAMADCON_REALM: "${SAMADCON_REALM}"
+      SAMADCON_DC_HOSTS: "${SAMADCON_DC_HOSTS}"
+      SAMADCON_LOG_LEVEL: "${SAMADCON_LOG_LEVEL}"
       # Only behind a reverse proxy, and then its host's address. Never 0.0.0.0/0.
-      SAMADCON_TRUSTED_PROXIES: "${SAMADCON_TRUSTED_PROXIES:-}"
+      SAMADCON_TRUSTED_PROXIES: "${SAMADCON_TRUSTED_PROXIES}"
     ports:
       # host port : container port. The container always listens on 8443 and
-      # that never changes; SAMADCON_HTTPS_PORT is the left one, for a host
-      # where 8443 is already taken.
-      - "${SAMADCON_HTTPS_PORT:-8443}:8443"
-    # Only needed without SAMADCON_DC_HOSTS: finding a DC through SRV records
-    # takes a resolver that serves the domain, which is usually the DC itself.
-    # Uncommenting the four lines is enough — the resolver defaults to the
-    # domain controller and the search domain to the realm, which is what they
-    # are in nearly every domain. (A compose key cannot be left out depending
-    # on a variable, which is why this is a comment and not an empty default.)
-    # dns:
-    #   - "${SAMADCON_DNS:-${SAMADCON_DC_HOSTS:-192.168.1.1}}"
-    # dns_search:
-    #   - "${SAMADCON_DNS_SEARCH:-${SAMADCON_REALM:-EXAMPLE.LAN}}"
+      # that does not change; the left one is for a host where 8443 is taken.
+      - "${SAMADCON_HTTPS_PORT}:8443"
+    # The container asks the domain controller for names. That is what lets
+    # Kerberos find its KDC and the console find the other controllers, both of
+    # which are SRV lookups in the domain's own zone.
+    dns:
+      - "${SAMADCON_DNS}"
+    dns_search:
+      - "${SAMADCON_DNS_SEARCH}"
+    # A host whose resolver cannot be pointed at the domain at all can be given
+    # the one name it needs:
+    #
+    #   extra_hosts:
+    #     - "zmb-ad.myantispam.local:192.168.200.1"
+    #
+    # That is a last resort, not a substitute for dns: above. The entry
+    # resolves that one name and carries no SRV records, so the KDC and the
+    # other domain controllers are still found through a resolver, or not at
+    # all.
     volumes:
       # A certificate of your own goes in here; without one a self-signed one is
       # made on first start. To replace it later, copy server.crt and server.key

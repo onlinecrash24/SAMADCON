@@ -116,8 +116,6 @@ only. The ordinary case needs neither a certificate nor a CA file.
 
 ## Quick start
 
-### Running the published image
-
 Every release is built and pushed to the GitHub container registry. Nothing has to be cloned
 or built:
 
@@ -125,50 +123,71 @@ or built:
 docker pull ghcr.io/onlinecrash24/samadcon:latest
 ```
 
-The repository ships a [`docker-compose.yml`](docker-compose.yml) that does this, ready to copy
-or to paste into a Portainer stack. A smaller one, if you would rather start from the essentials
-— put it in an empty directory:
+**Which tag.**
+
+| Tag | What it is |
+|---|---|
+| `latest` | The newest release. Moves when one is tagged, which is what the examples below use. |
+| `0.5.14` | One release, and it never changes. **Pin this where an upgrade should be a decision.** |
+| `0.5` | The newest release of that minor series. |
+| `dev` | The tip of the DEV branch: what is being worked on, before a release. |
+| `sha-<short>` | One commit. Every build carries one. |
+
+Only a push to `DEV` and a version tag build an image; a push to `main` builds nothing. So
+`latest` is the newest *release*, not the newest commit on the default branch, and `dev` is
+the only tag that moves with day-to-day work.
+
+`latest` is the right default: it is a release, it was tested, and it does not go stale the
+way a version written into a document does. Pin a version where an upgrade should be a
+decision rather than a side effect of pulling. Take `dev` only to try something that is not
+released yet, and expect it to change under you.
+
+Three ways to run it follow. The first is the shortest thing that works. The second is the
+same stack with its settings moved out into a `.env`, and it is the file this repository
+ships. The third builds the image from source.
+
+### 1 · The shortest stack
+
+Paste this into a Portainer stack, or save it as `docker-compose.yml` in an empty directory
+and run `docker compose up -d`. Three values have to be changed — the name the console is
+reached under, the realm, and the domain controller — and nothing has to be prepared on the
+host:
 
 ```yaml
 services:
   samadcon:
-    # The newest release. For production, pin a version — see "Which tag" below.
     image: ghcr.io/onlinecrash24/samadcon:latest
     container_name: samadcon
     restart: unless-stopped
     environment:
-      # The name people type. Becomes the CN and SAN of the self-signed certificate.
+      # The name people type. It becomes the CN and the SAN of the self-signed
+      # certificate, and that is the only thing it does.
       SAMADCON_PUBLIC_HOST: "samadcon.example.lan"
-      # The port people reach, which is the one published below. Only the
-      # HTTP-to-HTTPS redirect uses it, and it defaults to 443 — so without
-      # this line a redirect would send them to a port nothing listens on.
-      SAMADCON_PUBLIC_HTTPS_PORT: "8443"
       # The Kerberos realm, upper case.
       SAMADCON_REALM: "EXAMPLE.LAN"
       # The domain controller. An IP is fine: its own name is read from the rootDSE.
       SAMADCON_DC_HOSTS: "192.168.1.1"
       # INFO names what happens; DEBUG is for tracking a problem down.
       SAMADCON_LOG_LEVEL: "INFO"
-      # The reverse proxy, so the audit log records the browser and not the proxy.
-      # Its host's address, not its container's. Never 0.0.0.0/0.
-      SAMADCON_TRUSTED_PROXIES: 192.168.1.200
     ports:
-      # Every interface, which is what a proxy on another machine needs.
-      # Use "127.0.0.1:8443:8443" when the proxy runs on this host.
+      # Every interface, which is what a browser on another machine needs.
+      # Use "127.0.0.1:8443:8443" when a reverse proxy runs on this host.
       - "8443:8443"
-    # Only needed without SAMADCON_DC_HOSTS: finding a DC through SRV records
-    # takes a resolver that serves the domain, which is the DC itself.
-#    dns: ["192.168.1.1"]
-#    dns_search: ["example.lan"]
-#    extra_hosts: ["smb-dc.example.lan:192.168.1.1"]
+    # The resolver has to serve the domain, because Kerberos finds its KDC and
+    # the console finds the other controllers through SRV records — in nearly
+    # every domain that is the controller above, and the realm in lower case.
+    dns:
+      - "192.168.1.1"
+    dns_search:
+      - "example.lan"
     volumes:
-      # Your own certificate goes here; without one a self-signed one is made.
-      - ./tls:/etc/samadcon/tls
-      # CA bundles for validating the DCs' LDAPS certificates.
-      - ./ca:/etc/samadcon/ca:ro
-      # Samba's cache and lock directory.
+      # A certificate of your own goes in here; without one a self-signed one is
+      # made on first start.
+      - samadcon-tls:/etc/samadcon/tls
+      # CA bundles for validating the DCs' LDAPS certificates. Optional: the
+      # primary path is LDAP with Kerberos encryption and needs no certificate.
+      - samadcon-ca:/etc/samadcon/ca
       - samadcon-cache:/var/cache/samadcon
-      # The samadcon user's home and Samba's state directory.
       - samadcon-data:/var/lib/samadcon
       # The audit trail should outlive the container.
       - samadcon-logs:/var/log/samadcon
@@ -185,87 +204,74 @@ services:
       - ALL
 
 volumes:
+  samadcon-tls:
+  samadcon-ca:
   samadcon-cache:
   samadcon-data:
   samadcon-logs:
 ```
 
-The container runs as uid 1000 and a bind mount belongs to root, so the certificate directory has
-to be writable for it. Without this the entrypoint falls back to a volume with a warning, and the
-certificate is not where anyone looks for it:
+The console is then at `https://<host>:8443`, with a self-signed certificate on first start.
 
-```bash
-mkdir -p tls ca && sudo chown -R 1000:1000 tls
-docker compose up -d
+Two things in that block are worth knowing rather than copying:
+
+- **Named volumes, not bind mounts.** A stack pasted into Portainer's web editor has no
+  directory of its own on the host: a relative path like `./tls` is resolved by the Docker
+  daemon, not by Portainer, and Docker creates whatever is missing as a directory owned by
+  root. The container runs as uid 1000 and could not write its certificate there. The image
+  creates `/etc/samadcon/tls`, `/etc/samadcon/ca` and `/etc/samadcon/servers` and gives them
+  to uid 1000, and Docker seeds a named volume from the image directory with that ownership
+  — so the certificate lands where it belongs. To keep files on the host after all, use an
+  **absolute** path: `/srv/samadcon/tls:/etc/samadcon/tls`. That works in a stack; a
+  relative one does not.
+- **`container_name` is a name you are choosing.** Without it, Portainer names the container
+  after the stack and the service. With it, a second stack of the same image cannot start,
+  and renaming the stack in Portainer does not reach the container. One deployment per host
+  is the normal case, and there the fixed name is the more useful of the two.
+
+If the host cannot be pointed at a resolver that serves the domain, one name can be nailed
+down by hand:
+
+```yaml
+    extra_hosts:
+      - "zmb-ad.myantispam.local:192.168.200.1"
 ```
 
-**Which tag.**
+That is a last resort, not a replacement for `dns:`. The entry resolves that one name and
+carries no SRV records, so the KDC and the other domain controllers are still found through
+a resolver, or not at all.
 
-| Tag | What it is |
-|---|---|
-| `latest` | The newest release. Moves when one is tagged, which is what the examples above use. |
-| `0.5.14` | One release, and it never changes. **Pin this where an upgrade should be a decision.** |
-| `0.5` | The newest release of that minor series. |
-| `dev` | The tip of the DEV branch: what is being worked on, before a release. |
-| `sha-<short>` | One commit. Every build carries one. |
+### 2 · The same stack, with the settings in a `.env`
 
-Only a push to `DEV` and a version tag build an image; a push to `main` builds nothing. So
-`latest` is the newest *release*, not the newest commit on the default branch, and `dev` is
-the only tag that moves with day-to-day work.
-
-`latest` is the right default: it is a release, it was tested, and it does not go stale the
-way a version written into a document does. Pin a version where an upgrade should be a
-decision rather than a side effect of pulling. Take `dev` only to try something that is not
-released yet, and expect it to change under you.
-
-### Portainer stacks
-
-The block above uses bind mounts — `./tls`, `./ca` — and a Portainer stack cannot. A stack
-pasted into Portainer's web editor has no directory of its own on the host: a relative path is
-resolved by the Docker daemon, not by Portainer, and Docker creates whatever is missing as a
-directory owned by root. The container runs as uid 1000, so the entrypoint cannot write the
-certificate there and falls back to a volume with a warning in the log.
-
-Named volumes have none of that problem. The image creates `/etc/samadcon/tls`, `/etc/samadcon/ca`
-and `/etc/samadcon/servers` and gives them to uid 1000, and Docker seeds a named volume from the
-image directory with its ownership — so the certificate lands where it belongs, with nothing to
-prepare on the host:
+This is [`docker-compose.yml`](docker-compose.yml) as the repository ships it: the stack
+above with every value replaced by its name, so that the stack and the settings are two
+files — one that comes from here and is replaced on an update, one that belongs to your
+domain and is not.
 
 ```yaml
 services:
   samadcon:
     image: ghcr.io/onlinecrash24/samadcon:latest
     restart: unless-stopped
+    container_name: samadcon
     environment:
-      # Each falls back to the value written beside it, so a stack with no
-      # .env and no environment fields behaves as it always did.
-      SAMADCON_PUBLIC_HOST: "${SAMADCON_PUBLIC_HOST:-samadcon.example.lan}"
-      # Follows the published port below; set it only behind a proxy, where
-      # people reach 443 and the host publishes 8443.
-      SAMADCON_PUBLIC_HTTPS_PORT: "${SAMADCON_PUBLIC_HTTPS_PORT:-${SAMADCON_HTTPS_PORT:-8443}}"
-      SAMADCON_REALM: "${SAMADCON_REALM:-EXAMPLE.LAN}"
-      SAMADCON_DC_HOSTS: "${SAMADCON_DC_HOSTS:-192.168.1.1}"
-      SAMADCON_LOG_LEVEL: "${SAMADCON_LOG_LEVEL:-INFO}"
+      SAMADCON_PUBLIC_HOST: "${SAMADCON_PUBLIC_HOST}"
+      # Only for a deployment that also publishes port 8080, where the redirect
+      # from HTTP to HTTPS lives. Publishing 8443 alone, nothing reads it.
+#      SAMADCON_PUBLIC_HTTPS_PORT: "${SAMADCON_PUBLIC_HTTPS_PORT:-8443}"
+      SAMADCON_REALM: "${SAMADCON_REALM}"
+      SAMADCON_DC_HOSTS: "${SAMADCON_DC_HOSTS}"
+      SAMADCON_LOG_LEVEL: "${SAMADCON_LOG_LEVEL}"
       # Only behind a reverse proxy, and then its host's address. Never 0.0.0.0/0.
-      SAMADCON_TRUSTED_PROXIES: "${SAMADCON_TRUSTED_PROXIES:-}"
+      SAMADCON_TRUSTED_PROXIES: "${SAMADCON_TRUSTED_PROXIES}"
     ports:
-      # host port : container port. The container always listens on 8443.
-      - "${SAMADCON_HTTPS_PORT:-8443}:8443"
-    # Only needed without SAMADCON_DC_HOSTS: finding a DC through SRV records
-    # takes a resolver that serves the domain, which is usually the DC itself.
-    # Uncommenting is enough: the resolver defaults to the domain controller
-    # and the search domain to the realm.
-    # dns:
-    #   - "${SAMADCON_DNS:-${SAMADCON_DC_HOSTS:-192.168.1.1}}"
-    # dns_search:
-    #   - "${SAMADCON_DNS_SEARCH:-${SAMADCON_REALM:-EXAMPLE.LAN}}"
+      - "${SAMADCON_HTTPS_PORT}:8443"
+    dns:
+      - "${SAMADCON_DNS}"
+    dns_search:
+      - "${SAMADCON_DNS_SEARCH}"
     volumes:
-      # A certificate of your own goes in here; without one a self-signed one is
-      # made on first start. To replace it later, copy server.crt and server.key
-      # into this volume and restart the stack.
       - samadcon-tls:/etc/samadcon/tls
-      # CA bundles for validating the DCs' LDAPS certificates. Optional: the
-      # primary path is LDAP with Kerberos encryption and needs no certificate.
       - samadcon-ca:/etc/samadcon/ca
       - samadcon-cache:/var/cache/samadcon
       - samadcon-data:/var/lib/samadcon
@@ -286,30 +292,52 @@ volumes:
   samadcon-logs:
 ```
 
-Three differences from the block above, all of them Portainer's:
+On a host with `docker compose`, the settings go in a `.env` beside it:
 
-- **No `container_name`.** Portainer names the container after the stack and the service. Setting
-  it as well means a second stack of the same image cannot start, and a rename in Portainer does
-  not reach it.
-- **Named volumes, not bind mounts**, for the reason above. If you would rather keep files on the
-  host — a real certificate, a `servers.json` — use an **absolute** path: `/srv/samadcon/tls:/etc/samadcon/tls`.
-  That works in a stack; a relative one does not.
-- **`8443:8443` on every interface**, because the machine reaching the console is rarely the one
-  running Portainer. Behind a proxy on the same host, `127.0.0.1:8443:8443`.
+```bash
+cp .env.example .env
+$EDITOR .env
+docker compose up -d
+```
 
-**The settings come from the environment.** Every one of them falls back to the value written
-beside it, so the stack above runs untouched. To change one, type its name into the stack's
-environment fields in Portainer, or use *Load variables from .env file* to upload one — the
-compose file stays as it is either way, which is the point. On a host with `docker compose`,
-copy [`.env.example`](.env.example) to `.env` beside the file instead. The same names work
-both ways.
+**In Portainer there is no `.env` file.** Type the same names into the stack's environment
+fields, or upload one with *Load variables from .env file*. The compose file is not touched
+either way, which is the whole point of writing it like this.
 
-Do not put the domain administrator's password there. The console never takes one from the
-environment; it asks whoever signs in, and acts with that person's own account.
+The names are in [`.env.example`](.env.example), and `scripts/check_versions.py` checks that
+the two files still list the same ones — a variable added to the stack and forgotten in the
+example is a setting nobody knows they can change, and one left in the example after the
+stack stopped reading it is a setting that does nothing, which is worse.
+
+**None of the values is optional here.** A name that is not set becomes an empty string, not
+a default: an empty `dns:` leaves the container without a resolver, and an empty port turns
+`"${SAMADCON_HTTPS_PORT}:8443"` into `":8443"`, which Docker reads as *any free host port*.
+That is the trade for keeping the values out of the file. Example 1 above is the version for
+a deployment that would rather have one file and no second step.
+
+Do not put the domain administrator's password in either file. The console never takes one
+from the environment; it asks whoever signs in, and acts with that person's own account.
+
+### 3 · Building from source
+
+```bash
+git clone https://github.com/onlinecrash24/SAMADCON.git
+cd SAMADCON
+docker compose -f docker-compose_source_build.yml up -d --build
+```
+
+The `-f` is not optional: `docker-compose.yml` pulls the published image, and
+`docker-compose_source_build.yml` is the one that builds. It is also the file the integration
+tests need. No `.env` is involved — that file carries the whole configuration itself, which
+is what makes it the right one for development and the wrong one for a deployment. With no
+domain configured, the sign-in form asks for a server address and works the rest out itself.
+
+The interface then runs on `https://<host>:8443`. Without a mounted certificate the container
+generates a self-signed one on first start.
 
 ### Behind a reverse proxy
 
-The block above publishes on every interface, because a proxy on another machine has to be able
+The stacks above publish on every interface, because a proxy on another machine has to be able
 to reach it. With the proxy on this host, bind to loopback instead — `127.0.0.1:8443:8443` — and
 then nothing outside the host can reach the console at all. (`docker-compose_source_build.yml` reads the address
 from `SAMADCON_BIND` and defaults to loopback; the published-image file publishes on every
@@ -361,22 +389,6 @@ none, since it lets that host claim to be anyone.
 Name the proxy's own address. Not the subnet it sits in "to be safe": every host in that subnet
 inherits the right to claim any identity in your audit trail.
 
-### Building from source
-
-```bash
-git clone https://github.com/onlinecrash24/SAMADCON.git
-cd SAMADCON
-docker compose -f docker-compose_source_build.yml up -d --build
-```
-
-The `-f` is not optional: `docker-compose.yml` pulls the published image, and
-`docker-compose_source_build.yml` is the one that builds. No `.env` is needed either way — the whole
-configuration lives in the file. With no domain configured, the sign-in form asks for a
-server address and works the rest out itself.
-
-The interface then runs on `https://<host>:8443`. Without a mounted certificate the container
-generates a self-signed one on first start.
-
 ## Deployment
 
 ### What has to be on the target system
@@ -423,7 +435,7 @@ was not exported.
 
 | Setting | What for |
 |---|---|
-| `SAMADCON_PUBLIC_HOST` | The name the console is reached under. It becomes the CN and the SAN of the self-signed certificate and the target of the HTTPS redirect. **The one value practically every installation must change.** |
+| `SAMADCON_PUBLIC_HOST` | The name the console is reached under. It becomes the CN and the SAN of the self-signed certificate, and nothing else reads it — the HTTP-to-HTTPS redirect uses whatever name the browser asked for. **The one value practically every installation must change.** |
 | `SAMADCON_REALM`, `SAMADCON_DC_HOSTS` | Pre-fills the sign-in form. **Names that resolve, not bare IP addresses** — Kerberos needs the DC's FQDN. |
 | `SAMADCON_LDAP_CA_FILE` | The DC's CA, when the LDAPS certificate is to be validated. |
 | `SAMADCON_LDAP_TRANSPORTS` | Which transports may be tried, in order. Default `ldap,ldaps`. Both encrypt — settling on one is a policy decision rather than a hardening step, and it removes the fallback. |

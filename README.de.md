@@ -118,8 +118,6 @@ Stufe 2. Für den Normalfall ist weder ein Zertifikat noch eine CA-Datei nötig.
 
 ## Schnellstart
 
-### Das fertige Image verwenden
-
 Jedes Release wird gebaut und in der GitHub Container Registry abgelegt. Es muss nichts
 geklont und nichts gebaut werden:
 
@@ -127,147 +125,157 @@ geklont und nichts gebaut werden:
 docker pull ghcr.io/onlinecrash24/samadcon:latest
 ```
 
-Das Repository liefert eine [`docker-compose.yml`](docker-compose.yml), die genau das tut —
-fertig zum Kopieren oder zum Einfügen in einen Portainer-Stack. Eine kleinere, wenn Sie lieber
-beim Nötigsten anfangen — in ein leeres Verzeichnis legen:
+**Welcher Tag.**
+
+| Tag | Was er ist |
+|---|---|
+| `latest` | Das neueste Release. Wandert mit jedem getaggten Release — das benutzen die Beispiele unten. |
+| `0.5.14` | Ein Release, und es ändert sich nie. **Hier festnageln, wo ein Upgrade eine Entscheidung sein soll.** |
+| `0.5` | Das neueste Release dieser Minor-Reihe. |
+| `dev` | Die Spitze des DEV-Zweigs: woran gearbeitet wird, vor einem Release. |
+| `sha-<kurz>` | Ein Commit. Jeder Build trägt einen. |
+
+Nur ein Push auf `DEV` und ein Versions-Tag bauen ein Image; ein Push auf `main` baut nichts.
+`latest` ist also das neueste *Release*, nicht der neueste Commit des Standardzweigs, und `dev`
+ist der einzige Tag, der sich mit der täglichen Arbeit bewegt.
+
+`latest` ist die richtige Vorgabe: es ist ein Release, es wurde getestet, und es veraltet nicht
+so, wie eine in ein Dokument geschriebene Versionsnummer veraltet. Eine Version festnageln, wo
+ein Upgrade eine Entscheidung sein soll und keine Nebenwirkung des Ziehens. `dev` nur nehmen,
+um etwas noch nicht Veröffentlichtes auszuprobieren — und damit rechnen, dass es sich ändert.
+
+Es folgen drei Wege. Der erste ist das Kürzeste, was funktioniert. Der zweite ist derselbe
+Stack, mit den Einstellungen in einer `.env` — das ist die Datei, die dieses Repository
+ausliefert. Der dritte baut das Image aus dem Quelltext.
+
+### 1 · Der kürzeste Stack
+
+Das hier in einen Portainer-Stack einfügen, oder als `docker-compose.yml` in ein leeres
+Verzeichnis legen und `docker compose up -d` aufrufen. Drei Werte müssen geändert werden — der
+Name, unter dem die Konsole erreicht wird, der Realm und der Domänencontroller — und auf dem
+Host muss nichts vorbereitet werden:
 
 ```yaml
 services:
   samadcon:
-    # Das neueste Release. Im Betrieb eine Version festnageln — siehe „Welcher Tag“ unten.
     image: ghcr.io/onlinecrash24/samadcon:latest
     container_name: samadcon
     restart: unless-stopped
     environment:
-      # Der Name, den die Leute eintippen. Wird CN und SAN des selbstsignierten Zertifikats.
+      # Der Name, den man eintippt. Er wird zu CN und SAN des selbstsignierten
+      # Zertifikats, und das ist auch alles, was er tut.
       SAMADCON_PUBLIC_HOST: "samadcon.example.lan"
-      # Der Port, den die Leute erreichen — der unten veröffentlichte. Nur die
-      # Weiterleitung von HTTP auf HTTPS benutzt ihn, und sie nimmt sonst 443
-      # an: ohne diese Zeile führte sie auf einen Port, an dem niemand lauscht.
-      SAMADCON_PUBLIC_HTTPS_PORT: "8443"
       # Der Kerberos-Realm, in Großbuchstaben.
       SAMADCON_REALM: "EXAMPLE.LAN"
-      # Der Domänencontroller. Eine IP genügt: Sein Name kommt aus der rootDSE.
+      # Der Domänencontroller. Eine IP genügt: den Namen liest er aus der rootDSE.
       SAMADCON_DC_HOSTS: "192.168.1.1"
-      # INFO benennt, was geschieht; DEBUG dient dem Nachgehen eines Problems.
+      # INFO benennt, was passiert; DEBUG ist zum Eingrenzen eines Problems.
       SAMADCON_LOG_LEVEL: "INFO"
-      # Der Reverse Proxy, damit im Audit-Log der Browser steht und nicht er.
-      # Die Adresse seines Hosts, nicht die seines Containers. Niemals 0.0.0.0/0.
-      SAMADCON_TRUSTED_PROXIES: 192.168.1.200
     ports:
-      # Jede Schnittstelle — das braucht ein Proxy auf einer anderen Maschine.
-      # Läuft der Proxy auf diesem Host, "127.0.0.1:8443:8443" nehmen.
+      # Jede Schnittstelle — das braucht ein Browser auf einer anderen Maschine.
+      # "127.0.0.1:8443:8443", wenn ein Reverse Proxy auf diesem Host läuft.
       - "8443:8443"
-    # Nur ohne SAMADCON_DC_HOSTS nötig: Einen DC über SRV-Records zu finden
-    # verlangt einen Resolver, der die Domäne bedient — also den DC selbst.
-#    dns: ["192.168.1.1"]
-#    dns_search: ["example.lan"]
-#    extra_hosts: ["smb-dc.example.lan:192.168.1.1"]
+    # Der Resolver muss die Domäne bedienen: Kerberos findet sein KDC und die
+    # Konsole findet die weiteren Controller über SRV-Einträge — in nahezu jeder
+    # Domäne ist das der Controller oben, und der Realm in Kleinbuchstaben.
+    dns:
+      - "192.168.1.1"
+    dns_search:
+      - "example.lan"
     volumes:
-      # Ein eigenes Zertifikat kommt hierher; ohne eines wird eines erzeugt.
-      - ./tls:/etc/samadcon/tls
-      # CA-Bündel zum Prüfen der LDAPS-Zertifikate der DCs.
-      - ./ca:/etc/samadcon/ca:ro
-      # Sambas Cache- und Lock-Verzeichnis.
+      # Ein eigenes Zertifikat kommt hier hinein; ohne eines wird beim ersten
+      # Start ein selbstsigniertes erzeugt.
+      - samadcon-tls:/etc/samadcon/tls
+      # CA-Bundles zum Prüfen der LDAPS-Zertifikate der DCs. Optional: der
+      # Hauptweg ist LDAP mit Kerberos-Verschlüsselung und braucht keines.
+      - samadcon-ca:/etc/samadcon/ca
       - samadcon-cache:/var/cache/samadcon
-      # Das Home des samadcon-Benutzers und Sambas state-Verzeichnis.
       - samadcon-data:/var/lib/samadcon
-      # Die Audit-Spur sollte den Container überleben.
+      # Die Prüfspur soll den Container überleben.
       - samadcon-logs:/var/log/samadcon
-    # Kerberos-Credential-Caches liegen in /dev/shm und erreichen nie eine Platte.
+    # Kerberos-Ticketcaches liegen in /dev/shm und erreichen nie eine Platte.
     shm_size: 64m
     tmpfs:
-      # uid/gid sind nötig: Ein tmpfs-Mount gehört standardmäßig root.
+      # uid/gid sind nötig: ein tmpfs-Mount gehört sonst root.
       - /run/samadcon:mode=0700,uid=1000,gid=1000,size=8m
-    # Nichts hier drin muss privilegierter werden, als es startet.
+    # Nichts hier muss privilegierter werden, als es startet.
     security_opt:
       - no-new-privileges:true
-    # nginx lauscht auf 8443, oberhalb des privilegierten Bereichs — keine Capability nötig.
+    # nginx lauscht auf 8443, oberhalb des privilegierten Bereichs.
     cap_drop:
       - ALL
 
 volumes:
+  samadcon-tls:
+  samadcon-ca:
   samadcon-cache:
   samadcon-data:
   samadcon-logs:
 ```
 
-Der Container läuft als uid 1000, ein Bind-Mount gehört root — das Zertifikatsverzeichnis muss
-also für ihn beschreibbar sein. Sonst weicht der Entrypoint mit einer Warnung in ein Volume aus,
-und das Zertifikat liegt nicht dort, wo man es sucht:
+Die Konsole steht dann auf `https://<host>:8443`, beim ersten Start mit einem selbstsignierten
+Zertifikat.
 
-```bash
-mkdir -p tls ca && sudo chown -R 1000:1000 tls
-docker compose up -d
+Zwei Dinge in dem Block sollte man wissen, statt sie nur zu kopieren:
+
+- **Benannte Volumes, keine Bind Mounts.** Ein in Portainers Web-Editor eingefügter Stack hat
+  kein eigenes Verzeichnis auf dem Host: einen relativen Pfad wie `./tls` löst der
+  Docker-Daemon auf, nicht Portainer, und Docker legt Fehlendes als Verzeichnis an, das root
+  gehört. Der Container läuft als uid 1000 und könnte sein Zertifikat dort nicht schreiben. Das
+  Image legt `/etc/samadcon/tls`, `/etc/samadcon/ca` und `/etc/samadcon/servers` an und gibt sie
+  uid 1000, und Docker befüllt ein benanntes Volume aus dem Image-Verzeichnis samt dieser
+  Eigentümerschaft — das Zertifikat landet also, wo es hingehört. Wer Dateien doch auf dem Host
+  halten will, nimmt einen **absoluten** Pfad: `/srv/samadcon/tls:/etc/samadcon/tls`. Das
+  funktioniert im Stack; ein relativer nicht.
+- **`container_name` ist ein Name, den Sie wählen.** Ohne ihn benennt Portainer den Container
+  nach Stack und Dienst. Mit ihm kann ein zweiter Stack desselben Images nicht starten, und ein
+  Umbenennen des Stacks in Portainer erreicht den Container nicht. Eine Installation pro Host
+  ist der Normalfall, und dort ist der feste Name das Nützlichere von beidem.
+
+Lässt sich der Host auf keinen Resolver zeigen, der die Domäne bedient, kann ein einzelner Name
+von Hand festgenagelt werden:
+
+```yaml
+    extra_hosts:
+      - "zmb-ad.myantispam.local:192.168.200.1"
 ```
 
-**Welcher Tag.**
+Das ist die letzte Möglichkeit, kein Ersatz für `dns:`. Der Eintrag löst genau diesen einen
+Namen auf und trägt keine SRV-Einträge, das KDC und die weiteren Domänencontroller werden also
+weiterhin über einen Resolver gefunden — oder gar nicht.
 
-| Tag | Was er ist |
-|---|---|
-| `latest` | Das neueste Release. Wandert, sobald eines getaggt wird — das benutzen die Beispiele oben. |
-| `0.5.14` | Ein Release, und es ändert sich nie. **Dort festnageln, wo ein Upgrade eine Entscheidung sein soll.** |
-| `0.5` | Das neueste Release dieser Nebenversionsreihe. |
-| `dev` | Die Spitze des DEV-Zweigs: woran gerade gearbeitet wird, vor einem Release. |
-| `sha-<kurz>` | Ein einzelner Commit. Jeder Bau trägt einen. |
+### 2 · Derselbe Stack, mit den Einstellungen in einer `.env`
 
-Nur ein Push auf `DEV` und ein Versions-Tag lösen einen Bau aus; ein Push auf `main` baut nichts.
-`latest` ist deshalb das neueste *Release*, nicht der neueste Commit auf dem Standardzweig, und
-`dev` ist der einzige Tag, der mit der täglichen Arbeit mitwandert.
-
-`latest` ist die richtige Vorgabe: es ist ein Release, es wurde geprüft, und es veraltet nicht
-so wie eine Versionsnummer, die in einem Dokument steht. Eine Version festnageln, wo ein
-Upgrade eine Entscheidung sein soll und keine Nebenwirkung des Ziehens. `dev` nur, um etwas
-noch nicht Veröffentlichtes auszuprobieren — und damit rechnen, dass es sich ändert.
-
-### Portainer-Stacks
-
-Der Block oben benutzt Bind-Mounts — `./tls`, `./ca` — und ein Portainer-Stack kann das nicht. Ein
-in Portainers Web-Editor eingefügter Stack hat kein eigenes Verzeichnis auf dem Host: Einen
-relativen Pfad löst der Docker-Daemon auf, nicht Portainer, und Docker legt Fehlendes als
-Verzeichnis an, das root gehört. Der Container läuft als uid 1000, kann das Zertifikat dort also
-nicht schreiben und weicht mit einer Warnung im Log auf ein Volume aus.
-
-Benannte Volumes haben dieses Problem nicht. Das Image legt `/etc/samadcon/tls`,
-`/etc/samadcon/ca` und `/etc/samadcon/servers` an und übereignet sie uid 1000, und Docker befüllt
-ein benanntes Volume aus dem Verzeichnis im Image — samt Eigentümer. Das Zertifikat landet also,
-wo es hingehört, ohne dass auf dem Host etwas vorbereitet werden muss:
+Das ist [`docker-compose.yml`](docker-compose.yml), wie das Repository sie ausliefert: der Stack
+von oben, bei dem jeder Wert durch seinen Namen ersetzt ist. Stack und Einstellungen sind dann
+zwei Dateien — eine, die von hier kommt und beim Update ersetzt wird, und eine, die Ihrer
+Domäne gehört und nicht ersetzt wird.
 
 ```yaml
 services:
   samadcon:
     image: ghcr.io/onlinecrash24/samadcon:latest
     restart: unless-stopped
+    container_name: samadcon
     environment:
-      # Jede fällt auf den Wert daneben zurück, sodass ein Stack ohne .env und
-      # ohne Umgebungsfelder sich verhält wie bisher.
-      SAMADCON_PUBLIC_HOST: "${SAMADCON_PUBLIC_HOST:-samadcon.example.lan}"
-      # Folgt dem veröffentlichten Port unten; nur hinter einem Proxy setzen,
-      # wo man 443 erreicht und der Host 8443 veröffentlicht.
-      SAMADCON_PUBLIC_HTTPS_PORT: "${SAMADCON_PUBLIC_HTTPS_PORT:-${SAMADCON_HTTPS_PORT:-8443}}"
-      SAMADCON_REALM: "${SAMADCON_REALM:-EXAMPLE.LAN}"
-      SAMADCON_DC_HOSTS: "${SAMADCON_DC_HOSTS:-192.168.1.1}"
-      SAMADCON_LOG_LEVEL: "${SAMADCON_LOG_LEVEL:-INFO}"
+      SAMADCON_PUBLIC_HOST: "${SAMADCON_PUBLIC_HOST}"
+      # Nur für eine Installation, die auch Port 8080 veröffentlicht — dort liegt
+      # die Weiterleitung von HTTP auf HTTPS. Wird nur 8443 veröffentlicht, liest
+      # das hier niemand.
+#      SAMADCON_PUBLIC_HTTPS_PORT: "${SAMADCON_PUBLIC_HTTPS_PORT:-8443}"
+      SAMADCON_REALM: "${SAMADCON_REALM}"
+      SAMADCON_DC_HOSTS: "${SAMADCON_DC_HOSTS}"
+      SAMADCON_LOG_LEVEL: "${SAMADCON_LOG_LEVEL}"
       # Nur hinter einem Reverse Proxy, und dann dessen Host-Adresse. Nie 0.0.0.0/0.
-      SAMADCON_TRUSTED_PROXIES: "${SAMADCON_TRUSTED_PROXIES:-}"
+      SAMADCON_TRUSTED_PROXIES: "${SAMADCON_TRUSTED_PROXIES}"
     ports:
-      # Host-Port : Container-Port. Der Container lauscht immer auf 8443.
-      - "${SAMADCON_HTTPS_PORT:-8443}:8443"
-    # Nur nötig ohne SAMADCON_DC_HOSTS: SRV-Discovery braucht einen Resolver,
-    # der die Domäne bedient — meist der DC selbst.
-    # Auskommentieren genügt: der Resolver folgt dem Domänencontroller,
-    # die Suchdomäne dem Realm.
-    # dns:
-    #   - "${SAMADCON_DNS:-${SAMADCON_DC_HOSTS:-192.168.1.1}}"
-    # dns_search:
-    #   - "${SAMADCON_DNS_SEARCH:-${SAMADCON_REALM:-EXAMPLE.LAN}}"
+      - "${SAMADCON_HTTPS_PORT}:8443"
+    dns:
+      - "${SAMADCON_DNS}"
+    dns_search:
+      - "${SAMADCON_DNS_SEARCH}"
     volumes:
-      # Ein eigenes Zertifikat kommt hier hinein; ohne eines wird beim ersten
-      # Start ein selbstsigniertes erzeugt. Zum Austausch server.crt und
-      # server.key in dieses Volume kopieren und den Stack neu starten.
       - samadcon-tls:/etc/samadcon/tls
-      # CA-Bündel zur Prüfung der LDAPS-Zertifikate der DCs. Optional: der
-      # Hauptweg ist LDAP mit Kerberos-Verschlüsselung und braucht keines.
       - samadcon-ca:/etc/samadcon/ca
       - samadcon-cache:/var/cache/samadcon
       - samadcon-data:/var/lib/samadcon
@@ -288,32 +296,57 @@ volumes:
   samadcon-logs:
 ```
 
-Drei Unterschiede zum Block darüber, alle gehen auf Portainer zurück:
+Auf einem Host mit `docker compose` stehen die Einstellungen in einer `.env` daneben:
 
-- **Kein `container_name`.** Portainer benennt den Container nach Stack und Dienst. Ihn zusätzlich
-  festzulegen heißt, dass ein zweiter Stack desselben Images nicht starten kann und eine
-  Umbenennung in Portainer ihn nicht erreicht.
-- **Benannte Volumes statt Bind-Mounts**, aus dem genannten Grund. Wer Dateien lieber auf dem Host
-  hält — ein echtes Zertifikat, eine `servers.json` —, nimmt einen **absoluten** Pfad:
-  `/srv/samadcon/tls:/etc/samadcon/tls`. Das funktioniert im Stack, ein relativer nicht.
-- **`8443:8443` auf allen Schnittstellen**, weil die Maschine, von der aus die Konsole erreicht
-  wird, selten die ist, auf der Portainer läuft. Hinter einem Proxy auf demselben Host:
-  `127.0.0.1:8443:8443`.
+```bash
+cp .env.example .env
+$EDITOR .env
+docker compose up -d
+```
 
-**Die Einstellungen kommen aus der Umgebung.** Jede fällt auf den Wert daneben zurück, der
-Stack oben läuft also unangetastet. Zum Ändern den Namen in die Umgebungsfelder des Stacks
-eintragen oder über *Load variables from .env file* eine Datei hochladen — die Compose-Datei
-bleibt in beiden Fällen unverändert, und genau darum geht es. Auf einem Host mit
-`docker compose` stattdessen [`.env.example`](.env.example) nach `.env` kopieren. Dieselben
-Namen wirken auf beiden Wegen.
+**In Portainer gibt es keine `.env`-Datei.** Dieselben Namen in die Umgebungsfelder des Stacks
+eintragen, oder eine Datei über *Load variables from .env file* hochladen. Die Compose-Datei
+bleibt in beiden Fällen unangetastet — und genau darum ist sie so geschrieben.
 
-Das Kennwort des Domänenadministrators gehört nicht hinein. Die Konsole nimmt keines aus der
-Umgebung; sie fragt den, der sich anmeldet, und handelt mit dessen eigenem Konto.
+Die Namen stehen in [`.env.example`](.env.example), und `scripts/check_versions.py` prüft, dass
+beide Dateien dieselben aufführen: eine im Stack ergänzte und im Beispiel vergessene Variable
+ist eine Einstellung, von der niemand weiß, dass es sie gibt — und eine, die im Beispiel
+stehen blieb, nachdem der Stack sie nicht mehr liest, ist eine Einstellung, die nichts tut. Das
+ist schlimmer, denn irgendwer wird sie setzen und daran glauben.
+
+**Keiner der Werte ist hier optional.** Ein nicht gesetzter Name wird zur leeren Zeichenkette,
+nicht zu einer Vorgabe: ein leeres `dns:` lässt den Container ohne Namensauflösung, und ein
+leerer Port macht aus `"${SAMADCON_HTTPS_PORT}:8443"` ein `":8443"` — und das liest Docker als
+*irgendein freier Host-Port*. Das ist der Preis dafür, die Werte aus der Datei zu halten.
+Beispiel 1 oben ist die Fassung für eine Installation, die lieber eine Datei und keinen zweiten
+Schritt hat.
+
+Das Kennwort des Domänenadministrators gehört in keine der beiden Dateien. Die Konsole nimmt
+ohnehin keines aus der Umgebung; sie fragt den, der sich anmeldet, und handelt mit dessen
+eigenem Konto.
+
+### 3 · Aus dem Quelltext bauen
+
+```bash
+git clone https://github.com/onlinecrash24/SAMADCON.git
+cd SAMADCON
+docker compose -f docker-compose_source_build.yml up -d --build
+```
+
+Das `-f` ist nicht optional: `docker-compose.yml` zieht das fertige Image, und
+`docker-compose_source_build.yml` ist die, die baut. Sie ist auch die Datei, die die
+Integrationstests brauchen. Eine `.env` kommt dabei nicht vor — diese Datei trägt ihre
+Konfiguration vollständig selbst, und genau das macht sie richtig für die Entwicklung und
+falsch für eine Installation. Ohne eingetragene Domäne fragt die Anmeldemaske nach einer
+Serveradresse und ermittelt den Rest selbst.
+
+Die Oberfläche läuft anschließend auf `https://<host>:8443`. Ohne gemountetes Zertifikat erzeugt
+der Container beim ersten Start ein selbstsigniertes.
 
 ### Hinter einem Reverse Proxy
 
-Der Block oben veröffentlicht auf jeder Schnittstelle, weil ein Proxy auf einer anderen Maschine
-herankommen muss. Läuft der Proxy auf diesem Host, stattdessen auf Loopback binden —
+Die Stacks oben veröffentlichen auf jeder Schnittstelle, weil ein Proxy auf einer anderen
+Maschine herankommen muss. Läuft der Proxy auf diesem Host, stattdessen auf Loopback binden —
 `127.0.0.1:8443:8443` — dann erreicht die Konsole von außerhalb des Hosts überhaupt niemand. (`docker-compose_source_build.yml`
 liest die Adresse aus `SAMADCON_BIND` und steht standardmäßig auf Loopback; die Datei für das
 fertige Image veröffentlicht auf allen Schnittstellen, weil ein Stack auf einer anderen
@@ -369,22 +402,6 @@ Die eigene Adresse des Proxys eintragen. Nicht das Netz, in dem er steht, „zur
 größer": Jeder Host in diesem Netz erbt damit das Recht, in Ihrer Audit-Spur jede beliebige
 Identität zu behaupten.
 
-### Aus dem Quelltext bauen
-
-```bash
-git clone https://github.com/onlinecrash24/SAMADCON.git
-cd SAMADCON
-docker compose -f docker-compose_source_build.yml up -d --build
-```
-
-Das `-f` ist nicht optional: `docker-compose.yml` zieht das fertige Image, und
-`docker-compose_source_build.yml` ist die, die baut. Keine `.env` nötig, in beiden Fällen — die
-gesamte Konfiguration steht in der Datei. Ohne eingetragene Domäne fragt die Anmeldemaske nach
-einer Serveradresse und ermittelt den Rest selbst.
-
-Die Oberfläche läuft anschließend auf `https://<host>:8443`. Ohne gemountetes Zertifikat erzeugt
-der Container beim ersten Start ein selbstsigniertes.
-
 ## Deployment
 
 ### Was auf dem Zielsystem liegen muss
@@ -431,7 +448,7 @@ zurückfällt, weil eine Variable nicht exportiert war.
 
 | Einstellung | Wofür |
 |---|---|
-| `SAMADCON_PUBLIC_HOST` | Der Name, unter dem die Konsole erreichbar ist. Landet als CN und SAN im selbstsignierten Zertifikat und in der HTTPS-Weiterleitung. **Der einzige Wert, den praktisch jede Installation ändern muss.** |
+| `SAMADCON_PUBLIC_HOST` | Der Name, unter dem die Konsole erreichbar ist. Landet als CN und SAN im selbstsignierten Zertifikat, und mehr liest ihn nicht — die Weiterleitung von HTTP auf HTTPS nimmt den Namen, den der Browser angefragt hat. **Der einzige Wert, den praktisch jede Installation ändern muss.** |
 | `SAMADCON_REALM`, `SAMADCON_DC_HOSTS` | Vorbelegung der Anmeldemaske. **Auflösbare Namen, keine nackten IP-Adressen** — Kerberos braucht den FQDN des DCs. |
 | `SAMADCON_LDAP_CA_FILE` | Die CA des DCs, wenn das LDAPS-Zertifikat geprüft werden soll. |
 | `SAMADCON_LDAP_TRANSPORTS` | Welche Transporte versucht werden dürfen, in dieser Reihenfolge. Vorgabe `ldap,ldaps`. Beide verschlüsseln — sich auf einen festzulegen ist eine Richtlinienentscheidung und keine Härtung, und nimmt den Rückfallweg. |
