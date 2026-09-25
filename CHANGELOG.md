@@ -14,6 +14,73 @@ release.
 
 ---
 
+## 0.5.15 — 2026-09-25
+
+Deployment, and a sign-in form for one domain.
+
+Nothing in the directory, the policy editor or the reports changed. This
+release is about the two things around them: how SAMADCON is deployed,
+and what the sign-in form asks for.
+
+**The deployment stack.**
+
+There is now one compose file to deploy, `docker-compose.yml`, with a
+second copy under `docker/` beside the Dockerfile; `check_versions.py`
+holds the two identical from `services:` down, because two files holding
+one thing is how this project has gone wrong before. It uses named
+volumes rather than bind mounts, which is what a Portainer stack needs:
+a stack pasted into the web editor has no directory of its own on the
+host, a relative path is resolved by the Docker daemon, and Docker
+creates what is missing as root while the container runs as uid 1000.
+
+Its settings come from a `.env`, or from a Portainer stack's environment
+fields — the same names either way, listed in the new `.env.example`,
+which `check_versions.py` also holds to the compose file in both
+directions. A name the stack reads and the example omits is a setting
+nobody knows they can change; one left in the example after the stack
+stopped reading it is a setting that does nothing, which is worse.
+
+`docker-compose_source_build.yml` is gone. Building from source is a
+`docker build -f docker/Dockerfile .` and a `docker run`, written out in
+the README. Seven settings were documented in that file and nowhere else
+— TICKET_LIFETIME, RENEW_LIFETIME, SESSION_IDLE_MINUTES,
+LOGIN_MAX_ATTEMPTS, AUDIT_FILE, DEV_MODE, WORKGROUP — so "What has to be
+configured" is now a reference table of every setting with its default,
+read out of config.py and entrypoint.sh rather than remembered.
+
+The Quick start is three examples: the shortest stack that works, the
+same stack with its values in a `.env`, and the source build.
+
+**One instance per domain.**
+
+The sign-in form offered a choice that a single-domain deployment does
+not have. The list of servers this browser signed in to before is gone
+from the code, not hidden: its module is deleted, nothing writes it and
+nothing reads it, so the entries already in a browser are simply never
+looked at again. The suffix "(vorkonfiguriert)" goes with it.
+`SAMADCON_ALLOW_CUSTOM_SERVERS` is a literal "0" in the shipped stack,
+which also means a Portainer environment field cannot reach it —
+changing it means editing the file. Set it to 1 for an instance meant to
+reach several domains; that path is unchanged.
+
+**One correction.**
+
+The hint shown when Kerberos rejects a ticket over clock skew told the
+reader to synchronise the container's clock by NTP. Nobody can do that:
+`cap_drop: ALL` takes CAP_SYS_TIME, the image carries no NTP client, and
+the clock a container reads is the host's. It now names the Docker host,
+and the PDC emulator as the source a domain already follows. The test
+covering it asserted only that "ntp" appeared in the hint, which the
+wrong wording satisfied; it now insists on the host.
+
+**Not verified against a live domain.** Everything here was checked by
+reading the code, by the unit tests — 1112 backend, 103 frontend — and
+by parsing every compose file and README example. The compose files
+themselves were never started against a domain controller from this
+machine, and that sentence belongs in the record.
+
+---
+
 ## 0.5.14 — 2026-09-20
 
 Published Certificates — the last item on the tester's list, and with it the
