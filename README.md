@@ -522,6 +522,30 @@ the domain out from it.
 The console asks whoever signs in and acts with that person's own account, which is also what
 makes the audit trail worth keeping.
 
+### The clock
+
+Kerberos rejects a ticket whose timestamp is more than about five minutes out, and that is the
+failure that looks most like a wrong password. SAMADCON does not leave you guessing: the sign-in
+stops with `clock_skew` and says the clocks differ.
+
+**There is no time-server setting here, and no NTP client in the image.** Both are deliberate. A
+container has no clock of its own — it reads the host's — and `cap_drop: ALL` takes `CAP_SYS_TIME`
+away, so a container that could set the time would be setting the *host's*. Synchronising from
+inside is not a thing that can be made to work.
+
+So synchronise the Docker host. In an AD domain the authoritative source is the PDC emulator,
+which every domain member already follows:
+
+```bash
+timedatectl show -p NTPSynchronized     # on the Docker host, not in the container
+chronyc sources                         # or: ntpq -p
+```
+
+The tolerance itself belongs to the domain, not to the container: *Kerberos Policy → Maximum
+tolerance for computer clock synchronisation* (`MaxClockSkew`, in minutes), which the policy
+editor shows and can change. Raising it is not the fix — it widens the window in which an
+intercepted ticket is still accepted.
+
 ### Steps
 
 For the published image, [Quick start](#quick-start) is the procedure and there is nothing to

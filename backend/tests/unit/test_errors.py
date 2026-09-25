@@ -127,9 +127,19 @@ def test_kerberos_text_is_mapped(text: str, expected: str):
     assert error.code == expected
 
 
-def test_clock_skew_hint_mentions_time_sync():
+def test_clock_skew_hint_sends_the_reader_to_the_host():
+    """Not to the container: it has no clock to set.
+
+    ``cap_drop: ALL`` takes CAP_SYS_TIME, the image carries no NTP client,
+    and the clock a container reads is the host's — so a hint that says to
+    synchronise the container describes something nobody can do. The hint
+    said exactly that until this test was written.
+    """
     error = errors.translate(RuntimeError("Clock skew too great"))
-    assert "ntp" in (error.hint or "").lower()
+    hint = (error.hint or "").lower()
+    assert "ntp" in hint
+    assert "host" in hint
+    assert "container's clock" not in hint
 
 
 def test_samadcon_errors_pass_through_unchanged():

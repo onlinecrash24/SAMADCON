@@ -479,7 +479,11 @@ _NT_STATUS: dict[str, tuple[type[SamadconError], str, str, str | None]] = {
         AuthenticationError,
         "clock_skew",
         "The clocks of SAMADCON and the domain controller differ too much.",
-        "Kerberos tolerates about five minutes — synchronise the container's clock via NTP.",
+        (
+            "Kerberos tolerates about five minutes, and a container has no clock of "
+            "its own — synchronise the Docker host by NTP, in an AD domain against "
+            "the PDC emulator."
+        ),
     ),
 }
 
@@ -490,7 +494,11 @@ _KRB_PATTERNS: list[tuple[re.Pattern[str], type[SamadconError], str, str, str | 
         AuthenticationError,
         "clock_skew",
         "The clocks of SAMADCON and the domain controller differ too much.",
-        "Kerberos tolerates about five minutes — synchronise the container's clock via NTP.",
+        (
+            "Kerberos tolerates about five minutes, and a container has no clock of "
+            "its own — synchronise the Docker host by NTP, in an AD domain against "
+            "the PDC emulator."
+        ),
     ),
     (
         re.compile(r"pre-?authentication fail", re.I),

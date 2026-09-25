@@ -535,6 +535,30 @@ und ermittelt die Domäne daraus.
 eines annimmt. Die Konsole fragt den, der sich anmeldet, und handelt mit dessen eigenem Konto —
 und genau das macht den Audit-Verlauf erst aufbewahrenswert.
 
+### Die Uhr
+
+Kerberos verwirft ein Ticket, dessen Zeitstempel mehr als etwa fünf Minuten abweicht — und das
+ist der Fehler, der einem falschen Kennwort am ähnlichsten sieht. SAMADCON lässt einen damit
+nicht raten: die Anmeldung bricht mit `clock_skew` ab und sagt, dass die Uhren auseinanderlaufen.
+
+**Eine Zeitserver-Einstellung gibt es hier nicht, und im Image auch keinen NTP-Client.** Beides
+mit Absicht. Ein Container hat keine eigene Uhr — er liest die des Hosts —, und `cap_drop: ALL`
+nimmt ihm `CAP_SYS_TIME`, ein Container, der die Zeit stellen könnte, würde also die des *Hosts*
+stellen. Von innen zu synchronisieren ist nichts, was sich zum Funktionieren bringen ließe.
+
+Zu synchronisieren ist deshalb der Docker-Host. In einer AD-Domäne ist der PDC-Emulator die
+maßgebliche Quelle, der ohnehin jedes Domänenmitglied folgt:
+
+```bash
+timedatectl show -p NTPSynchronized     # auf dem Docker-Host, nicht im Container
+chronyc sources                         # oder: ntpq -p
+```
+
+Die Toleranz selbst gehört der Domäne, nicht dem Container: *Kerberos-Richtlinie → Max. Toleranz
+für die Synchronisation des Computertakts* (`MaxClockSkew`, in Minuten) — der Richtlinien-Editor
+zeigt und ändert sie. Sie hochzusetzen ist nicht die Lösung: es vergrößert das Fenster, in dem
+ein abgefangenes Ticket noch angenommen wird.
+
 ### Ablauf
 
 Für das fertige Image ist [Schnellstart](#schnellstart) das Verfahren, dem nichts hinzuzufügen
