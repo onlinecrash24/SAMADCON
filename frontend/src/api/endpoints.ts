@@ -9,6 +9,7 @@ import type {
   AdmxPolicySummary,
   AdmxState,
   AdmxBundled,
+  AdmxImportResult,
   AdmxStore,
   AdmxTree,
   AttributeListing,
@@ -24,6 +25,7 @@ import type {
   DnsZone,
   DomainMembers,
   DomainReport,
+  ExistingTemplates,
   FindingArea,
   FindingsReport,
   RegistrationDifferences,
@@ -477,11 +479,15 @@ export const api = {
 
   // -- administrative templates -------------------------------------------
   admxStore: () => http.get<AdmxStore>('/admx/store'),
-  uploadTemplates: (file: File, overwrite = false) =>
-    http.upload<{ path: string; added: string[] }>(
-      `/admx/store?overwrite=${overwrite}`,
+  importTemplates: (
+    files: { file: File; name: string }[],
+    options: { existing: ExistingTemplates; languages: string[] },
+  ) =>
+    http.uploadFiles<AdmxImportResult>(
+      `/admx/store?existing=${options.existing}` +
+        `&languages=${encodeURIComponent(options.languages.join(','))}`,
       'files',
-      file,
+      files,
     ),
   bundledTemplates: () => http.get<AdmxBundled>('/admx/bundled'),
   installBundledTemplates: (overwrite = false) =>

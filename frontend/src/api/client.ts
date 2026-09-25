@@ -159,7 +159,26 @@ async function download(path: string, fallbackName: string): Promise<void> {
 async function upload<T>(path: string, field: string, file: File): Promise<T> {
   const form = new FormData()
   form.append(field, file)
+  return send<T>(path, form)
+}
 
+/**
+ * Post several files under one field, each with the name the server should
+ * see. A folder picked in a browser only means something with its paths —
+ * `PolicyDefinitions/de-DE/x.adml` — and the third argument of `append` is the
+ * only place those travel.
+ */
+async function uploadFiles<T>(
+  path: string,
+  field: string,
+  files: { file: File; name: string }[],
+): Promise<T> {
+  const form = new FormData()
+  for (const { file, name } of files) form.append(field, file, name)
+  return send<T>(path, form)
+}
+
+async function send<T>(path: string, form: FormData): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (csrfToken) headers['X-CSRF-Token'] = csrfToken
 
@@ -193,4 +212,5 @@ export const http = {
   delete: <T>(path: string, body?: unknown) => request<T>(path, { method: 'DELETE', body }),
   download,
   upload,
+  uploadFiles,
 }

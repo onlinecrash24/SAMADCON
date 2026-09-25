@@ -7,18 +7,17 @@ cached; the state belongs to one GPO and changes under you.
 
 from __future__ import annotations
 
-import io
-import zipfile
 from typing import Annotated, Any
 
 from fastapi import APIRouter, File, Query, UploadFile
+from starlette.concurrency import run_in_threadpool
 
 from samadcon.ad.access import ad_read, ad_write
 from samadcon.api.common import Audit, DnQuery, OptionalDnQuery
 from samadcon.auth.deps import CurrentSession, VerifiedSession, VerifiedWorker, Worker
 from samadcon.config import get_settings
 from samadcon.core.errors import InvalidRequest, NotFound
-from samadcon.gpo.admx import serialise, store, writer
+from samadcon.gpo.admx import package, serialise, store, writer
 from samadcon.gpo.admx.model import Catalogue, Policy
 from samadcon.schemas.requests import ApplyPolicyRequest
 
@@ -27,8 +26,9 @@ router = APIRouter(prefix="/admx", tags=["administrative-templates"])
 LanguageQuery = Annotated[str | None, Query(max_length=16, description="e.g. de-DE")]
 HalfQuery = Annotated[str | None, Query(pattern="^(Machine|User)$")]
 
-# An upload is a handful of XML files. The ceiling stops a wrong file from
-# being read into memory whole.
+# What arrives over the wire: Microsoft's MSI is 15 MB, a PolicyDefinitions
+# folder with two languages about 12. The ceiling stops a wrong file from
+# being read into memory whole; nginx enforces the same figure in front.
 MAX_UPLOAD_BYTES = 64 * 1024 * 1024
 
 
@@ -60,13 +60,30 @@ async def upload_templates(
     worker: VerifiedWorker,
     session: VerifiedSession,
     audit: Audit,
-    files: Annotated[list[UploadFile], File(description=".admx, .adml or a ZIP of both")],
+    files: Annotated[
+        list[UploadFile],
+        File(description="Microsoft's MSI, a ZIP, or .admx/.adml files named with their path"),
+    ],
     overwrite: Annotated[bool, Query(description="Replace templates already there")] = False,
+    existing: Annotated[
+        str | None,
+        Query(pattern="^(refuse|skip|replace)$", description="Templates already there"),
+    ] = None,
+    languages: Annotated[
+        str | None,
+        Query(max_length=400, description="Comma-separated, e.g. de-DE,en-US; empty takes all"),
+    ] = None,
 ) -> dict[str, Any]:
-    """Add templates to the central store, creating it if there is none."""
-    payload: dict[str, bytes] = {}
-    total = 0
+    """Import templates into the central store, creating it if there is none.
 
+    Accepts the package the way an administrator has it — Microsoft's MSI as
+    downloaded, a zipped PolicyDefinitions folder, or that folder picked in a
+    browser — and writes it in the two shapes the store takes. What that
+    reshaping may and may not do is :mod:`samadcon.gpo.admx.package`'s
+    business; what may be written is still the store's.
+    """
+    uploads: list[tuple[str, bytes]] = []
+    total = 0
     for upload in files:
         data = await upload.read()
         total += len(data)
@@ -76,42 +93,42 @@ async def upload_templates(
                 code="upload_too_large",
                 context={"limit_bytes": MAX_UPLOAD_BYTES},
             )
+        uploads.append((upload.filename or "", data))
 
-        name = upload.filename or ""
-        if name.lower().endswith(".zip"):
-            payload.update(_unpack(data))
-        else:
-            payload[name] = data
+    chosen = (
+        None
+        if languages is None or not languages.strip()
+        else [item.strip() for item in languages.split(",") if item.strip()]
+    )
+    # Unpacking an MSI is a subprocess and a temporary directory: not work for
+    # the event loop.
+    shaped = await run_in_threadpool(package.open_package, uploads, chosen)
 
     with audit.operation("admx.upload") as record:
         result = await ad_write(
-            worker, session, store.upload, payload, overwrite=overwrite, label="admx.upload"
+            worker,
+            session,
+            store.upload,
+            shaped.files,
+            overwrite=overwrite,
+            existing=existing,
+            label="admx.upload",
         )
         record["target"] = result["path"]
-        record["changes"] = {"templates": {"new": ", ".join(result["added"])}}
-    return result
+        record["changes"] = {
+            "templates": {
+                "new": ", ".join(result["added"]),
+                "replaced": ", ".join(result["replaced"]),
+            }
+        }
 
-
-def _unpack(data: bytes) -> dict[str, bytes]:
-    """The files inside a template package.
-
-    Packages are shipped as ZIPs with the language directories inside, which
-    is the shape the store wants anyway. Which members are acceptable is
-    decided by the store, not here.
-    """
-    try:
-        archive = zipfile.ZipFile(io.BytesIO(data))
-    except zipfile.BadZipFile as exc:
-        raise InvalidRequest(
-            "This file is not a template package.", code="invalid_package"
-        ) from exc
-
-    unpacked: dict[str, bytes] = {}
-    for info in archive.infolist():
-        if info.is_dir() or info.file_size > MAX_UPLOAD_BYTES:
-            continue
-        unpacked[info.filename] = archive.read(info)
-    return unpacked
+    return {
+        **result,
+        "languages": shaped.languages,
+        "imported_languages": shaped.imported_languages,
+        "missing_languages": shaped.missing_languages,
+        "ignored": shaped.ignored,
+    }
 
 
 @router.get("/bundled")

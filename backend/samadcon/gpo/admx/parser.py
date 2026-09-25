@@ -21,6 +21,7 @@ Three details shape the implementation:
 
 from __future__ import annotations
 
+import codecs
 import logging
 import re
 from typing import Any
@@ -43,6 +44,40 @@ ADMX_NS = "http://schemas.microsoft.com/GroupPolicy/2006/07/PolicyDefinitions"
 
 # $(string.Id) and $(presentation.Id)
 _REFERENCE_RE = re.compile(r"^\$\((?P<kind>[a-zA-Z]+)\.(?P<id>.+)\)$")
+
+# The encoding pseudo-attribute when it says "unicode" — Microsoft's name for
+# UTF-16. Matched on the decoded text, where the declaration is readable.
+_UNICODE_DECLARATION = re.compile(
+    r"""(<\?xml[^>]*?)\s+encoding\s*=\s*(["'])unicode\2""", re.IGNORECASE
+)
+
+
+def _fromstring(raw: bytes) -> Any:
+    """``ElementTree.fromstring``, reading "unicode" the way Microsoft means it.
+
+    Search.admx in the Windows 11 templates is UTF-16 with a byte-order mark
+    and declares ``encoding='unicode'``. Windows reads it; Python's codec
+    registry has no such name, and expat fails with a LookupError — not a
+    ParseError, so it used to escape the validation below as a server error,
+    and a store copied from a Windows DC lost the file's policies silently.
+
+    Only that spelling is honoured, and only with the mark that makes it
+    unambiguous. Any other name Python does not know stays an error: guessing
+    at an encoding is how a template ends up with text nobody wrote.
+    """
+    try:
+        return ElementTree.fromstring(raw)
+    except LookupError:
+        if not raw.startswith((codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)):
+            raise
+        text = raw.decode("utf-16")
+        if _UNICODE_DECLARATION.search(text, 0, 200) is None:
+            raise
+        # Decoded, the declaration has nothing left to say about bytes; without
+        # it the document is plain UTF-8, which every parser agrees on.
+        return ElementTree.fromstring(
+            _UNICODE_DECLARATION.sub(r"\1", text, count=1).encode("utf-8")
+        )
 
 
 def _tag(element: Any) -> str:
@@ -117,7 +152,7 @@ class Strings:
 
 def parse_adml(raw: bytes) -> Strings:
     """Read one ``.adml`` file."""
-    root = ElementTree.fromstring(raw)
+    root = _fromstring(raw)
     resources = _child(root, "resources")
     if resources is None:
         return Strings()
@@ -206,8 +241,11 @@ def validate(raw: bytes, name: str) -> None:
     is_text = name.lower().endswith(".adml")
 
     try:
-        root = ElementTree.fromstring(raw)
-    except ElementTree.ParseError as exc:
+        root = _fromstring(raw)
+    # A LookupError is an encoding Python does not know, a ValueError one
+    # that is known but does not fit the bytes. Both are unreadable to the
+    # caller, and neither is the server's fault.
+    except (ElementTree.ParseError, LookupError, ValueError) as exc:
         raise InvalidRequest(
             "This file is not readable XML.",
             code="invalid_template",
@@ -262,7 +300,7 @@ def validate(raw: bytes, name: str) -> None:
 
 def parse_admx(raw: bytes, strings: Strings, catalogue: Catalogue, *, source: str = "") -> None:
     """Read one ``.admx`` file into *catalogue*."""
-    root = ElementTree.fromstring(raw)
+    root = _fromstring(raw)
 
     target, prefixes = _namespaces(root)
     # Kept per file: presentation ids are only unique within one template.

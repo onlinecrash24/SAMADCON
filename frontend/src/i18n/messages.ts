@@ -1404,10 +1404,31 @@ export const de = {
     'Diese Domäne hat keinen zentralen Speicher für administrative Vorlagen.',
   'admx.noStoreHint':
     'Das ist bei Samba der Normalfall: Windows bringt seine Vorlagen lokal mit, sodass nie welche nach SYSVOL gelangt sind. Erwartet werden sie unter {path}.',
-  'admx.uploadLabel': 'Vorlagenpaket',
-  'admx.uploadHint':
-    'Ein ZIP mit .admx-Dateien und den Sprachordnern, oder eine einzelne Datei. Windows liefert die Pakete in genau dieser Form.',
-  'admx.upload': 'Hochladen',
+  'admx.import': 'Vorlagen importieren …',
+  'admx.importTitle': 'Administrative Vorlagen importieren',
+  'admx.importFiles': 'Dateien',
+  'admx.importFilesHint':
+    'Das MSI von Microsoft, so wie es heruntergeladen wurde, ein ZIP oder einzelne .admx- und .adml-Dateien.',
+  'admx.importFolder': 'Ordner',
+  'admx.importFolderHint':
+    'Den Ordner PolicyDefinitions auswählen — etwa nachdem das MSI unter Windows installiert wurde.',
+  'admx.importPicked': '{count} Datei(en), {size}',
+  'admx.importPickedFolder':
+    '{count} Dateien werden gesendet ({size}); {left} weitere bleiben weg — andere Sprachen und alles, was keine Vorlage ist.',
+  'admx.importLanguages': 'Sprachen',
+  'admx.importLanguagesHint':
+    'en-US ist die Rückfallsprache, wenn einer Vorlage die Übersetzung fehlt. Jede Sprache kostet rund 4 MB auf SYSVOL, und SYSVOL wird auf jeden Domänencontroller repliziert.',
+  'admx.importMoreLanguages': 'Weitere Sprachen',
+  'admx.importNoLanguage': 'Mindestens eine Sprache wählen.',
+  'admx.importExisting': 'Bereits vorhandene Vorlagen',
+  'admx.importSkip': 'überspringen',
+  'admx.importReplace': 'ersetzen',
+  'admx.importRun': 'Importieren',
+  'admx.importTooLarge':
+    'Das sind {size} — mehr, als ein Durchgang senden kann (64 MB). Weniger Sprachen wählen oder das MSI hochladen.',
+  'admx.importDone': '{added} hinzugefügt, {replaced} ersetzt, {skipped} übersprungen.',
+  'admx.importDoneLanguages': 'Sprachen: {languages}.',
+  'admx.importMissing': 'Nicht im Paket: {languages}.',
   'admx.bundledHint':
     'Dieses Abbild bringt Sambas eigene Vorlagen mit ({names}). Sie beschreiben, was samba-gpupdate auf Linux-Mitgliedern anwendet — smb.conf-Optionen, die Unix-Cron-Skripte und Sudo-Rechte. Ohne sie kann der Editor diese Einstellungen zwar schreiben, aber nicht anzeigen.',
   'admx.installBundled': 'Samba-Vorlagen übernehmen',
@@ -2822,10 +2843,31 @@ export const en: Record<MessageKey, string> = {
   'admx.noStore': 'This domain has no central store of administrative templates.',
   'admx.noStoreHint':
     'Which is the normal state for Samba: Windows brings its templates along locally, so none ever reached SYSVOL. They are expected under {path}.',
-  'admx.uploadLabel': 'Template package',
-  'admx.uploadHint':
-    'A ZIP with .admx files and the language directories, or a single file. Windows ships the packages in exactly that shape.',
-  'admx.upload': 'Upload',
+  'admx.import': 'Import templates…',
+  'admx.importTitle': 'Import administrative templates',
+  'admx.importFiles': 'Files',
+  'admx.importFilesHint':
+    'Microsoft’s MSI as downloaded, a ZIP, or single .admx and .adml files.',
+  'admx.importFolder': 'Folder',
+  'admx.importFolderHint':
+    'Pick the PolicyDefinitions folder — for instance after installing the MSI on Windows.',
+  'admx.importPicked': '{count} file(s), {size}',
+  'admx.importPickedFolder':
+    '{count} files will be sent ({size}); {left} more stay behind — other languages, and anything that is not a template.',
+  'admx.importLanguages': 'Languages',
+  'admx.importLanguagesHint':
+    'en-US is what a template falls back to when its translation is missing. Each language costs about 4 MB on SYSVOL, and SYSVOL is replicated to every domain controller.',
+  'admx.importMoreLanguages': 'More languages',
+  'admx.importNoLanguage': 'Choose at least one language.',
+  'admx.importExisting': 'Templates already there',
+  'admx.importSkip': 'skip',
+  'admx.importReplace': 'replace',
+  'admx.importRun': 'Import',
+  'admx.importTooLarge':
+    'That is {size} — more than one pass can send (64 MB). Choose fewer languages, or upload the MSI.',
+  'admx.importDone': '{added} added, {replaced} replaced, {skipped} skipped.',
+  'admx.importDoneLanguages': 'Languages: {languages}.',
+  'admx.importMissing': 'Not in the package: {languages}.',
   'admx.bundledHint':
     'This image ships Samba’s own templates ({names}). They describe what samba-gpupdate applies on Linux members — smb.conf options, the Unix cron scripts and sudo rights. Without them the editor can write those settings but not show them.',
   'admx.installBundled': 'Install Samba templates',

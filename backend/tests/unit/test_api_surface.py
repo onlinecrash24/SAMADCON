@@ -57,6 +57,23 @@ def test_the_search_can_be_told_to_leave_advanced_objects_out():
     assert advanced["schema"]["default"] is True
 
 
+def test_the_template_import_says_what_to_do_with_templates_already_there():
+    """Refusing the lot was the only behaviour, which made a second import of
+    Microsoft's package impossible without replacing everything. The store can
+    skip now; this holds the route to passing that through."""
+    declared = app.openapi()["paths"]["/api/v1/admx/store"]["post"]["parameters"]
+    existing = next(item for item in declared if item["name"] == "existing")
+    pattern = existing["schema"].get("pattern") or existing["schema"]["anyOf"][0]["pattern"]
+    for mode in ("refuse", "skip", "replace"):
+        assert mode in pattern
+
+
+def test_the_template_import_takes_a_choice_of_languages():
+    """22 languages in Microsoft's package, 97 MB; two of them are 12."""
+    declared = app.openapi()["paths"]["/api/v1/admx/store"]["post"]["parameters"]
+    assert "languages" in {item["name"] for item in declared}
+
+
 def test_browsing_leaves_them_out_by_default_and_searching_does_not():
     """The asymmetry is deliberate. A list of a place may leave things out; an
     answer to "where is X" that omits an object reports it does not exist."""

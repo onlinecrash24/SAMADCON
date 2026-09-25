@@ -380,8 +380,16 @@ def cache_state() -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
+#: What to do with a template the store already has.
+EXISTING_MODES = ("refuse", "skip", "replace")
+
+
 def upload(
-    conn: DirectoryConnection, files: dict[str, bytes], *, overwrite: bool = False
+    conn: DirectoryConnection,
+    files: dict[str, bytes],
+    *,
+    overwrite: bool = False,
+    existing: str | None = None,
 ) -> dict[str, Any]:
     """Add templates to the central store, creating it if needed.
 
@@ -389,7 +397,22 @@ def upload(
     ``.adml`` into the language directory it came in — the caller passes those
     as ``de-DE/example.adml``. That mirrors how the packages are shipped and
     means a whole package can be handed over unchanged.
+
+    ``existing`` says what happens to a template already there: ``refuse``
+    the whole upload (the default, and what ``overwrite=False`` always
+    meant), ``skip`` it and add the rest, or ``replace`` it. Skipping is what
+    importing Microsoft's package onto a store that already has some of it
+    needs — refusing made a second import impossible without replacing
+    everything.
     """
+    mode = existing or ("replace" if overwrite else "refuse")
+    if mode not in EXISTING_MODES:
+        raise InvalidRequest(
+            "Unknown way to treat templates already there.",
+            code="invalid_mode",
+            context={"existing": mode, "allowed": list(EXISTING_MODES)},
+        )
+
     share = sysvol.sysvol_for(conn)
     base = store_path(conn.info.dns_domain)
 
@@ -398,7 +421,8 @@ def upload(
     # unreadable, so a package must land completely or not at all: a
     # definition written without the text file that belongs to it breaks the
     # domain's policy reporting just as thoroughly as a malformed file does.
-    planned: list[tuple[str, bytes]] = []
+    planned: list[tuple[str, bytes, bool]] = []
+    skipped: list[str] = []
     for name, data in files.items():
         relative = _safe_name(name)
         if relative is None:
@@ -406,17 +430,21 @@ def upload(
 
         parser.validate(data, relative)
 
-        if not overwrite and share.exists(sysvol.join(base, relative)):
+        present = share.exists(sysvol.join(base, relative))
+        if present and mode == "refuse":
             raise Conflict(
                 "This template is already in the central store.",
                 code="template_exists",
                 hint="Replace it deliberately if that is what you mean.",
                 context={"name": relative},
             )
+        if present and mode == "skip":
+            skipped.append(relative)
+            continue
 
-        planned.append((relative, data))
+        planned.append((relative, data, present))
 
-    if not planned:
+    if not planned and not skipped:
         raise InvalidRequest(
             "None of these files is an administrative template.",
             code="no_templates",
@@ -424,7 +452,8 @@ def upload(
         )
 
     accepted: list[str] = []
-    for relative, data in planned:
+    replaced: list[str] = []
+    for relative, data, present in planned:
         target = sysvol.join(base, relative)
         parent = target.rsplit("\\", 1)[0]
         share.makedirs(parent)
@@ -449,17 +478,23 @@ def upload(
                     "on the domain controller ends it immediately."
                 ),
                 detail=exc.detail,
-                context={"name": relative, "path": target},
+                # Checking everything first keeps a malformed package out; it
+                # cannot stop a lease from ending the writing half way. Saying
+                # what did land is the next best thing to not having written it.
+                context={"name": relative, "path": target, "written": accepted + replaced},
             ) from exc
-        accepted.append(relative)
+        (replaced if present else accepted).append(relative)
 
-    forget(conn.info.dns_domain)
+    if accepted or replaced:
+        forget(conn.info.dns_domain)
     logger.info(
-        "added %d templates to the central store of %s",
-        len(accepted),
+        "central store of %s: %d added, %d replaced, %d already there",
         conn.info.dns_domain,
+        len(accepted),
+        len(replaced),
+        len(skipped),
     )
-    return {"path": base, "added": accepted}
+    return {"path": base, "added": accepted, "replaced": replaced, "skipped": skipped}
 
 
 # ---------------------------------------------------------------------------

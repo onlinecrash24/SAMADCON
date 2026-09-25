@@ -600,6 +600,10 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 .radio-group { border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px 4px; margin: 0 0 12px; min-width: 0; }
 .radio-group legend { padding: 0 4px; font-size: 0.85em; color: var(--text-muted); }
 .radio-group--block .field:last-child { margin-bottom: 8px; }
+
+/* The twenty languages beyond the two offered first: a grid of short codes,
+   so choosing a third does not mean scrolling past a column of checkboxes. */
+.admx-import__languages { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 4px 12px; margin: 6px 0; }
 .boxed-list { border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 8px; max-height: 160px; overflow: auto; }
 .membership__row--removing td:first-child { text-decoration: line-through; opacity: 0.7; }
 /* The "Other…" list dialog: value on the left, Edit and Remove on the right. */

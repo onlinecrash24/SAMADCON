@@ -563,3 +563,60 @@ def test_the_summary_counts_what_was_loaded(catalogue: Catalogue):
     assert summary["categories"] == 3
     assert summary["policies"] == 2
     assert summary["problems"] == []
+
+
+# ---------------------------------------------------------------------------
+# How Microsoft spells UTF-16
+# ---------------------------------------------------------------------------
+
+
+def as_microsoft_unicode(document: bytes) -> bytes:
+    """A template the way Search.admx ships in the Windows 11 package.
+
+    UTF-16 with a byte-order mark, and a declaration that calls it "unicode" —
+    a name Windows accepts and Python's codec registry does not have.
+    """
+    text = document.decode("utf-8").replace('encoding="utf-8"', "encoding='unicode'", 1)
+    assert "encoding='unicode'" in text
+    return text.encode("utf-16")
+
+
+def test_a_template_declared_as_unicode_passes():
+    parser.validate(as_microsoft_unicode(SAMPLE_ADMX), "sample.admx")
+
+
+def test_a_text_file_declared_as_unicode_passes():
+    parser.validate(as_microsoft_unicode(SAMPLE_ADML), "de-DE/sample.adml")
+
+
+def test_a_template_declared_as_unicode_reads_like_its_utf8_twin():
+    """Not merely accepted: read to the same policies, with the same text."""
+    plain = Catalogue(language="en-US")
+    parser.parse_admx(SAMPLE_ADMX, parser.parse_adml(SAMPLE_ADML), plain, source="sample.admx")
+
+    wide = Catalogue(language="en-US")
+    parser.parse_admx(
+        as_microsoft_unicode(SAMPLE_ADMX),
+        parser.parse_adml(as_microsoft_unicode(SAMPLE_ADML)),
+        wide,
+        source="sample.admx",
+    )
+
+    assert sorted(wide.policies) == sorted(plain.policies)
+    assert [wide.policies[key].display_name for key in sorted(wide.policies)] == [
+        plain.policies[key].display_name for key in sorted(plain.policies)
+    ]
+
+
+def test_an_encoding_nobody_has_is_refused_rather_than_a_server_error():
+    """A LookupError is not a ParseError; it used to escape as a 500."""
+    raw = SAMPLE_ADMX.replace(b'encoding="utf-8"', b'encoding="klingon"', 1)
+    with pytest.raises(InvalidRequest):
+        parser.validate(raw, "sample.admx")
+
+
+def test_unicode_without_a_byte_order_mark_is_not_guessed_at():
+    """The one spelling that is honoured is the one Microsoft ships."""
+    raw = SAMPLE_ADMX.replace(b'encoding="utf-8"', b"encoding='unicode'", 1)
+    with pytest.raises(InvalidRequest):
+        parser.validate(raw, "sample.admx")

@@ -62,6 +62,10 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 # python3-samba pulls in the LDAP/SMB/NDR bindings, samba-common-bin gives us
 # samba-tool for cross-checking, krb5-user gives us klist/kinit for diagnostics.
+# msitools gives msiextract, which opens Microsoft's administrative-template
+# MSI as it is downloaded: the MSI's own tables name the files, so they come
+# out as de-de/Search.adml rather than the cabinet's staging_de_de_Search.adml.
+# The cabinet in those packages is MSZIP, which its libgcab reads. About 1.8 MB.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         python3 \
         python3-venv \
@@ -81,6 +85,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         curl \
         openssl \
         gettext-base \
+        msitools \
+    # Stop here rather than ship an image whose MSI import tells everyone who
+    # tries it that it cannot open MSI packages.
+    && command -v msiextract \
     && rm -rf /var/lib/apt/lists/*
 
 # --system-site-packages keeps the distribution's samba bindings visible inside

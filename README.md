@@ -761,8 +761,32 @@ does. That is not cosmetic: whoever writes `defaultValue` means *that value*, an
 writes nothing at all. Otherwise you enable a policy whose options stay unset, and the difference
 only surfaces when a client behaves other than expected. Values already set are left alone.
 
-Uploaded templates are validated **before** anything is written, and a package lands whole or not
-at all: Windows reads the central store as one, and a single unreadable file makes it abandon
+**Importing templates.** *Import templates…* in the editor's bar takes the package the way an
+administrator has it: Microsoft's MSI as it was downloaded (*Administrative Templates (.admx) for
+Windows 11 …*), a ZIP of the `PolicyDefinitions` folder, or that folder picked directly. All three
+end up in the same shape — the folder holding the `.admx` files becomes the store's root, and
+`de-de` becomes `de-DE`, the way Windows spells it. The MSI is opened with `msiextract` from
+msitools, which is in the image; the MSI's own tables name the files, so they come out under
+their real names rather than the cabinet's internal keys.
+
+The languages are chosen, German and English by default. The Windows 11 package carries 22 of
+them and 97 MB; two are about 12, and SYSVOL is replicated to every domain controller. English
+earns its place beyond itself: it is what a template falls back to when its translation is
+missing, and the German set lacks one (`SecureBoot.adml`). Templates already in the store are
+skipped by default, or replaced when asked — a newer Windows release imported over an older one
+is the case this is for, and it was impossible while the only choice was to refuse the lot.
+
+Measured on the Windows 11 25H2 package, v2.0: 5,284 files, 233 templates, 3,628 policies, every
+file accepted. That last part needed a fix. Microsoft writes `Search.admx` in UTF-16 and declares
+it `encoding='unicode'` — a name Windows reads and Python's codec registry does not have. Every
+import of the package failed on that one file, with a server error rather than a message, since
+the exception was not the parse error the check expected; and a store copied over from a Windows
+DC silently lacked the file's 50 policies. Only that spelling is honoured, and only with the
+byte-order mark that makes it unambiguous — guessing at an encoding is how a template ends up
+with text nobody wrote.
+
+Imported templates are validated **before** anything is written, so a malformed package lands
+not at all: Windows reads the central store as one, and a single unreadable file makes it abandon
 **every** administrative template in the domain — the group policy report then shows one parser
 error domain-wide instead of the settings. So what is checked is what makes that difference:
 well-formed XML, the right root element, the often-forgotten `<resources>`, for an `.admx` its own
@@ -774,7 +798,9 @@ A Windows client that has read the central store holds the templates open with a
 refuses writes, long after the policy refresh. An upload then runs into `file_in_use`, and the
 usual workaround of deleting instead of overwriting does not help, because the lease refuses
 deletion too. Visible with `smbstatus --locks` on the DC; the lease clears by itself, and
-`smbcontrol smbd close-share sysvol` or a restart of `samba-ad-dc` ends it at once.
+`smbcontrol smbd close-share sysvol` or a restart of `samba-ad-dc` ends it at once. Checking
+first cannot stop a lease from cutting an import short half way; the error then lists what had
+already been written.
 
 **Security settings** (4b) live in `GptTmpl.inf`, an INI in UTF-16LE with a BOM: password and
 lockout policy, Kerberos policy, the audit categories, user rights assignment and restricted

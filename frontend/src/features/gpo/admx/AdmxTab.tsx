@@ -8,16 +8,17 @@
  * their own so the window never scrolls as a whole.
  */
 
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import { api } from '../../../api/endpoints'
 import type { AdmxCategory, AdmxPolicySummary, Gpo, PolicyState } from '../../../api/types'
-import { ErrorMessage, Spinner } from '../../../components/primitives'
+import { ErrorMessage, Modal, Spinner } from '../../../components/primitives'
 import { useI18n } from '../../../i18n'
 import type { MessageKey } from '../../../i18n/messages'
 import { PolicyDialog } from './PolicyDialog'
 import { BundledTemplates, useBundledMissing } from './BundledTemplates'
+import { TemplateImport } from './TemplateImport'
 import { TemplateUpload } from './TemplateUpload'
 
 /** The template whose settings apply to Linux members and nothing else. */
@@ -36,6 +37,8 @@ export function AdmxTab({ gpo, onChanged }: { gpo: Gpo; onChanged: (message: str
   const [active, setActive] = useState('')
   const [onlyConfigured, setOnlyConfigured] = useState(false)
   const [editing, setEditing] = useState<AdmxPolicySummary | null>(null)
+  const [importing, setImporting] = useState(false)
+  const queryClient = useQueryClient()
 
   const store = useQuery({ queryKey: ['admx-store'], queryFn: () => api.admxStore() })
 
@@ -60,8 +63,16 @@ export function AdmxTab({ gpo, onChanged }: { gpo: Gpo; onChanged: (message: str
   if (store.isLoading) return <Spinner label={t('status.loading')} />
   if (store.error) return <ErrorMessage error={store.error} />
 
+  // The server has dropped its parsed copy of the store; everything drawn from
+  // it — the list of files, the tree, a search — is stale with it.
+  function templatesChanged() {
+    void queryClient.invalidateQueries({ queryKey: ['admx-store'] })
+    void queryClient.invalidateQueries({ queryKey: ['admx-tree'] })
+    void queryClient.invalidateQueries({ queryKey: ['admx-search'] })
+  }
+
   if (!store.data?.present) {
-    return <TemplateUpload store={store.data} onDone={() => void store.refetch()} />
+    return <TemplateUpload store={store.data} onDone={templatesChanged} />
   }
 
   const listing = active ? found : tree
@@ -99,6 +110,9 @@ export function AdmxTab({ gpo, onChanged }: { gpo: Gpo; onChanged: (message: str
         </div>
 
         <div className="gpedit__bar-right">
+          <button type="button" className="button" onClick={() => setImporting(true)}>
+            {t('admx.import')}
+          </button>
           <label className="checkbox checkbox--inline">
             <input
               type="checkbox"
@@ -231,6 +245,12 @@ export function AdmxTab({ gpo, onChanged }: { gpo: Gpo; onChanged: (message: str
             onChanged(message)
           }}
         />
+      )}
+
+      {importing && (
+        <Modal title={t('admx.importTitle')} onClose={() => setImporting(false)}>
+          <TemplateImport onDone={templatesChanged} />
+        </Modal>
       )}
       </div>
     </>

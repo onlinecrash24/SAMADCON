@@ -783,8 +783,35 @@ meint *diesen Wert*, und ein leeres Feld schreibt gar nichts. Sonst aktiviert ma
 Richtlinie, deren Optionen ungesetzt bleiben, und der Unterschied fällt erst auf, wenn ein
 Client sich anders verhält als erwartet. Bereits gesetzte Werte bleiben unberührt.
 
-Hochgeladene Vorlagen werden **vor** dem Schreiben geprüft, und ein Paket landet ganz oder gar
-nicht: Windows liest den Central Store als Ganzes und gibt bei einer einzigen unlesbaren Datei
+**Vorlagen importieren.** *Vorlagen importieren …* in der Leiste des Editors nimmt das Paket so,
+wie ein Administrator es hat: das MSI von Microsoft, so wie es heruntergeladen wurde
+(*Administrative Templates (.admx) for Windows 11 …*), ein ZIP des Ordners `PolicyDefinitions`,
+oder diesen Ordner direkt ausgewählt. Alle drei landen in derselben Form — der Ordner mit den
+`.admx`-Dateien wird die Wurzel des Stores, und aus `de-de` wird `de-DE`, wie Windows es schreibt.
+Das MSI öffnet `msiextract` aus msitools, das im Image liegt; die Tabellen des MSI selbst benennen
+die Dateien, sie kommen also unter ihren echten Namen heraus statt unter den internen Schlüsseln
+des Cabinets.
+
+Die Sprachen werden gewählt, vorausgewählt Deutsch und Englisch. Das Windows-11-Paket bringt 22
+davon mit und 97 MB; zwei sind etwa 12, und SYSVOL wird auf jeden Domänencontroller repliziert.
+Englisch lohnt sich über sich selbst hinaus: darauf fällt eine Vorlage zurück, der die
+Übersetzung fehlt, und dem deutschen Satz fehlt eine (`SecureBoot.adml`). Vorlagen, die schon im
+Store liegen, werden standardmäßig übersprungen oder auf Wunsch ersetzt — ein neueres
+Windows-Release über ein älteres zu importieren ist genau der Fall dafür, und er war unmöglich,
+solange die einzige Wahl war, alles abzulehnen.
+
+Gemessen am Windows-11-Paket 25H2, v2.0: 5284 Dateien, 233 Vorlagen, 3628 Richtlinien, jede Datei
+angenommen. Letzteres brauchte eine Korrektur. Microsoft schreibt `Search.admx` in UTF-16 und
+deklariert es als `encoding='unicode'` — ein Name, den Windows liest und Pythons Codec-Verzeichnis
+nicht kennt. Jeder Import des Pakets scheiterte an dieser einen Datei, und zwar mit einem
+Serverfehler statt einer Meldung, weil die Ausnahme nicht der Parserfehler war, den die Prüfung
+erwartete; und einem von einem Windows-DC herüberkopierten Store fehlten stillschweigend die 50
+Richtlinien der Datei. Anerkannt wird nur genau diese Schreibweise, und nur mit der
+Byte-Reihenfolge-Markierung, die sie eindeutig macht — beim Raten einer Kodierung entsteht Text,
+den niemand geschrieben hat.
+
+Importierte Vorlagen werden **vor** dem Schreiben geprüft, ein fehlerhaftes Paket landet also
+gar nicht: Windows liest den Central Store als Ganzes und gibt bei einer einzigen unlesbaren Datei
 **jede** administrative Vorlage der Domäne auf — der Gruppenrichtlinienbericht zeigt dann
 domänenweit einen Parserfehler statt der Einstellungen. Geprüft wird deshalb, was diesen
 Unterschied macht: wohlgeformtes XML, das richtige Wurzelelement, das oft vergessene
@@ -798,7 +825,9 @@ das Schreiben verweigert — auch lange nach der Richtlinienaktualisierung. Ein 
 dann in `file_in_use`, und der sonst greifende Umweg „löschen statt überschreiben" hilft nicht,
 weil das Lease auch das Löschen verweigert. Sichtbar mit `smbstatus --locks` auf dem DC; das
 Lease löst sich von selbst, `smbcontrol smbd close-share sysvol` oder ein Neustart von
-`samba-ad-dc` beendet es sofort.
+`samba-ad-dc` beendet es sofort. Dass vorher geprüft wird, kann nicht verhindern, dass ein
+Lease einen Import mittendrin abbricht; die Fehlermeldung nennt dann, was schon geschrieben
+war.
 
 **Sicherheitseinstellungen** (4b) liegen in `GptTmpl.inf`, einer INI in UTF-16LE mit BOM:
 Kennwort- und Kontosperrrichtlinie, Kerberos-Richtlinie, die Überwachungskategorien, das

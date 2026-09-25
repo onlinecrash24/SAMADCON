@@ -888,6 +888,24 @@ export interface AdmxStore {
   language: string | null
 }
 
+/** What a template import did, and with which languages. */
+export interface AdmxImportResult {
+  path: string
+  added: string[]
+  replaced: string[]
+  skipped: string[]
+  /** Every language directory the package carried. */
+  languages: string[]
+  imported_languages: string[]
+  /** Asked for, and not in the package. */
+  missing_languages: string[]
+  /** Files that were not templates, or not where templates belong. */
+  ignored: number
+}
+
+/** What happens to a template the store already has. */
+export type ExistingTemplates = 'skip' | 'replace'
+
 /** Templates shipped inside the image, ready to be copied into the store. */
 export interface AdmxBundled {
   present: boolean

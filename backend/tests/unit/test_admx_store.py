@@ -3,8 +3,11 @@ written into the central store."""
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
+from samadcon.core.errors import Conflict, InvalidRequest
 from samadcon.gpo.admx import store
 
 # ---------------------------------------------------------------------------
@@ -245,3 +248,111 @@ def test_a_template_no_language_has_is_not_found():
     texts = store._Texts(share, "base", ["en-US"], "en-US")
 
     assert texts.find("nothing.admx") is None
+
+
+# ---------------------------------------------------------------------------
+# Writing: templates the store already has
+# ---------------------------------------------------------------------------
+
+NS = 'xmlns="http://schemas.microsoft.com/GroupPolicy/2006/07/PolicyDefinitions"'
+VALID_ADMX = (
+    f"<policyDefinitions {NS}><policyNamespaces>"
+    '<target prefix="s" namespace="Example.Search" /></policyNamespaces>'
+    '<resources minRequiredRevision="1.0" /></policyDefinitions>'
+).encode()
+VALID_ADML = (
+    f"<policyDefinitionResources {NS}><displayName /><description />"
+    "<resources /></policyDefinitionResources>"
+).encode()
+
+BASE = "example.lan\\Policies\\PolicyDefinitions"
+
+
+class StoreShare:
+    """Enough of SYSVOL to write into: what is there, and what got written."""
+
+    def __init__(self, present=(), busy: str | None = None):
+        self.files = {f"{BASE}\\{name}": b"old" for name in present}
+        self.written: list[str] = []
+        self.busy = busy
+
+    def exists(self, path: str) -> bool:
+        return path in self.files
+
+    def makedirs(self, path: str) -> None:
+        pass
+
+    def write(self, path: str, data: bytes) -> None:
+        if self.busy and path.endswith(self.busy):
+            raise Conflict("in use", code="file_in_use")
+        self.files[path] = data
+        self.written.append(path.rsplit("PolicyDefinitions\\", 1)[1])
+
+
+@pytest.fixture
+def conn():
+    return SimpleNamespace(info=SimpleNamespace(dns_domain="example.lan"))
+
+
+def installed(monkeypatch, share: StoreShare) -> StoreShare:
+    monkeypatch.setattr(store.sysvol, "sysvol_for", lambda conn: share)
+    return share
+
+
+PACKAGE = {"Search.admx": VALID_ADMX, "de-DE/Search.adml": VALID_ADML, "en-US/Search.adml": VALID_ADML}
+
+
+def test_by_default_one_template_already_there_refuses_the_lot(monkeypatch, conn):
+    share = installed(monkeypatch, StoreShare(present=["Search.admx"]))
+    with pytest.raises(Conflict) as caught:
+        store.upload(conn, PACKAGE)
+    assert caught.value.code == "template_exists"
+    assert share.written == []
+
+
+def test_skipping_adds_what_is_missing_and_leaves_the_rest(monkeypatch, conn):
+    """A second import of Microsoft's package onto a store that has part of it."""
+    share = installed(monkeypatch, StoreShare(present=["Search.admx"]))
+    result = store.upload(conn, PACKAGE, existing="skip")
+    assert result["skipped"] == ["Search.admx"]
+    assert sorted(result["added"]) == ["de-DE\\Search.adml", "en-US\\Search.adml"]
+    assert result["replaced"] == []
+    assert share.files[f"{BASE}\\Search.admx"] == b"old"
+
+
+def test_replacing_writes_over_what_is_there_and_says_so(monkeypatch, conn):
+    share = installed(monkeypatch, StoreShare(present=["Search.admx"]))
+    result = store.upload(conn, PACKAGE, existing="replace")
+    assert result["replaced"] == ["Search.admx"]
+    assert share.files[f"{BASE}\\Search.admx"] == VALID_ADMX
+
+
+def test_overwrite_still_means_replace(monkeypatch, conn):
+    """The bundled-templates endpoint passes overwrite, and keeps working."""
+    installed(monkeypatch, StoreShare(present=["Search.admx"]))
+    result = store.upload(conn, PACKAGE, overwrite=True)
+    assert result["replaced"] == ["Search.admx"]
+
+
+def test_everything_already_there_is_not_an_error_when_skipping(monkeypatch, conn):
+    installed(monkeypatch, StoreShare(present=["Search.admx", "de-DE\\Search.adml", "en-US\\Search.adml"]))
+    result = store.upload(conn, PACKAGE, existing="skip")
+    assert result["added"] == [] and result["replaced"] == []
+    assert len(result["skipped"]) == 3
+
+
+def test_an_unknown_way_is_refused_before_anything_is_touched(monkeypatch, conn):
+    share = installed(monkeypatch, StoreShare())
+    with pytest.raises(InvalidRequest) as caught:
+        store.upload(conn, PACKAGE, existing="merge")
+    assert caught.value.code == "invalid_mode"
+    assert share.written == []
+
+
+def test_a_write_cut_short_says_what_landed(monkeypatch, conn):
+    """Checking first keeps bad files out; it cannot stop a lease half way."""
+    installed(monkeypatch, StoreShare(busy="en-US\\Search.adml"))
+    with pytest.raises(Conflict) as caught:
+        store.upload(conn, PACKAGE)
+    assert caught.value.code == "file_in_use"
+    assert sorted(caught.value.context["written"]) == ["Search.admx", "de-DE\\Search.adml"]
