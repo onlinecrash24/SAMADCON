@@ -44,7 +44,7 @@ services:
     # the one name it needs:
     #
     #   extra_hosts:
-    #     - "zmb-ad.myantispam.local:192.168.200.1"
+    #     - "smb-ad.example.lan:192.168.1.1"
     #
     # That is a last resort, not a substitute for dns: above. The entry
     # resolves that one name and carries no SRV records, so the KDC and the

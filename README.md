@@ -234,7 +234,7 @@ down by hand:
 
 ```yaml
     extra_hosts:
-      - "zmb-ad.myantispam.local:192.168.200.1"
+      - "smb-ad.example.lan:192.168.1.1"
 ```
 
 That is a last resort, not a replacement for `dns:`. The entry resolves that one name and
@@ -320,28 +320,61 @@ from the environment; it asks whoever signs in, and acts with that person's own 
 
 ### 3 · Building from source
 
+There is no compose file for this. The image is built from `docker/Dockerfile`, with the
+repository root as the build context — that is not a detail, the Dockerfile copies `backend/`
+and `frontend/` out of it:
+
 ```bash
 git clone https://github.com/onlinecrash24/SAMADCON.git
 cd SAMADCON
-docker compose -f docker-compose_source_build.yml up -d --build
+docker build -f docker/Dockerfile -t samadcon:local .
 ```
 
-The `-f` is not optional: `docker-compose.yml` pulls the published image, and
-`docker-compose_source_build.yml` is the one that builds. It is also the file the integration
-tests need. No `.env` is involved — that file carries the whole configuration itself, which
-is what makes it the right one for development and the wrong one for a deployment. With no
-domain configured, the sign-in form asks for a server address and works the rest out itself.
+Then run it. This is the stack from example 1 written as a `docker run`, with two differences:
+it binds to loopback, because a build in progress is not something to publish on every
+interface, and it publishes 8080 as well, which is the port that redirects HTTP to HTTPS and
+the only place `SAMADCON_PUBLIC_HTTPS_PORT` is read:
 
-The interface then runs on `https://<host>:8443`. Without a mounted certificate the container
-generates a self-signed one on first start.
+```bash
+docker run -d --name samadcon --restart unless-stopped \
+  -p 127.0.0.1:8443:8443 \
+  -p 127.0.0.1:8080:8080 \
+  --dns 192.168.1.1 --dns-search example.lan \
+  -e SAMADCON_PUBLIC_HOST=samadcon.example.lan \
+  -e SAMADCON_PUBLIC_HTTPS_PORT=8443 \
+  -e SAMADCON_REALM=EXAMPLE.LAN \
+  -e SAMADCON_DC_HOSTS=192.168.1.1 \
+  -e SAMADCON_LOG_LEVEL=DEBUG \
+  -v samadcon-tls:/etc/samadcon/tls \
+  -v samadcon-ca:/etc/samadcon/ca \
+  -v samadcon-cache:/var/cache/samadcon \
+  -v samadcon-data:/var/lib/samadcon \
+  -v samadcon-logs:/var/log/samadcon \
+  --shm-size 64m \
+  --tmpfs /run/samadcon:mode=0700,uid=1000,gid=1000,size=8m \
+  --security-opt no-new-privileges:true \
+  --cap-drop ALL \
+  samadcon:local
+```
+
+Every `-e` may be left out: with no domain configured the sign-in form asks for a server
+address and works the rest out itself. [What has to be configured](#what-has-to-be-configured)
+lists the rest of them.
+
+The interface then runs on `https://localhost:8443`. Without a mounted certificate the
+container generates a self-signed one on first start.
+
+Rebuilding is `docker build` again, then `docker rm -f samadcon` and the same `docker run`.
+The named volumes survive that — the audit trail lives in `samadcon-logs`.
 
 ### Behind a reverse proxy
 
 The stacks above publish on every interface, because a proxy on another machine has to be able
 to reach it. With the proxy on this host, bind to loopback instead — `127.0.0.1:8443:8443` — and
-then nothing outside the host can reach the console at all. (`docker-compose_source_build.yml` reads the address
-from `SAMADCON_BIND` and defaults to loopback; the published-image file publishes on every
-interface, because that is what a stack on another machine needs.)
+then nothing outside the host can reach the console at all. (A source build run by hand binds to loopback — see
+[Building from source](#3--building-from-source) — because that is the safe default while
+working on it; the published-image stack publishes on every interface, because that is what
+a stack on another machine needs.)
 
 **A proxy on another machine** needs the opposite of loopback: SAMADCON has to answer on an
 address the proxy host can reach. Everything else follows from four settings, and each of the
@@ -349,7 +382,7 @@ usual mistakes is one of them pointing at the wrong thing:
 
 | Setting | What it has to be | Wrong when |
 |---|---|---|
-| `SAMADCON_BIND` (or the address in `ports`) | An address the proxy host can reach — the LAN address of this host, or `0.0.0.0` | Left at `127.0.0.1`: the proxy gets connection refused |
+| The address in `ports:` (or in `-p`) | An address the proxy host can reach — the LAN address of this host, or none at all, which publishes on every interface | Left at `127.0.0.1`: the proxy gets connection refused |
 | `SAMADCON_TRUSTED_PROXIES` | The proxy **host's** address, not its container's | The audit log keeps showing the proxy |
 | `SAMADCON_PUBLIC_HOST` | The name people type in the browser | Only affects the self-signed certificate, which the proxy does not check |
 | `SAMADCON_PUBLIC_HTTPS_PORT` | The port people reach, so `443` when the proxy serves 443 | Only affects the redirect on 8080, which nobody reaches through a proxy |
@@ -393,10 +426,12 @@ inherits the right to claim any identity in your audit trail.
 
 ### What has to be on the target system
 
+Nothing, when running the published image: it carries everything, and
+[Quick start](#quick-start) is the whole procedure. What follows is for a build from source.
+
 ```
 SAMADCON/
 ├── docker-compose.yml          for the published image; not used by a source build
-├── docker-compose_source_build.yml   the whole configuration
 ├── .dockerignore               keeps node_modules and local secrets out of the image
 ├── docker/
 │   ├── docker-compose.yml      the same file again, beside the rest of the docker assets
@@ -417,48 +452,103 @@ SAMADCON/
     └── public/
 ```
 
-`backend/tests/` is only needed when building with `SAMADCON_TARGET=test`.
+`backend/tests/` is only needed when building with `--target test`.
 
 Do not copy along: `frontend/node_modules`, `frontend/dist`, `backend/samadcon.egg-info`, any
 `__pycache__`, `.venv`. The `.dockerignore` catches those and at the same time keeps certificates
 and any local `.env` out of the image — configuration arrives at runtime, never in a layer.
 
-`docker/tls/`, `docker/ca/` and `docker/servers/` appear on first start.
-
-None of this is needed when running the published image: it carries everything.
-
 ### What has to be configured
 
-**No `.env`.** Everything is in `docker-compose_source_build.yml` with the value it should have — no second
-place to keep in step, and nothing that quietly falls back to an empty string because a variable
-was not exported.
+Every setting is an environment variable, and every one of them has a default that works. They
+reach the container through the stack's `environment:` block, through a `.env`, or through `-e`
+on a `docker run` — the same names in all three cases. Nothing has to be set that is not listed
+here as one an installation decides.
 
-| Setting | What for |
-|---|---|
-| `SAMADCON_PUBLIC_HOST` | The name the console is reached under. It becomes the CN and the SAN of the self-signed certificate, and nothing else reads it — the HTTP-to-HTTPS redirect uses whatever name the browser asked for. **The one value practically every installation must change.** |
-| `SAMADCON_REALM`, `SAMADCON_DC_HOSTS` | Pre-fills the sign-in form. **Names that resolve, not bare IP addresses** — Kerberos needs the DC's FQDN. |
-| `SAMADCON_LDAP_CA_FILE` | The DC's CA, when the LDAPS certificate is to be validated. |
-| `SAMADCON_LDAP_TRANSPORTS` | Which transports may be tried, in order. Default `ldap,ldaps`. Both encrypt — settling on one is a policy decision rather than a hardening step, and it removes the fallback. |
-| `SAMADCON_TRUSTED_PROXIES` | The reverse proxy in front of the container, if there is one. Without it every audit entry records the proxy instead of the administrator — see [Behind a reverse proxy](#behind-a-reverse-proxy). Empty when there is none. |
+**The one value practically every installation changes:**
 
-What belongs to the machine rather than to the project stays as `${VAR:-default}` and comes from
-the shell: the ports, if 8443 or 8080 are taken; `SAMADCON_BIND`, which is `127.0.0.1` unless the
-console should answer on another address; `SAMADCON_TARGET=test` for the test image; and the
-`TEST_*` values of the integration tests. **A password never belongs in the compose file** —
-that file is in version control.
+| Setting | Default | What for |
+|---|---|---|
+| `SAMADCON_PUBLIC_HOST` | `samadcon.local` | The name the console is reached under. It becomes the CN and the SAN of the self-signed certificate, and nothing else reads it. |
+
+**The domain.** Both may stay empty: the sign-in form then asks for a server address and works
+the domain out from it.
+
+| Setting | Default | What for |
+|---|---|---|
+| `SAMADCON_REALM` | empty | The Kerberos realm, upper case. |
+| `SAMADCON_DC_HOSTS` | empty | The controllers, comma-separated. An IP is fine: Kerberos issues tickets for `ldap/<hostname>@REALM` and has no principal for a bare address, so a configured address is probed like a typed one and the DC's own name comes from its rootDSE. |
+| `SAMADCON_WORKGROUP` | the realm up to the first dot | The NetBIOS name, when that derivation is wrong. |
+| `SAMADCON_SERVERS_FILE` | none | A JSON file of domains to offer in the sign-in form; see `docker/servers/servers.example.json`. |
+| `SAMADCON_ALLOW_CUSTOM_SERVERS` | `1` | `0` allows only the configured domains — administrators can then no longer type an arbitrary address. |
+
+**LDAP.**
+
+| Setting | Default | What for |
+|---|---|---|
+| `SAMADCON_LDAP_TRANSPORTS` | `ldap,ldaps` | Which transports may be tried, in order. Both encrypt — `ldap` with the Kerberos session key, sign-and-seal *required* rather than requested, `ldaps` with TLS. Settling on one is a policy decision, not a hardening step, and it removes the fallback. |
+| `SAMADCON_LDAP_CA_FILE` | none | The CA that signed the DCs' certificates, for validating LDAPS. A Samba DC keeps its own at `/var/lib/samba/private/tls/ca.pem`. |
+| `SAMADCON_LDAP_INSECURE` | `0` | Turns certificate validation off for every connection. Prefer the per-session checkbox in the sign-in form over this switch. |
+| `SAMADCON_LDAP_TIMEOUT_SECONDS` | `30` | How long a single LDAP call may take. |
+| `SAMADCON_LDAP_PAGE_SIZE` | `500` | Objects per page. The console walks every page; this only decides how many round trips that takes. |
+
+**The web front end.**
+
+| Setting | Default | What for |
+|---|---|---|
+| `SAMADCON_PUBLIC_HTTPS_PORT` | `443` | The port the redirect on 8080 sends people to. Read **only** when port 8080 is published; a deployment that publishes 8443 alone never reaches that server block. |
+| `SAMADCON_TRUSTED_PROXIES` | empty | The reverse proxy in front of the container, if there is one. Without it every audit entry records the proxy instead of the administrator — see [Behind a reverse proxy](#behind-a-reverse-proxy). |
+
+**Sessions.**
+
+| Setting | Default | What for |
+|---|---|---|
+| `SAMADCON_TICKET_LIFETIME` | `10h` | How long a Kerberos ticket is good for. |
+| `SAMADCON_RENEW_LIFETIME` | `7d` | How long it may be renewed. |
+| `SAMADCON_SESSION_IDLE_MINUTES` | `60` | Idle time before a session is dropped. |
+| `SAMADCON_LOGIN_MAX_ATTEMPTS` | `5` | Failed sign-ins per account before SAMADCON stops forwarding attempts to the DC — which is what keeps the web form from triggering AD account lockout. |
+| `SAMADCON_LOGIN_LOCKOUT_MINUTES` | `5` | How long it then waits. |
+
+**Logging.**
+
+| Setting | Default | What for |
+|---|---|---|
+| `SAMADCON_LOG_LEVEL` | `INFO` | `INFO` names what happens; `DEBUG` is for tracking a problem down. |
+| `SAMADCON_AUDIT_FILE` | `/var/log/samadcon/audit.jsonl` | Every write operation lands here: who, what, DN, attribute diff. |
+| `SAMADCON_SAMBA_LOG_LEVEL` | `0` | Raise for Samba protocol traces. Noisy — leave at 0 outside a hunt. |
+| `SAMADCON_DEV_MODE` | `0` | Extra diagnostics and a more talkative error surface. |
+
+**A password is not among them.** There is no setting that takes one, in any of these tables.
+The console asks whoever signs in and acts with that person's own account, which is also what
+makes the audit trail worth keeping.
 
 ### Steps
 
-Adjust `docker-compose_source_build.yml`, at least `SAMADCON_PUBLIC_HOST`. Then:
+For the published image, [Quick start](#quick-start) is the procedure and there is nothing to
+add. From source:
 
 ```bash
-docker compose -f docker-compose_source_build.yml up -d --build
+docker build -f docker/Dockerfile -t samadcon:local .
+docker run -d --name samadcon --restart unless-stopped \
+  -p 127.0.0.1:8443:8443 -p 127.0.0.1:8080:8080 \
+  --dns 192.168.1.1 --dns-search example.lan \
+  -e SAMADCON_PUBLIC_HOST=samadcon.example.lan \
+  -e SAMADCON_REALM=EXAMPLE.LAN -e SAMADCON_DC_HOSTS=192.168.1.1 \
+  -v samadcon-tls:/etc/samadcon/tls -v samadcon-ca:/etc/samadcon/ca \
+  -v samadcon-cache:/var/cache/samadcon -v samadcon-data:/var/lib/samadcon \
+  -v samadcon-logs:/var/log/samadcon \
+  --shm-size 64m \
+  --tmpfs /run/samadcon:mode=0700,uid=1000,gid=1000,size=8m \
+  --security-opt no-new-privileges:true --cap-drop ALL \
+  samadcon:local
 ```
 
-For a real certificate put `server.crt` and `server.key` into `docker/tls/`. One catch: the
-container runs as uid 1000 and a bind mount from the host belongs to root. If `docker/tls/` is not
-writable, the entrypoint falls back to the `samadcon-data` volume with a warning — the certificate
-is then not where you look for it. So, once:
+For a real certificate, copy `server.crt` and `server.key` into the `samadcon-tls` volume and
+restart the container. A named volume is seeded from the image directory, which belongs to uid
+1000, so there is nothing to prepare. A **bind mount** is the case that goes wrong: it belongs
+to root, the container runs as uid 1000, and if the directory is not writable the entrypoint
+falls back to the `samadcon-data` volume with a warning — the certificate is then not where you
+look for it. So, if you do bind-mount one:
 
 ```bash
 mkdir -p docker/tls docker/ca && chown -R 1000:1000 docker/tls
@@ -467,23 +557,21 @@ mkdir -p docker/tls docker/ca && chown -R 1000:1000 docker/tls
 Check:
 
 ```bash
-docker compose -f docker-compose_source_build.yml ps
+docker ps
 ```
 
 The container has a health check on `/api/v1/health` and reports `healthy` after about twenty
-seconds. If it does not, `docker compose -f docker-compose_source_build.yml logs samadcon` says why. The connection to the DC can be
+seconds. If it does not, `docker logs samadcon` says why. The connection to the DC can be
 checked without credentials:
 
 ```bash
-docker compose exec samadcon samadconctl probe dc1.example.lan
+docker exec samadcon samadconctl probe dc1.example.lan
 ```
 
-Updating is the same command as installing. The volumes `samadcon-cache`, `samadcon-data` and
-`samadcon-logs` — the audit trail lives in the last one — survive it:
-
-```bash
-docker compose -f docker-compose_source_build.yml up -d --build
-```
+Updating the published image is `docker compose pull && docker compose up -d`; from source it is
+`docker build` again, then `docker rm -f samadcon` and the same `docker run`. The volumes
+`samadcon-cache`, `samadcon-data` and `samadcon-logs` — the audit trail lives in the last one —
+survive either.
 
 ## Testing against an existing Samba AD
 
@@ -494,21 +582,30 @@ Unit tests need no domain and run anywhere. Three of them compare against files 
 produced, kept in `backend/tests/data/` with a note on
 [where they came from](backend/tests/data/PROVENANCE.md) and what was changed to publish them.
 
-The tests live in the image rather than in a mount, which is what the `test` build target is for:
+The tests live in the image rather than in a mount, which is what the `test` build target is
+for. They need no running server of their own — `TestClient` runs the application in-process —
+so nothing has to be deployed first and the container goes away again:
 
 ```bash
-SAMADCON_TARGET=test docker compose -f docker-compose_source_build.yml up -d --build
+docker build -f docker/Dockerfile --target test -t samadcon:test .
+docker run --rm \
+  --dns 192.168.1.10 --dns-search example.lan \
+  -e TEST_DC_HOST=dc1.example.lan \
+  -e TEST_REALM=EXAMPLE.LAN \
+  -e TEST_ADMIN_USER=Administrator \
+  -e TEST_ADMIN_PASSWORD=... \
+  -e TEST_INSECURE=1 \
+  -e SAMADCON_COOKIE_SECURE=0 \
+  samadcon:test python -m pytest tests/integration -q
 ```
 
-Integration tests against that domain:
+Without `TEST_DC_HOST` and `TEST_ADMIN_PASSWORD` the tests skip themselves. `SAMADCON_COOKIE_SECURE=0`
+is not optional: `TestClient` speaks http, and a `Secure` cookie would be set and never sent
+back. Passing the password on the command line rather than writing it into a file is the point
+of doing it this way.
 
-```bash
-TEST_DC_HOST=dc1.example.lan TEST_ADMIN_PASSWORD=... \
-  docker compose -f docker-compose_source_build.yml exec samadcon python -m pytest tests/integration -q
-```
-
-> A changed test is copied into the image at build time. After every change to the tests, run
-> `up -d --build` first, then `exec`.
+> A changed test is copied into the image at build time. After every change to the tests, build
+> again before the next `docker exec`.
 
 > The tests create objects and delete them again, each run inside its own OU
 > `samadcon-test-<random>`. Run them against a test domain only.
@@ -517,13 +614,13 @@ If the connection does not come up, the CLI inside the container answers why —
 credentials:
 
 ```bash
-docker compose exec samadcon samadconctl probe 192.168.1.10
+docker run --rm samadcon:test samadconctl probe 192.168.1.10
 ```
 
 And with a sign-in, all the way to the rootDSE:
 
 ```bash
-docker compose exec samadcon samadconctl check --server 192.168.1.10 --insecure
+docker run --rm samadcon:test samadconctl check --server 192.168.1.10 --insecure
 ```
 
 ## Milestones

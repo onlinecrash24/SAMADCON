@@ -2,7 +2,8 @@
 #
 # This is the file to deploy: it pulls a built image and needs nothing on the
 # host prepared. To build from source instead — which is what the integration
-# tests need — use docker-compose_source_build.yml beside this one.
+# tests need — build docker/Dockerfile with the repository root as the build
+# context; the README has the command. There is no compose file for that.
 #
 # **The settings come out of the environment, and this file states none of
 # them.** That is deliberate: the values belong to your domain, not to the
@@ -77,7 +78,7 @@ services:
     # the one name it needs:
     #
     #   extra_hosts:
-    #     - "zmb-ad.myantispam.local:192.168.200.1"
+    #     - "smb-ad.example.lan:192.168.1.1"
     #
     # That is a last resort, not a substitute for dns: above. The entry
     # resolves that one name and carries no SRV records, so the KDC and the

@@ -7,15 +7,12 @@ Point them at your own test domain:
     TEST_ADMIN_PASSWORD=…
     TEST_INSECURE=1          # self-signed certificate
 
-    SAMADCON_TARGET=test       # the suite lives in the image, not in a mount
     SAMADCON_COOKIE_SECURE=0   # TestClient speaks http, a Secure cookie
                                # would be set and never sent back
 
-    docker compose -f docker-compose_source_build.yml up -d --build
-    docker compose -f docker-compose_source_build.yml exec samadcon python -m pytest tests/integration -q
-
-Or without touching a running deployment — the tests need no server of their
-own, TestClient runs the application in-process::
+The tests need no server of their own: TestClient runs the application
+in-process, so nothing has to be deployed first. The suite lives in the image
+rather than in a mount, which is what the ``test`` build target is for::
 
     docker build -f docker/Dockerfile --target test -t samadcon:test .
     docker run --rm \

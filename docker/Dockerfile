@@ -137,8 +137,8 @@ CMD ["supervisor"]
 # Stage 4 — test image
 #
 # Adds the test suite and pytest on top of the runtime image, so integration
-# tests exercise exactly the image that ships. Selected with SAMADCON_TARGET=test
-# in the shell, which docker-compose_source_build.yml passes through as the build target.
+# tests exercise exactly the image that ships. Selected with --target test on
+# the docker build command; see the README.
 # ---------------------------------------------------------------------------
 FROM runtime AS test
 
