@@ -8,9 +8,16 @@
 # To build from source instead — which is what the integration tests need —
 # use docker-compose_source_build.yml beside this one.
 #
-# Every setting not named below takes its default, and the defaults are the
-# values this file used to spell out — checked, not assumed. What is left is
-# what an installation actually has to decide.
+# **The settings come from the environment, with a default each.** Copy
+# .env.example to .env and change what you need; anything left out keeps the
+# default written below, which is the value this file used to state outright.
+# In Portainer there is no .env: type the same names into the stack's
+# environment fields, or upload one with "Load variables from .env file". The
+# compose file stays as it is either way.
+#
+# Every setting not named below takes its own default, and those were checked
+# against the code rather than assumed. What is left is what an installation
+# actually has to decide.
 #
 # **Named volumes, not bind mounts.** A Portainer stack has no directory of its
 # own on the host: a relative path like ./tls is resolved by the Docker daemon
@@ -28,23 +35,37 @@
 # service. Setting it here as well means a second stack of this image cannot
 # start, and renaming the stack does not reach it.
 #
-# **Never write a password into this file.** The console does not take one from
-# the environment anyway: it asks whoever signs in.
+# **Never write a password into this file, or into the .env.** The console does
+# not take one from the environment anyway: it asks whoever signs in.
 
 services:
   samadcon:
     image: ghcr.io/onlinecrash24/samadcon:latest
     restart: unless-stopped
     environment:
-      SAMADCON_PUBLIC_HOST: "samadcon.example.lan"
-      SAMADCON_PUBLIC_HTTPS_PORT: "8443"
-      SAMADCON_REALM: "EXAMPLE.LAN"
-      SAMADCON_DC_HOSTS: "192.168.1.1"
-      SAMADCON_LOG_LEVEL: "INFO"
+      # Every value below falls back to what this file used to state outright,
+      # so a stack with no .env behaves exactly as it did before.
+      SAMADCON_PUBLIC_HOST: "${SAMADCON_PUBLIC_HOST:-samadcon.example.lan}"
+      SAMADCON_PUBLIC_HTTPS_PORT: "${SAMADCON_PUBLIC_HTTPS_PORT:-8443}"
+      SAMADCON_REALM: "${SAMADCON_REALM:-EXAMPLE.LAN}"
+      SAMADCON_DC_HOSTS: "${SAMADCON_DC_HOSTS:-192.168.1.1}"
+      SAMADCON_LOG_LEVEL: "${SAMADCON_LOG_LEVEL:-INFO}"
       # Only behind a reverse proxy, and then its host's address. Never 0.0.0.0/0.
-      SAMADCON_TRUSTED_PROXIES: ""
+      SAMADCON_TRUSTED_PROXIES: "${SAMADCON_TRUSTED_PROXIES:-}"
     ports:
-      - "8443:8443"
+      # The port the host publishes. SAMADCON_PUBLIC_HTTPS_PORT above is the
+      # port people reach, and behind a reverse proxy the two differ — there
+      # you reach 443 and publish 8443.
+      - "${SAMADCON_HTTPS_PORT:-8443}:8443"
+    # Only needed without SAMADCON_DC_HOSTS: finding a DC through SRV records
+    # takes a resolver that serves the domain, which is usually the DC itself.
+    # Uncomment both, and set SAMADCON_DNS in the .env. A compose key cannot be
+    # left out depending on a variable, which is why this is a comment rather
+    # than an empty default.
+    # dns:
+    #   - "${SAMADCON_DNS}"
+    # dns_search:
+    #   - "${SAMADCON_DNS_SEARCH}"
     volumes:
       # A certificate of your own goes in here; without one a self-signed one is
       # made on first start. To replace it later, copy server.crt and server.key

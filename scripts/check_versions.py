@@ -20,7 +20,12 @@ left is checked here:
   stack. One is in the project root, where ``docker compose`` finds it without
   being told; the other sits under ``docker/`` beside the Dockerfile. Two files
   holding one thing is exactly the arrangement the version check exists for, so
-  it is checked here rather than remembered.
+  it is checked here rather than remembered;
+* that ``.env.example`` lists exactly the variables the compose file reads. A
+  variable added to the stack and forgotten in the example is a setting nobody
+  knows they can change; one left in the example after the stack stopped reading
+  it is a setting that does nothing, which is worse — somebody will set it and
+  believe it.
 
 Imports nothing from ``samadcon``: this runs in the lint job, which has no
 samba bindings, and parsing beats importing for a value that must be a literal
@@ -39,6 +44,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 COMPOSE = (ROOT / "docker-compose.yml", ROOT / "docker" / "docker-compose.yml")
+ENV_EXAMPLE = ROOT / ".env.example"
 INIT = ROOT / "backend" / "samadcon" / "__init__.py"
 PYPROJECT = ROOT / "backend" / "pyproject.toml"
 PACKAGE_JSON = ROOT / "frontend" / "package.json"
@@ -86,6 +92,7 @@ def problems(version: str) -> list[str]:
         )
 
     found.extend(compose_problems())
+    found.extend(env_example_problems())
 
     # Set by the workflow only on a tag build; empty every other time.
     tag = (os.environ.get("EXPECTED_TAG") or "").strip().lstrip("v")
@@ -133,6 +140,29 @@ def compose_problems() -> list[str]:
             f"copy one over the other from `services:` down."
         ]
     return []
+
+
+def env_example_problems() -> list[str]:
+    """``.env.example`` and the compose file must name the same variables.
+
+    Both sides count a commented-out line: the dns pair is offered as a comment
+    in each, and a reader who uncomments one should find the other.
+    """
+    compose = COMPOSE[0]
+    if not ENV_EXAMPLE.exists():
+        return [f"{ENV_EXAMPLE} is missing; it is what a deployment copies to .env"]
+
+    used = set(re.findall(r"\$\{(SAMADCON_[A-Z_]+)", compose.read_text(encoding="utf-8")))
+    listed = set(
+        re.findall(r"^#?(SAMADCON_[A-Z_]+)=", ENV_EXAMPLE.read_text(encoding="utf-8"), re.MULTILINE)
+    )
+
+    found = []
+    for name in sorted(used - listed):
+        found.append(f"{compose.name} reads {name}, and {ENV_EXAMPLE.name} does not list it")
+    for name in sorted(listed - used):
+        found.append(f"{ENV_EXAMPLE.name} lists {name}, and {compose.name} does not read it")
+    return found
 
 
 def main() -> int:

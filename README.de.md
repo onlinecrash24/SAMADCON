@@ -239,15 +239,23 @@ services:
     image: ghcr.io/onlinecrash24/samadcon:latest
     restart: unless-stopped
     environment:
-      SAMADCON_PUBLIC_HOST: "samadcon.example.lan"
-      SAMADCON_PUBLIC_HTTPS_PORT: "8443"
-      SAMADCON_REALM: "EXAMPLE.LAN"
-      SAMADCON_DC_HOSTS: "192.168.1.1"
-      SAMADCON_LOG_LEVEL: "INFO"
+      # Jede fällt auf den Wert daneben zurück, sodass ein Stack ohne .env und
+      # ohne Umgebungsfelder sich verhält wie bisher.
+      SAMADCON_PUBLIC_HOST: "${SAMADCON_PUBLIC_HOST:-samadcon.example.lan}"
+      SAMADCON_PUBLIC_HTTPS_PORT: "${SAMADCON_PUBLIC_HTTPS_PORT:-8443}"
+      SAMADCON_REALM: "${SAMADCON_REALM:-EXAMPLE.LAN}"
+      SAMADCON_DC_HOSTS: "${SAMADCON_DC_HOSTS:-192.168.1.1}"
+      SAMADCON_LOG_LEVEL: "${SAMADCON_LOG_LEVEL:-INFO}"
       # Nur hinter einem Reverse Proxy, und dann dessen Host-Adresse. Nie 0.0.0.0/0.
-      SAMADCON_TRUSTED_PROXIES: ""
+      SAMADCON_TRUSTED_PROXIES: "${SAMADCON_TRUSTED_PROXIES:-}"
     ports:
-      - "8443:8443"
+      - "${SAMADCON_HTTPS_PORT:-8443}:8443"
+    # Nur nötig ohne SAMADCON_DC_HOSTS: SRV-Discovery braucht einen Resolver,
+    # der die Domäne bedient — meist der DC selbst.
+    # dns:
+    #   - "${SAMADCON_DNS}"
+    # dns_search:
+    #   - "${SAMADCON_DNS_SEARCH}"
     volumes:
       # Ein eigenes Zertifikat kommt hier hinein; ohne eines wird beim ersten
       # Start ein selbstsigniertes erzeugt. Zum Austausch server.crt und
@@ -287,10 +295,15 @@ Drei Unterschiede zum Block darüber, alle gehen auf Portainer zurück:
   wird, selten die ist, auf der Portainer läuft. Hinter einem Proxy auf demselben Host:
   `127.0.0.1:8443:8443`.
 
-Die Umgebungsvariablen können auch aus Portainers eigenen Feldern kommen statt aus der Datei:
-`SAMADCON_REALM: "${REALM}"` schreiben und `REALM` unter dem Stack ausfüllen. Nicht für das
-Kennwort des Domänenadministrators — die Konsole nimmt keines aus der Umgebung, sie fragt den,
-der sich anmeldet.
+**Die Einstellungen kommen aus der Umgebung.** Jede fällt auf den Wert daneben zurück, der
+Stack oben läuft also unangetastet. Zum Ändern den Namen in die Umgebungsfelder des Stacks
+eintragen oder über *Load variables from .env file* eine Datei hochladen — die Compose-Datei
+bleibt in beiden Fällen unverändert, und genau darum geht es. Auf einem Host mit
+`docker compose` stattdessen [`.env.example`](.env.example) nach `.env` kopieren. Dieselben
+Namen wirken auf beiden Wegen.
+
+Das Kennwort des Domänenadministrators gehört nicht hinein. Die Konsole nimmt keines aus der
+Umgebung; sie fragt den, der sich anmeldet, und handelt mit dessen eigenem Konto.
 
 ### Hinter einem Reverse Proxy
 

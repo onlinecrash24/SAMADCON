@@ -237,15 +237,23 @@ services:
     image: ghcr.io/onlinecrash24/samadcon:latest
     restart: unless-stopped
     environment:
-      SAMADCON_PUBLIC_HOST: "samadcon.example.lan"
-      SAMADCON_PUBLIC_HTTPS_PORT: "8443"
-      SAMADCON_REALM: "EXAMPLE.LAN"
-      SAMADCON_DC_HOSTS: "192.168.1.1"
-      SAMADCON_LOG_LEVEL: "INFO"
+      # Each falls back to the value written beside it, so a stack with no
+      # .env and no environment fields behaves as it always did.
+      SAMADCON_PUBLIC_HOST: "${SAMADCON_PUBLIC_HOST:-samadcon.example.lan}"
+      SAMADCON_PUBLIC_HTTPS_PORT: "${SAMADCON_PUBLIC_HTTPS_PORT:-8443}"
+      SAMADCON_REALM: "${SAMADCON_REALM:-EXAMPLE.LAN}"
+      SAMADCON_DC_HOSTS: "${SAMADCON_DC_HOSTS:-192.168.1.1}"
+      SAMADCON_LOG_LEVEL: "${SAMADCON_LOG_LEVEL:-INFO}"
       # Only behind a reverse proxy, and then its host's address. Never 0.0.0.0/0.
-      SAMADCON_TRUSTED_PROXIES: ""
+      SAMADCON_TRUSTED_PROXIES: "${SAMADCON_TRUSTED_PROXIES:-}"
     ports:
-      - "8443:8443"
+      - "${SAMADCON_HTTPS_PORT:-8443}:8443"
+    # Only needed without SAMADCON_DC_HOSTS: finding a DC through SRV records
+    # takes a resolver that serves the domain, which is usually the DC itself.
+    # dns:
+    #   - "${SAMADCON_DNS}"
+    # dns_search:
+    #   - "${SAMADCON_DNS_SEARCH}"
     volumes:
       # A certificate of your own goes in here; without one a self-signed one is
       # made on first start. To replace it later, copy server.crt and server.key
@@ -284,10 +292,15 @@ Three differences from the block above, all of them Portainer's:
 - **`8443:8443` on every interface**, because the machine reaching the console is rarely the one
   running Portainer. Behind a proxy on the same host, `127.0.0.1:8443:8443`.
 
-Environment variables can also come from Portainer's own fields rather than the file: write
-`SAMADCON_REALM: "${REALM}"` and fill `REALM` in under the stack. Do not use it for the domain
-administrator's password — the console never takes one from the environment; it asks whoever
-signs in.
+**The settings come from the environment.** Every one of them falls back to the value written
+beside it, so the stack above runs untouched. To change one, type its name into the stack's
+environment fields in Portainer, or use *Load variables from .env file* to upload one — the
+compose file stays as it is either way, which is the point. On a host with `docker compose`,
+copy [`.env.example`](.env.example) to `.env` beside the file instead. The same names work
+both ways.
+
+Do not put the domain administrator's password there. The console never takes one from the
+environment; it asks whoever signs in, and acts with that person's own account.
 
 ### Behind a reverse proxy
 
