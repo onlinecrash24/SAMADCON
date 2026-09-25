@@ -13,7 +13,6 @@ import { ApiError, setCsrfToken } from '../api/client'
 import { api } from '../api/endpoints'
 import type { LoginOptions, SessionInfo } from '../api/types'
 import { forgetConsoleLocation } from './consoleLocation'
-import { rememberServer } from './recentServers'
 
 interface SessionState {
   session: SessionInfo | null
@@ -72,17 +71,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       // off, which is the point of storing this in the first place.
       forgetConsoleLocation()
       setSession(info)
-
-      // Remember only what actually worked, and only when the user named a
-      // server themselves — profiles and the default need no history.
-      if (options.server) {
-        rememberServer({
-          host: options.server,
-          realm: info.target?.realm ?? info.realm,
-          label: info.target?.dns_domain ?? undefined,
-          insecure: options.insecure ?? false,
-        })
-      }
     },
     [],
   )

@@ -93,8 +93,6 @@ export const de = {
     'LDAPS-Zertifikate werden nicht geprüft (SAMADCON_LDAP_INSECURE=1). Nicht für den Produktivbetrieb.',
 
   'login.domain': 'Domäne',
-  'login.configured': 'vorkonfiguriert',
-  'login.recent': 'Zuletzt verwendet',
   'login.otherServer': 'Anderer Server …',
   'login.server': 'Server',
   'login.serverHint': 'IP-Adresse oder Hostname eines Domänencontrollers',
@@ -1521,8 +1519,6 @@ export const en: Record<MessageKey, string> = {
     'LDAPS certificates are not being validated (SAMADCON_LDAP_INSECURE=1). Not for production.',
 
   'login.domain': 'Domain',
-  'login.configured': 'configured',
-  'login.recent': 'Recently used',
   'login.otherServer': 'Other server …',
   'login.server': 'Server',
   'login.serverHint': 'IP address or host name of a domain controller',

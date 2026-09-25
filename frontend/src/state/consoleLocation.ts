@@ -10,8 +10,8 @@
  * does not. It would equally put distinguished names into the address bar, the
  * browser history and any screenshot: an organisation's OU names, and the name
  * of whichever account is selected. This console has a stance on that already
- * — the recent-servers list is kept out of the server's reach for the same
- * reason — and nobody asked for shareable links. sessionStorage is also
+ * — what a person is looking at is theirs, not the server's — and nobody
+ * asked for shareable links. sessionStorage is also
  * per-tab, so two tabs on two different OUs do not overwrite each other, which
  * localStorage would.
  *

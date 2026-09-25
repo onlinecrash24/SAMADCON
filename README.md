@@ -82,8 +82,14 @@ The domain is chosen **at sign-in**, not when the container starts. The sign-in 
 - **free entry** of an IP address or host name,
 - **pre-configured domains** from `SAMADCON_SERVERS_FILE` (see
   [servers.example.json](docker/servers/servers.example.json)),
-- **recently used** servers, kept in the browser only, never credentials,
 - the container's **default domain**, if one is configured.
+
+**The shipped stack turns free entry off.** It writes `SAMADCON_ALLOW_CUSTOM_SERVERS: "0"`
+into the compose file itself, because one instance per domain is the arrangement it is
+written for: the sign-in form then shows the configured domain and nothing else, and the
+backend refuses a typed address as well. It is a fixed value rather than a `${VAR}`, so
+changing it means editing the file — a Portainer environment field cannot reach it. Set it
+to `1` for an instance meant to reach several domains; everything below describes that case.
 
 Given an IP address, SAMADCON works the domain out for itself: an anonymous rootDSE read returns
 the realm, the domain controller's FQDN and the naming contexts. That step is necessary because
@@ -169,6 +175,9 @@ services:
       SAMADCON_DC_HOSTS: "192.168.1.1"
       # INFO names what happens; DEBUG is for tracking a problem down.
       SAMADCON_LOG_LEVEL: "INFO"
+      # Only the domain above; the sign-in form loses its free address
+      # field. 1 for an instance that should reach several domains.
+      SAMADCON_ALLOW_CUSTOM_SERVERS: "0"
     ports:
       # Every interface, which is what a browser on another machine needs.
       # Use "127.0.0.1:8443:8443" when a reverse proxy runs on this host.
@@ -262,6 +271,12 @@ services:
       SAMADCON_REALM: "${SAMADCON_REALM}"
       SAMADCON_DC_HOSTS: "${SAMADCON_DC_HOSTS}"
       SAMADCON_LOG_LEVEL: "${SAMADCON_LOG_LEVEL}"
+      # Only the domain configured above. The sign-in form then shows that one
+      # and nothing else. One instance per domain is the arrangement this stack
+      # is written for, so it is a fixed value rather than a variable: set it
+      # to 1 here, in the file, for an instance meant to reach several. A
+      # Portainer environment field cannot reach it — those feed ${VAR} only.
+      SAMADCON_ALLOW_CUSTOM_SERVERS: "0"
       # Only behind a reverse proxy, and then its host's address. Never 0.0.0.0/0.
       SAMADCON_TRUSTED_PROXIES: "${SAMADCON_TRUSTED_PROXIES}"
     ports:
@@ -480,7 +495,7 @@ the domain out from it.
 | `SAMADCON_DC_HOSTS` | empty | The controllers, comma-separated. An IP is fine: Kerberos issues tickets for `ldap/<hostname>@REALM` and has no principal for a bare address, so a configured address is probed like a typed one and the DC's own name comes from its rootDSE. |
 | `SAMADCON_WORKGROUP` | the realm up to the first dot | The NetBIOS name, when that derivation is wrong. |
 | `SAMADCON_SERVERS_FILE` | none | A JSON file of domains to offer in the sign-in form; see `docker/servers/servers.example.json`. |
-| `SAMADCON_ALLOW_CUSTOM_SERVERS` | `1` | `0` allows only the configured domains — administrators can then no longer type an arbitrary address. |
+| `SAMADCON_ALLOW_CUSTOM_SERVERS` | `1`, and `0` in the stack above | `0` allows only the configured domains: the sign-in form loses "Anderer Server ..." and its free address field, and the backend refuses a typed address too. The stack sets it as a literal, so it is changed in the file. If you do set it from the environment, do not set it empty — it is a boolean, and an empty value stops the container from starting. |
 
 **LDAP.**
 

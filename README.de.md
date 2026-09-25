@@ -83,8 +83,15 @@ Anmeldemaske stehen zur Auswahl:
 - **Freie Eingabe** einer IP-Adresse oder eines Hostnamens,
 - **vorkonfigurierte Domänen** aus `SAMADCON_SERVERS_FILE` (siehe
   [servers.example.json](docker/servers/servers.example.json)),
-- **zuletzt verwendete** Server (nur im Browser gespeichert, keine Zugangsdaten),
 - die im Container hinterlegte **Standarddomäne**, falls konfiguriert.
+
+**Der ausgelieferte Stack schaltet die freie Eingabe ab.** Er schreibt
+`SAMADCON_ALLOW_CUSTOM_SERVERS: "0"` in die Compose-Datei selbst, weil eine Instanz je Domäne
+die Aufteilung ist, für die er geschrieben ist: die Anmeldemaske zeigt dann die eingetragene
+Domäne und sonst nichts, und das Backend weist eine getippte Adresse ebenfalls ab. Es ist ein
+fester Wert und kein `${VAR}`, geändert wird er also in der Datei — ein Umgebungsfeld in
+Portainer erreicht ihn nicht. Für eine Instanz, die mehrere Domänen erreichen soll, auf `1`
+setzen; alles Folgende beschreibt diesen Fall.
 
 Bei Eingabe einer IP ermittelt SAMADCON die Domäne selbst: Ein anonymer rootDSE-Abruf liefert
 Realm, den FQDN des Domänencontrollers und die Naming Contexts. Das ist nötig, weil Kerberos
@@ -171,6 +178,9 @@ services:
       SAMADCON_DC_HOSTS: "192.168.1.1"
       # INFO benennt, was passiert; DEBUG ist zum Eingrenzen eines Problems.
       SAMADCON_LOG_LEVEL: "INFO"
+      # Nur die Domäne oben; die Anmeldemaske verliert ihr freies
+      # Adressfeld. 1 für eine Instanz, die mehrere erreichen soll.
+      SAMADCON_ALLOW_CUSTOM_SERVERS: "0"
     ports:
       # Jede Schnittstelle — das braucht ein Browser auf einer anderen Maschine.
       # "127.0.0.1:8443:8443", wenn ein Reverse Proxy auf diesem Host läuft.
@@ -266,6 +276,12 @@ services:
       SAMADCON_REALM: "${SAMADCON_REALM}"
       SAMADCON_DC_HOSTS: "${SAMADCON_DC_HOSTS}"
       SAMADCON_LOG_LEVEL: "${SAMADCON_LOG_LEVEL}"
+      # Only the domain configured above. The sign-in form then shows that one
+      # and nothing else. One instance per domain is the arrangement this stack
+      # is written for, so it is a fixed value rather than a variable: set it
+      # to 1 here, in the file, for an instance meant to reach several. A
+      # Portainer environment field cannot reach it — those feed ${VAR} only.
+      SAMADCON_ALLOW_CUSTOM_SERVERS: "0"
       # Nur hinter einem Reverse Proxy, und dann dessen Host-Adresse. Nie 0.0.0.0/0.
       SAMADCON_TRUSTED_PROXIES: "${SAMADCON_TRUSTED_PROXIES}"
     ports:
@@ -493,7 +509,7 @@ und ermittelt die Domäne daraus.
 | `SAMADCON_DC_HOSTS` | leer | Die Controller, komma-getrennt. Eine IP genügt: Kerberos stellt Tickets für `ldap/<hostname>@REALM` aus und kennt kein Principal für eine nackte Adresse, deshalb wird eine eingetragene Adresse wie eine eingetippte geprüft und der Name des DC kommt aus seiner rootDSE. |
 | `SAMADCON_WORKGROUP` | der Realm bis zum ersten Punkt | Der NetBIOS-Name, wo diese Ableitung falsch ist. |
 | `SAMADCON_SERVERS_FILE` | keine | Eine JSON-Datei mit Domänen, die die Anmeldemaske anbietet; siehe `docker/servers/servers.example.json`. |
-| `SAMADCON_ALLOW_CUSTOM_SERVERS` | `1` | `0` lässt nur die eingetragenen Domänen zu — Administratoren können dann keine beliebige Adresse mehr eintippen. |
+| `SAMADCON_ALLOW_CUSTOM_SERVERS` | `1`, im Stack oben `0` | `0` lässt nur die eingetragenen Domänen zu: die Anmeldemaske verliert „Anderer Server …" und ihr freies Adressfeld, und das Backend weist eine getippte Adresse ebenfalls ab. Der Stack trägt den Wert fest ein, geändert wird er also in der Datei. Wer ihn doch aus der Umgebung setzt, setzt ihn nicht leer — er ist ein Bool, und ein leerer Wert verhindert den Start. |
 
 **LDAP.**
 

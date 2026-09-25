@@ -27,6 +27,12 @@ services:
       SAMADCON_REALM: "${SAMADCON_REALM}"
       SAMADCON_DC_HOSTS: "${SAMADCON_DC_HOSTS}"
       SAMADCON_LOG_LEVEL: "${SAMADCON_LOG_LEVEL}"
+      # Only the domain configured above. The sign-in form then shows that one
+      # and nothing else. One instance per domain is the arrangement this stack
+      # is written for, so it is a fixed value rather than a variable: set it
+      # to 1 here, in the file, for an instance meant to reach several. A
+      # Portainer environment field cannot reach it — those feed ${VAR} only.
+      SAMADCON_ALLOW_CUSTOM_SERVERS: "0"
       # Only behind a reverse proxy, and then its host's address. Never 0.0.0.0/0.
       SAMADCON_TRUSTED_PROXIES: "${SAMADCON_TRUSTED_PROXIES}"
     ports:

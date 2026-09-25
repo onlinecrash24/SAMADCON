@@ -5,7 +5,7 @@
  * [consoleLocation], which holds distinguished names and is therefore
  * sessionStorage and wiped when someone signs out. A column width says nothing
  * about a directory. It is a preference, and it belongs beside the language
- * choice and the recent-server list, which are kept the same way.
+ * choice, which is kept the same way.
  *
  * Per console rather than one width for all of them. The DNS zone list is a
  * flat column of short names and wants little; the policy tree draws indented

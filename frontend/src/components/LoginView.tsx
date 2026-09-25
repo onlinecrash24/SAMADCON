@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { api } from '../api/endpoints'
 import type { ProbeResult, ServerInfo, ServerListing } from '../api/types'
 import { useI18n } from '../i18n'
-import { loadRecentServers, type RecentServer } from '../state/recentServers'
 import { useSession } from '../state/session'
 import { LogoLockup } from './Logo'
 import { SourceNote } from './SourceNote'
@@ -19,7 +18,6 @@ export function LoginView() {
 
   const [info, setInfo] = useState<ServerInfo | null>(null)
   const [servers, setServers] = useState<ServerListing | null>(null)
-  const [recents, setRecents] = useState<RecentServer[]>([])
 
   const [choice, setChoice] = useState<string>(DEFAULT)
   const [host, setHost] = useState('')
@@ -46,7 +44,6 @@ export function LoginView() {
         else setChoice(CUSTOM)
       })
       .catch(() => setServers(null))
-    setRecents(loadRecentServers())
   }, [])
 
   const isCustom = choice === CUSTOM
@@ -83,16 +80,6 @@ export function LoginView() {
     setProbe(null)
     setProbeError(null)
 
-    const recent = recents.find((item) => item.host === value)
-    if (recent) {
-      // Recent entries are addresses, not profiles.
-      setChoice(CUSTOM)
-      setHost(recent.host)
-      setInsecure(recent.insecure)
-      void runProbe(recent.host)
-      return
-    }
-
     const chosen = servers?.profiles.find((item) => item.id === value)
     setInsecure(chosen?.insecure ?? false)
   }
@@ -118,9 +105,7 @@ export function LoginView() {
   }
 
   const needsServer = isCustom && !host.trim()
-  const showSelector = Boolean(
-    servers && (servers.profiles.length > 0 || servers.default || recents.length > 0),
-  )
+  const showSelector = Boolean(servers && (servers.profiles.length > 0 || servers.default))
 
   return (
     <div className="login">
@@ -141,25 +126,12 @@ export function LoginView() {
         {showSelector && (
           <Field label={t('login.domain')}>
             <select value={choice} onChange={(event) => selectServer(event.target.value)}>
-              {servers?.default && (
-                <option value={DEFAULT}>
-                  {servers.default.realm} ({t('login.configured')})
-                </option>
-              )}
+              {servers?.default && <option value={DEFAULT}>{servers.default.realm}</option>}
               {servers?.profiles.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.label}
                 </option>
               ))}
-              {recents.length > 0 && (
-                <optgroup label={t('login.recent')}>
-                  {recents.map((item) => (
-                    <option key={item.host} value={item.host}>
-                      {item.host} ({item.realm})
-                    </option>
-                  ))}
-                </optgroup>
-              )}
               {servers?.allow_custom_servers !== false && (
                 <option value={CUSTOM}>{t('login.otherServer')}</option>
               )}
