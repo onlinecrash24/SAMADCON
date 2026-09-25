@@ -46,26 +46,30 @@ services:
       # Every value below falls back to what this file used to state outright,
       # so a stack with no .env behaves exactly as it did before.
       SAMADCON_PUBLIC_HOST: "${SAMADCON_PUBLIC_HOST:-samadcon.example.lan}"
-      SAMADCON_PUBLIC_HTTPS_PORT: "${SAMADCON_PUBLIC_HTTPS_PORT:-8443}"
+      # The port people reach. Without a reverse proxy that is the one published
+      # below, so it follows it; behind one it is the proxy's port — 443 — and
+      # is then the only reason to set this separately.
+      SAMADCON_PUBLIC_HTTPS_PORT: "${SAMADCON_PUBLIC_HTTPS_PORT:-${SAMADCON_HTTPS_PORT:-8443}}"
       SAMADCON_REALM: "${SAMADCON_REALM:-EXAMPLE.LAN}"
       SAMADCON_DC_HOSTS: "${SAMADCON_DC_HOSTS:-192.168.1.1}"
       SAMADCON_LOG_LEVEL: "${SAMADCON_LOG_LEVEL:-INFO}"
       # Only behind a reverse proxy, and then its host's address. Never 0.0.0.0/0.
       SAMADCON_TRUSTED_PROXIES: "${SAMADCON_TRUSTED_PROXIES:-}"
     ports:
-      # The port the host publishes. SAMADCON_PUBLIC_HTTPS_PORT above is the
-      # port people reach, and behind a reverse proxy the two differ — there
-      # you reach 443 and publish 8443.
+      # host port : container port. The container always listens on 8443 and
+      # that never changes; SAMADCON_HTTPS_PORT is the left one, for a host
+      # where 8443 is already taken.
       - "${SAMADCON_HTTPS_PORT:-8443}:8443"
     # Only needed without SAMADCON_DC_HOSTS: finding a DC through SRV records
     # takes a resolver that serves the domain, which is usually the DC itself.
-    # Uncomment both, and set SAMADCON_DNS in the .env. A compose key cannot be
-    # left out depending on a variable, which is why this is a comment rather
-    # than an empty default.
+    # Uncommenting the four lines is enough — the resolver defaults to the
+    # domain controller and the search domain to the realm, which is what they
+    # are in nearly every domain. (A compose key cannot be left out depending
+    # on a variable, which is why this is a comment and not an empty default.)
     # dns:
-    #   - "${SAMADCON_DNS}"
+    #   - "${SAMADCON_DNS:-${SAMADCON_DC_HOSTS:-192.168.1.1}}"
     # dns_search:
-    #   - "${SAMADCON_DNS_SEARCH}"
+    #   - "${SAMADCON_DNS_SEARCH:-${SAMADCON_REALM:-EXAMPLE.LAN}}"
     volumes:
       # A certificate of your own goes in here; without one a self-signed one is
       # made on first start. To replace it later, copy server.crt and server.key

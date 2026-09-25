@@ -240,20 +240,25 @@ services:
       # Each falls back to the value written beside it, so a stack with no
       # .env and no environment fields behaves as it always did.
       SAMADCON_PUBLIC_HOST: "${SAMADCON_PUBLIC_HOST:-samadcon.example.lan}"
-      SAMADCON_PUBLIC_HTTPS_PORT: "${SAMADCON_PUBLIC_HTTPS_PORT:-8443}"
+      # Follows the published port below; set it only behind a proxy, where
+      # people reach 443 and the host publishes 8443.
+      SAMADCON_PUBLIC_HTTPS_PORT: "${SAMADCON_PUBLIC_HTTPS_PORT:-${SAMADCON_HTTPS_PORT:-8443}}"
       SAMADCON_REALM: "${SAMADCON_REALM:-EXAMPLE.LAN}"
       SAMADCON_DC_HOSTS: "${SAMADCON_DC_HOSTS:-192.168.1.1}"
       SAMADCON_LOG_LEVEL: "${SAMADCON_LOG_LEVEL:-INFO}"
       # Only behind a reverse proxy, and then its host's address. Never 0.0.0.0/0.
       SAMADCON_TRUSTED_PROXIES: "${SAMADCON_TRUSTED_PROXIES:-}"
     ports:
+      # host port : container port. The container always listens on 8443.
       - "${SAMADCON_HTTPS_PORT:-8443}:8443"
     # Only needed without SAMADCON_DC_HOSTS: finding a DC through SRV records
     # takes a resolver that serves the domain, which is usually the DC itself.
+    # Uncommenting is enough: the resolver defaults to the domain controller
+    # and the search domain to the realm.
     # dns:
-    #   - "${SAMADCON_DNS}"
+    #   - "${SAMADCON_DNS:-${SAMADCON_DC_HOSTS:-192.168.1.1}}"
     # dns_search:
-    #   - "${SAMADCON_DNS_SEARCH}"
+    #   - "${SAMADCON_DNS_SEARCH:-${SAMADCON_REALM:-EXAMPLE.LAN}}"
     volumes:
       # A certificate of your own goes in here; without one a self-signed one is
       # made on first start. To replace it later, copy server.crt and server.key

@@ -242,20 +242,25 @@ services:
       # Jede fällt auf den Wert daneben zurück, sodass ein Stack ohne .env und
       # ohne Umgebungsfelder sich verhält wie bisher.
       SAMADCON_PUBLIC_HOST: "${SAMADCON_PUBLIC_HOST:-samadcon.example.lan}"
-      SAMADCON_PUBLIC_HTTPS_PORT: "${SAMADCON_PUBLIC_HTTPS_PORT:-8443}"
+      # Folgt dem veröffentlichten Port unten; nur hinter einem Proxy setzen,
+      # wo man 443 erreicht und der Host 8443 veröffentlicht.
+      SAMADCON_PUBLIC_HTTPS_PORT: "${SAMADCON_PUBLIC_HTTPS_PORT:-${SAMADCON_HTTPS_PORT:-8443}}"
       SAMADCON_REALM: "${SAMADCON_REALM:-EXAMPLE.LAN}"
       SAMADCON_DC_HOSTS: "${SAMADCON_DC_HOSTS:-192.168.1.1}"
       SAMADCON_LOG_LEVEL: "${SAMADCON_LOG_LEVEL:-INFO}"
       # Nur hinter einem Reverse Proxy, und dann dessen Host-Adresse. Nie 0.0.0.0/0.
       SAMADCON_TRUSTED_PROXIES: "${SAMADCON_TRUSTED_PROXIES:-}"
     ports:
+      # Host-Port : Container-Port. Der Container lauscht immer auf 8443.
       - "${SAMADCON_HTTPS_PORT:-8443}:8443"
     # Nur nötig ohne SAMADCON_DC_HOSTS: SRV-Discovery braucht einen Resolver,
     # der die Domäne bedient — meist der DC selbst.
+    # Auskommentieren genügt: der Resolver folgt dem Domänencontroller,
+    # die Suchdomäne dem Realm.
     # dns:
-    #   - "${SAMADCON_DNS}"
+    #   - "${SAMADCON_DNS:-${SAMADCON_DC_HOSTS:-192.168.1.1}}"
     # dns_search:
-    #   - "${SAMADCON_DNS_SEARCH}"
+    #   - "${SAMADCON_DNS_SEARCH:-${SAMADCON_REALM:-EXAMPLE.LAN}}"
     volumes:
       # Ein eigenes Zertifikat kommt hier hinein; ohne eines wird beim ersten
       # Start ein selbstsigniertes erzeugt. Zum Austausch server.crt und
