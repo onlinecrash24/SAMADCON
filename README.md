@@ -761,8 +761,11 @@ does. That is not cosmetic: whoever writes `defaultValue` means *that value*, an
 writes nothing at all. Otherwise you enable a policy whose options stay unset, and the difference
 only surfaces when a client behaves other than expected. Values already set are left alone.
 
-**Importing templates.** *Import templates…* in the editor's bar takes the package the way an
-administrator has it: Microsoft's MSI as it was downloaded (*Administrative Templates (.admx) for
+**Importing templates.** The store has a node of its own in the Group Policy tree,
+**Administrative Templates**, beside *All policies*: it belongs to the domain rather than to any
+one policy, and the page lists what is installed, in which languages, and where on SYSVOL. GPMC
+has nothing like it — Windows administrators copy the folder by hand. *Import templates…* there,
+and in the editor's bar of any policy, takes the package the way an administrator has it: Microsoft's MSI as it was downloaded (*Administrative Templates (.admx) for
 Windows 11 …*), a ZIP of the `PolicyDefinitions` folder, or that folder picked directly. All three
 end up in the same shape — the folder holding the `.admx` files becomes the store's root, and
 `de-de` becomes `de-DE`, the way Windows spells it. The MSI is opened with `msiextract` from

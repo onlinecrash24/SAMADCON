@@ -29,6 +29,7 @@ import type { ContainerLink, LinkableNode, LinkedContainer } from '../../api/typ
 import { Badge, ErrorMessage, Modal, Spinner } from '../../components/primitives'
 import { isAtOrBelow } from '../../dn'
 import { useI18n } from '../../i18n'
+import { TEMPLATES_NODE } from '../../state/consoleLocation'
 import { anchorOf, useContextMenu } from '../../components/ContextMenu'
 import { LinkPolicyDialog } from './LinkPolicyDialog'
 import { isPolicyDrag, readPolicyDrag, type DraggedPolicy } from './policyDrag'
@@ -190,6 +191,26 @@ export function GpoLinkTree({
           <span className="tree__toggle" />
           <button type="button" className="tree__label" onClick={() => onSelect(null)}>
             <span>{t('gpo.allPolicies')}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Not a place in the directory either: the templates every policy's
+          editor reads, one set for the whole domain. */}
+      <div className="tree__node">
+        <div
+          className={
+            selectedDn === TEMPLATES_NODE ? 'tree__row tree__row--selected' : 'tree__row'
+          }
+          style={{ paddingLeft: '20px' }}
+        >
+          <span className="tree__toggle" />
+          <button
+            type="button"
+            className="tree__label"
+            onClick={() => onSelect(TEMPLATES_NODE)}
+          >
+            <span>{t('gpo.templatesNode')}</span>
           </button>
         </div>
       </div>

@@ -121,6 +121,7 @@ export const de = {
   'tree.collapse': 'Zuklappen',
   'gpo.countLinked': '{count} verknüpft mit {container}, in der Reihenfolge der Anwendung',
   'gpo.allPolicies': 'Alle Richtlinien',
+  'gpo.templatesNode': 'Administrative Vorlagen',
   'gpo.linkMissingPolicy': '(Richtlinie existiert nicht mehr)',
 
   'splitter.tree': 'Breite des Navigationsbereichs',
@@ -1405,6 +1406,16 @@ export const de = {
   'admx.noStoreHint':
     'Das ist bei Samba der Normalfall: Windows bringt seine Vorlagen lokal mit, sodass nie welche nach SYSVOL gelangt sind. Erwartet werden sie unter {path}.',
   'admx.import': 'Vorlagen importieren …',
+  'admx.storeCount': '{count} Vorlagen im zentralen Speicher',
+  'admx.storeWhere': 'Zentraler Speicher: {path}',
+  'admx.storeLanguages': 'Sprachen: {languages}',
+  'admx.storeNoLanguages':
+    'Keine Sprachordner — die Vorlagen haben keine Beschriftungen, und der Editor zeigt nur ihre internen Namen.',
+  'admx.storeTemplate': 'Vorlage',
+  'admx.storeSize': 'Größe',
+  'admx.refresh': 'Neu einlesen',
+  'admx.refreshHint': 'Nach Änderungen am Speicher, die nicht über SAMADCON liefen — etwa von Hand auf SYSVOL kopierte Vorlagen.',
+  'admx.refreshed': '{policies} Richtlinien eingelesen.',
   'admx.importTitle': 'Administrative Vorlagen importieren',
   'admx.importFiles': 'Dateien',
   'admx.importFilesHint':
@@ -1569,6 +1580,7 @@ export const en: Record<MessageKey, string> = {
   'tree.collapse': 'Collapse',
   'gpo.countLinked': '{count} linked at {container}, in the order they apply',
   'gpo.allPolicies': 'All policies',
+  'gpo.templatesNode': 'Administrative Templates',
   'gpo.linkMissingPolicy': '(the policy no longer exists)',
 
   'splitter.tree': 'Width of the navigation pane',
@@ -2844,6 +2856,16 @@ export const en: Record<MessageKey, string> = {
   'admx.noStoreHint':
     'Which is the normal state for Samba: Windows brings its templates along locally, so none ever reached SYSVOL. They are expected under {path}.',
   'admx.import': 'Import templates…',
+  'admx.storeCount': '{count} templates in the central store',
+  'admx.storeWhere': 'Central store: {path}',
+  'admx.storeLanguages': 'Languages: {languages}',
+  'admx.storeNoLanguages':
+    'No language folders — the templates have no labels, and the editor shows only their internal names.',
+  'admx.storeTemplate': 'Template',
+  'admx.storeSize': 'Size',
+  'admx.refresh': 'Re-read',
+  'admx.refreshHint': 'After changes to the store that did not go through SAMADCON — templates copied onto SYSVOL by hand, say.',
+  'admx.refreshed': '{policies} policies read.',
   'admx.importTitle': 'Import administrative templates',
   'admx.importFiles': 'Files',
   'admx.importFilesHint':

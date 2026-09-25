@@ -9,7 +9,12 @@
 
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { forgetConsoleLocation, readConsoleLocation, writeConsoleLocation } from './consoleLocation'
+import {
+  TEMPLATES_NODE,
+  forgetConsoleLocation,
+  readConsoleLocation,
+  writeConsoleLocation,
+} from './consoleLocation'
 import { SNAPINS } from '../features/console/snapins'
 
 const BASE = 'DC=spam-deny,DC=local'
@@ -49,6 +54,30 @@ describe('a position comes back', () => {
   it('returns everything it was given', () => {
     writeConsoleLocation(full)
     expect(readConsoleLocation(BASE)).toEqual(full)
+  })
+})
+
+describe('the central store is a node, not a place', () => {
+  it('comes back, although it is no DN in the domain', () => {
+    writeConsoleLocation({ ...full, gpoContainerDn: TEMPLATES_NODE })
+    expect(readConsoleLocation(BASE).gpoContainerDn).toBe(TEMPLATES_NODE)
+  })
+
+  it('comes back in another domain too, because it belongs to whichever one', () => {
+    writeConsoleLocation({ ...full, gpoContainerDn: TEMPLATES_NODE })
+    expect(readConsoleLocation('DC=example,DC=test').gpoContainerDn).toBe(TEMPLATES_NODE)
+  })
+
+  it('lets through that exact value and nothing merely like it', () => {
+    storage.setItem(
+      'samadcon.console',
+      JSON.stringify({ ...full, gpoContainerDn: `${TEMPLATES_NODE}x` }),
+    )
+    expect(readConsoleLocation(BASE).gpoContainerDn).toBeNull()
+  })
+
+  it('can never collide with a directory container', () => {
+    expect(TEMPLATES_NODE).not.toContain('=')
   })
 })
 

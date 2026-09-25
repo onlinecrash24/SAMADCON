@@ -783,8 +783,12 @@ meint *diesen Wert*, und ein leeres Feld schreibt gar nichts. Sonst aktiviert ma
 Richtlinie, deren Optionen ungesetzt bleiben, und der Unterschied fällt erst auf, wenn ein
 Client sich anders verhält als erwartet. Bereits gesetzte Werte bleiben unberührt.
 
-**Vorlagen importieren.** *Vorlagen importieren …* in der Leiste des Editors nimmt das Paket so,
-wie ein Administrator es hat: das MSI von Microsoft, so wie es heruntergeladen wurde
+**Vorlagen importieren.** Der Store hat einen eigenen Knoten im Gruppenrichtlinien-Baum,
+**Administrative Vorlagen**, neben *Alle Richtlinien*: er gehört der Domäne, nicht einer einzelnen
+Richtlinie, und die Seite zeigt, was installiert ist, in welchen Sprachen und wo auf SYSVOL. GPMC
+hat nichts Vergleichbares — Windows-Administratoren kopieren den Ordner von Hand. *Vorlagen
+importieren …* dort und in der Leiste des Editors jeder Richtlinie nimmt das Paket so, wie ein
+Administrator es hat: das MSI von Microsoft, so wie es heruntergeladen wurde
 (*Administrative Templates (.admx) for Windows 11 …*), ein ZIP des Ordners `PolicyDefinitions`,
 oder diesen Ordner direkt ausgewählt. Alle drei landen in derselben Form — der Ordner mit den
 `.admx`-Dateien wird die Wurzel des Stores, und aus `de-de` wird `de-DE`, wie Windows es schreibt.

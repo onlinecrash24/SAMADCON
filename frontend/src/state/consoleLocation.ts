@@ -26,6 +26,16 @@ import { SNAPINS, type SnapinId } from '../features/console/snapins'
 
 const STORAGE_KEY = 'samadcon.console'
 
+/**
+ * The policy tree's node for the central store of administrative templates.
+ *
+ * It sits beside "All policies" and, like that node, is not a place in the
+ * directory: the store belongs to the domain as a whole. Kept in the same slot
+ * as the container the tree points at, and spelled so that it can never be
+ * one — a DN always carries an equals sign.
+ */
+export const TEMPLATES_NODE = '#central-store'
+
 // The search box is free text and lands in a query key. A stored value is not
 // worth more than a sane line of it.
 const MAX_SEARCH = 256
@@ -38,7 +48,10 @@ export interface ConsoleLocation {
   selectedDn: string | null
   showAdvanced: boolean
   search: string
-  /** The container the policy tree points at; null is "all policies". */
+  /**
+   * The container the policy tree points at; null is "all policies", and
+   * {@link TEMPLATES_NODE} the central store.
+   */
   gpoContainerDn: string | null
   /** The DNS zone, matched against the zone list rather than against the domain. */
   zoneDn: string | null
@@ -88,7 +101,13 @@ export function readConsoleLocation(baseDn: string): ConsoleLocation {
       selectedDn: withinDomain(value.selectedDn, baseDn),
       showAdvanced: value.showAdvanced === true,
       search: typeof value.search === 'string' ? value.search.slice(0, MAX_SEARCH) : '',
-      gpoContainerDn: withinDomain(value.gpoContainerDn, baseDn),
+      // The one value that is not a DN, and so the one the domain check
+      // would throw away: let exactly it through, and nothing that merely
+      // resembles it.
+      gpoContainerDn:
+        value.gpoContainerDn === TEMPLATES_NODE
+          ? TEMPLATES_NODE
+          : withinDomain(value.gpoContainerDn, baseDn),
       // Not tested against the domain: zones can live in a forest-wide
       // partition, and the shape of that is not something to guess at here.
       // It is matched against the zone list instead, which is fetched anyway

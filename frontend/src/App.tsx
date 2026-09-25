@@ -36,11 +36,12 @@ import { SecurityFindings } from './features/diagnostics/SecurityFindings'
 import { DnsView } from './features/dns/DnsView'
 import { contextMenuActions } from './features/directory/objectActions'
 import { GpoView } from './features/gpo/GpoView'
+import { TemplateStore } from './features/gpo/admx/TemplateStore'
 import { ObjectPropertiesWindow } from './features/directory/ObjectPropertiesWindow'
 import { GpoWindow } from './features/gpo/GpoWindow'
 import { SitesView } from './features/sites/SitesView'
 import { useI18n } from './i18n'
-import { readConsoleLocation, writeConsoleLocation } from './state/consoleLocation'
+import { TEMPLATES_NODE, readConsoleLocation, writeConsoleLocation } from './state/consoleLocation'
 import { readPaneWidths, writePaneWidths, type Boundary } from './state/paneWidths'
 import { useWindows, WindowProvider } from './state/windows'
 import { useSession } from './state/session'
@@ -486,13 +487,17 @@ function Console() {
           </div>
         ) : snapin === 'gpo' ? (
           <div className="pane pane--list">
+            {gpoContainerDn === TEMPLATES_NODE ? (
+              <TemplateStore onChanged={onChanged} />
+            ) : (
               <GpoView
-              containerDn={gpoContainerDn}
-              onChanged={onChanged}
-              onOpenPolicy={(dn, title) =>
-                windows.open({ snapin: 'gpo', kind: 'gpo', title, dn })
-              }
-            />
+                containerDn={gpoContainerDn}
+                onChanged={onChanged}
+                onOpenPolicy={(dn, title) =>
+                  windows.open({ snapin: 'gpo', kind: 'gpo', title, dn })
+                }
+              />
+            )}
           </div>
         ) : snapin === 'reports' ? (
           <div className="pane pane--list">
