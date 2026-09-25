@@ -296,7 +296,11 @@ export function LoginView() {
         </button>
 
         {expectedRealm && (
-          <p className="login__realm">{t('login.realmHint', { realm: expectedRealm })}</p>
+          <p className="login__realm">
+            {t('login.realmHint', { realm: expectedRealm })}
+            <br />
+            {t('login.accountHint')}
+          </p>
         )}
 
         <div className="login__footer">

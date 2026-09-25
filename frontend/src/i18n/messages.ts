@@ -88,7 +88,8 @@ export const de = {
   'login.password': 'Kennwort',
   'login.submit': 'Anmelden',
   'login.pending': 'Anmeldung läuft …',
-  'login.realmHint': 'Anmeldung an {realm}. Alle Änderungen erfolgen mit den Rechten dieses Kontos.',
+  'login.realmHint': 'Anmeldung an {realm}.',
+  'login.accountHint': 'Alle Änderungen erfolgen mit den Rechten dieses Kontos.',
   'login.insecureWarning':
     'LDAPS-Zertifikate werden nicht geprüft (SAMADCON_LDAP_INSECURE=1). Nicht für den Produktivbetrieb.',
 
@@ -1514,7 +1515,8 @@ export const en: Record<MessageKey, string> = {
   'login.password': 'Password',
   'login.submit': 'Sign in',
   'login.pending': 'Signing in …',
-  'login.realmHint': 'Signing in to {realm}. Every change runs with this account’s rights.',
+  'login.realmHint': 'Signing in to {realm}.',
+  'login.accountHint': 'Every change runs with this account’s rights.',
   'login.insecureWarning':
     'LDAPS certificates are not being validated (SAMADCON_LDAP_INSECURE=1). Not for production.',
 
