@@ -105,7 +105,15 @@ export function LoginView() {
   }
 
   const needsServer = isCustom && !host.trim()
-  const showSelector = Boolean(servers && (servers.profiles.length > 0 || servers.default))
+  // A selector with one entry selects nothing. The choice is made regardless
+  // — the effect above lands on the default, the first profile or free entry
+  // — and the line under the form names the domain either way.
+  const optionCount = servers
+    ? (servers.default ? 1 : 0) +
+      servers.profiles.length +
+      (servers.allow_custom_servers !== false ? 1 : 0)
+    : 0
+  const showSelector = optionCount > 1
 
   return (
     <div className="login">
