@@ -14,6 +14,35 @@ release.
 
 ---
 
+## 0.5.16 — 2026-09-25
+
+The sign-in form, for an instance that serves one domain.
+
+A small release: two changes to the sign-in form, both following from
+0.5.15's decision that each instance configures one server.
+
+**The domain selector disappears when it has one entry.** With free
+entry switched off and a single configured domain, the form showed a
+drop-down holding exactly that domain — a control that selects nothing.
+The selector now counts what it would render, the default domain, each
+profile, and "Anderer Server ..." where free entry is allowed, and
+appears only above one. The choice is made the same way as before, and
+the line under the button still names the realm, because it reads the
+choice rather than the field.
+
+**One sentence per line under the button.** "Anmeldung an <realm>." and
+"Alle Änderungen erfolgen mit den Rechten dieses Kontos." were one
+paragraph that wrapped in the middle of the second sentence. They are
+two strings now, one line each. Measured with the built stylesheet in
+the 400 px card, in German and English: one line per sentence, and the
+old paragraph reproduces the two-line wrap. On a phone-width screen the
+second sentence still wraps; clipping it would be worse.
+
+Checked with tsc, the 103 frontend tests and a build; the sign-in form
+itself was not rendered against a live backend from this machine.
+
+---
+
 ## 0.5.15 — 2026-09-25
 
 Deployment, and a sign-in form for one domain.
