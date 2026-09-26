@@ -360,3 +360,27 @@ def test_the_failure_table_does_not_grow_without_bound(monkeypatch):
     throttle.record_failure("one-more")
     # The 5000 stale names are past the lockout and have been swept.
     assert len(throttle._failures) < 50
+
+
+
+def test_a_confirmation_reaches_the_log(tmp_path: Path):
+    """Through extra, the one free field the log keeps."""
+    from samadcon.api.common import note_confirmation
+
+    log = AuditLog(tmp_path / "audit.jsonl")
+    with log.operation("user.disable", actor="admin@EXAMPLE.TEST", target="CN=x") as record:
+        note_confirmation(record, "disabling an administrator")
+
+    entry = json.loads((tmp_path / "audit.jsonl").read_text(encoding="utf-8").strip())
+    assert "disabling an administrator" in json.dumps(entry)
+
+
+def test_a_key_of_its_own_does_not(tmp_path: Path):
+    """Why note_confirmation exists: this is what the first version did, and
+    the operator's grep for "confirmed" came back empty."""
+    log = AuditLog(tmp_path / "audit.jsonl")
+    with log.operation("user.disable", actor="admin@EXAMPLE.TEST", target="CN=x") as record:
+        record["confirmed"] = "disabling an administrator"
+
+    written = (tmp_path / "audit.jsonl").read_text(encoding="utf-8")
+    assert "disabling an administrator" not in written

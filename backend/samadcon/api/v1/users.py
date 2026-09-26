@@ -8,7 +8,7 @@ from fastapi import APIRouter
 
 from samadcon.ad import certificates, users
 from samadcon.ad.access import ad_read, ad_write
-from samadcon.api.common import Audit, DnQuery
+from samadcon.api.common import Audit, DnQuery, note_confirmation
 from samadcon.auth.deps import CurrentSession, VerifiedSession, VerifiedWorker, Worker
 from samadcon.schemas.requests import (
     AccountExpiryRequest,
@@ -28,6 +28,21 @@ router = APIRouter(prefix="/users", tags=["users"])
 @router.get("")
 async def get_user(worker: Worker, session: CurrentSession, dn: DnQuery) -> dict[str, Any]:
     return await ad_read(worker, session, users.get_user, dn, label="user.get")
+
+
+@router.get("/administrative-role")
+async def administrative_role(
+    worker: Worker, session: CurrentSession, dn: DnQuery
+) -> dict[str, Any]:
+    """Whether deleting or disabling this object takes an administrator away.
+
+    Lets a dialog ask before the first click rather than after the server has
+    refused it. The refusal stays: this is for the question, not the rule.
+    """
+    role = await ad_read(
+        worker, session, users.account_administrative_role, dn, label="user.admin_role"
+    )
+    return {"dn": dn, "role": role}
 
 
 @router.post("")
@@ -87,7 +102,7 @@ async def update_user(
         )
         record["changes"] = applied
         if payload.confirm_admin:
-            record["confirmed"] = "disabling an administrator"
+            note_confirmation(record, "disabling an administrator")
     return {"dn": dn, "applied": applied}
 
 
@@ -170,7 +185,7 @@ async def set_enabled(
         )
         record["changes"] = applied
         if payload.confirm_admin:
-            record["confirmed"] = "disabling an administrator"
+            note_confirmation(record, "disabling an administrator")
     return {"dn": dn, "enabled": payload.enabled}
 
 

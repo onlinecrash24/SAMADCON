@@ -622,11 +622,24 @@ export function DeleteDialog({
   // The same pattern for an account that administers the domain: the server
   // refuses the plain delete and says who it is, and the dialog turns into
   // the question with a box that has to be ticked before the button works.
+  // Asked when the dialog opens, so the warning and the box are there before
+  // the first click — not only once the server has refused it, which looked
+  // exactly like no warning at all. The refusal is still caught below, for the
+  // case where the answer had not arrived yet.
+  const role = useQuery({
+    queryKey: ['admin-role', dn],
+    queryFn: () => api.adminRole(dn),
+    enabled: !isOu,
+    staleTime: 0,
+  })
   // Remembered once it has come: run() clears the error before the confirmed
   // attempt, and the question should not vanish while that attempt runs.
   const admin = adminRefusal(error)
-  const [adminDelete, setAdminDelete] = useState<ReturnType<typeof adminRefusal>>(null)
-  if (admin?.action === 'delete' && adminDelete === null) setAdminDelete(admin)
+  const [refused, setRefused] = useState<ReturnType<typeof adminRefusal>>(null)
+  if (admin?.action === 'delete' && refused === null) setRefused(admin)
+  const adminDelete =
+    refused ??
+    (role.data?.role ? { action: 'delete' as const, role: role.data.role, account: null } : null)
   const [understood, setUnderstood] = useState(false)
 
   const remove = async () => {

@@ -13,6 +13,18 @@ from samadcon.auth.session import Session
 from samadcon.core.audit import AuditLog, get_audit
 
 
+def note_confirmation(record: dict[str, Any], what: str) -> None:
+    """Mark an audit entry as explicitly confirmed.
+
+    AuditLog.operation keeps ``target``, ``changes`` and ``extra`` from the
+    record and nothing else. The first version of this wrote a key of its
+    own, ``record["confirmed"]``, and it was dropped without a word — the
+    audit log never showed a confirmation, and the README said it did. An
+    operator's grep found it.
+    """
+    record.setdefault("extra", {})["confirmed"] = what
+
+
 class AuditContext:
     """Binds the audit log to the caller behind the current request."""
 

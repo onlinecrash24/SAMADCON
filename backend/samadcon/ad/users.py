@@ -504,6 +504,20 @@ def administrative_role(conn: DirectoryConnection, dn: str) -> str | None:
     return next((role for role in _ROLE_ORDER if role in roles), None)
 
 
+def account_administrative_role(conn: DirectoryConnection, dn: str) -> str | None:
+    """:func:`administrative_role`, for any object — None for what is no account.
+
+    Asked before a dialog opens, where the object can be anything: an OU, a
+    group, a contact. tokenGroups is read only for accounts, as delete_object
+    does, so nothing else is held up by it.
+    """
+    entry = conn.get(dn, attrs=["objectClass"])
+    if entry is None:
+        return None
+    classes = {name.lower() for name in values.as_list(entry, "objectClass")}
+    return administrative_role(conn, dn) if "user" in classes else None
+
+
 def _binary_values(message: Any, attr: str) -> list[bytes]:
     """Every value of a binary attribute, by index as :func:`values.first` reads one."""
     try:

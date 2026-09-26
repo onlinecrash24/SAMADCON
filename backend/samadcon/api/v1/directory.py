@@ -8,7 +8,7 @@ from fastapi import APIRouter, Query
 
 from samadcon.ad import directory
 from samadcon.ad.access import ad_read, ad_write
-from samadcon.api.common import Audit, DnQuery, split_csv
+from samadcon.api.common import Audit, DnQuery, note_confirmation, split_csv
 from samadcon.auth.deps import CurrentSession, VerifiedSession, VerifiedWorker, Worker
 from samadcon.schemas.requests import AttributeUpdateRequest, MoveRequest, RenameRequest
 
@@ -235,7 +235,7 @@ async def delete(
             label="directory.delete",
         )
         if confirm_admin:
-            record["confirmed"] = "deleting an administrator"
+            note_confirmation(record, "deleting an administrator")
     return {"dn": dn, "deleted": True}
 
 

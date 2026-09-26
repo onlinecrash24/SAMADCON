@@ -223,6 +223,9 @@ export const api = {
       password,
       must_change: mustChange,
     }),
+  /** Whether deleting or disabling this object takes an administrator away; null if not. */
+  adminRole: (dn: string) =>
+    http.get<{ dn: string; role: string | null }>(`/users/administrative-role?dn=${dnParam(dn)}`),
   /** `confirmAdmin` is what disabling an account that administers the domain needs. */
   setEnabled: (dn: string, enabled: boolean, confirmAdmin = false) =>
     http.post<{ dn: string; enabled: boolean }>(`/users/enabled?dn=${dnParam(dn)}`, {

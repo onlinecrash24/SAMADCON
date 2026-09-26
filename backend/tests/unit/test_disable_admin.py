@@ -220,6 +220,24 @@ def test_the_builtin_administrator_stays_undeletable_even_confirmed():
     assert account.deleted == []
 
 
+def test_the_question_before_the_dialog_names_the_role():
+    account = Deletable(rid=1105, groups=(513, 512))
+    assert users.account_administrative_role(account, DN) == "Domain Admins"
+
+
+def test_the_question_before_the_dialog_is_none_for_an_ordinary_account():
+    assert users.account_administrative_role(Deletable(rid=1105, groups=(513,)), DN) is None
+
+
+def test_the_question_before_the_dialog_reads_no_groups_for_an_ou(monkeypatch):
+    def must_not_be_called(conn, dn):
+        raise AssertionError("administrative_role was consulted for an OU")
+
+    monkeypatch.setattr(users, "administrative_role", must_not_be_called)
+    ou = Deletable(rid=1105, classes=(b"top", b"organizationalUnit"))
+    assert users.account_administrative_role(ou, DN) is None
+
+
 def test_something_that_is_not_an_account_is_never_asked_about(monkeypatch):
     """An OU has no SID and no groups; tokenGroups is not even read for it."""
     def must_not_be_called(conn, dn):
