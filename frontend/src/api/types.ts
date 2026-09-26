@@ -242,6 +242,27 @@ export interface ComputerDetail extends DirectoryObject {
   member_of: string[]
 }
 
+/** A BitLocker recovery key as the listing shows it: never the password. */
+export interface BitlockerKey {
+  dn: string
+  /** The recovery GUID, upper case; the recovery screen shows its first eight characters. */
+  key_id: string
+  key_id_short: string
+  volume_id: string | null
+  created: string | null
+}
+
+export interface BitlockerListing {
+  /** False when the schema has no recovery class at all — not the same as no keys. */
+  available: boolean
+  keys: BitlockerKey[]
+}
+
+export interface BitlockerSearch {
+  keys: (BitlockerKey & { computer_dn: string; computer: string })[]
+  truncated: boolean
+}
+
 export interface OuDetail extends DirectoryObject {
   attributes: Record<string, string | string[] | null>
   gp_link: string | null

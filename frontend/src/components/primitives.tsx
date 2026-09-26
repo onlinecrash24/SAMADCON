@@ -3,6 +3,7 @@
 import {
   useEffect,
   useRef,
+  useState,
   useSyncExternalStore,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
@@ -327,6 +328,30 @@ export function TextRow({ label, value }: { label: string; value: ReactNode }) {
 
 export function Badge({ tone, children }: { tone: 'ok' | 'warn' | 'danger' | 'muted'; children: ReactNode }) {
   return <span className={`badge badge--${tone}`}>{children}</span>
+}
+
+/**
+ * Puts *value* on the clipboard. For secrets shown once — a recovery key, a
+ * generated password — where selecting 48 digits by hand invites a mistake.
+ * The clipboard API needs a secure context, which SAMADCON always is.
+ */
+export function CopyButton({ value }: { value: string }) {
+  const { t } = useI18n()
+  const [copied, setCopied] = useState(false)
+  return (
+    <button
+      type="button"
+      className="button"
+      onClick={() => {
+        void navigator.clipboard.writeText(value).then(() => {
+          setCopied(true)
+          window.setTimeout(() => setCopied(false), 2000)
+        })
+      }}
+    >
+      {copied ? t('action.copied') : t('action.copy')}
+    </button>
+  )
 }
 
 export function Spinner({ label }: { label?: string }) {

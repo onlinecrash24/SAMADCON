@@ -13,6 +13,8 @@ import type {
   AdmxStore,
   AdmxTree,
   AttributeListing,
+  BitlockerListing,
+  BitlockerSearch,
   Certificate,
   ChildListing,
   ComputerDetail,
@@ -320,6 +322,14 @@ export const api = {
   revealLaps: (dn: string) =>
     http.post<{ password: string; account: string | null; expires_at: string | null }>(
       `/computers/laps/reveal?dn=${dnParam(dn)}`,
+    ),
+  bitlockerKeys: (dn: string) =>
+    http.get<BitlockerListing>(`/computers/bitlocker?dn=${dnParam(dn)}`),
+  findBitlockerKey: (keyId: string) =>
+    http.get<BitlockerSearch>(`/computers/bitlocker/find?key_id=${encodeURIComponent(keyId)}`),
+  revealBitlockerKey: (dn: string, keyId: string) =>
+    http.post<{ key_id: string; created: string | null; recovery_password: string }>(
+      `/computers/bitlocker/reveal?dn=${dnParam(dn)}&key_id=${encodeURIComponent(keyId)}`,
     ),
 
   // -- DNS ---------------------------------------------------------------

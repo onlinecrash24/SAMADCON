@@ -4,16 +4,16 @@ Includes reading LAPS passwords, which is the one operation here that hands a
 live credential to a browser. It is therefore a separate, explicitly audited
 call — never part of the normal detail view — and both LAPS generations are
 supported: legacy Microsoft LAPS (``ms-Mcs-AdmPwd``) and Windows LAPS
-(``msLAPS-Password``).
+(``msLAPS-Password``). BitLocker recovery passwords follow the same rule.
 """
 
 from __future__ import annotations
 
-from datetime import UTC
+from datetime import UTC, datetime
 from typing import Any
 
 from samadcon.ad import uac, values
-from samadcon.ad.connection import SCOPE_SUBTREE, DirectoryConnection
+from samadcon.ad.connection import SCOPE_ONELEVEL, SCOPE_SUBTREE, DirectoryConnection
 from samadcon.ad.directory import summarize
 from samadcon.core.errors import Conflict, InvalidRequest, NotFound, PermissionDenied
 
@@ -343,13 +343,151 @@ def read_laps_password(conn: DirectoryConnection, dn: str) -> dict[str, Any]:
     )
 
 
+# ---------------------------------------------------------------------------
+# BitLocker
+# ---------------------------------------------------------------------------
+
+# Windows stores each recovery password as a child of the computer account,
+# named "<date>{<recovery GUID>}". The GUID is the key ID that the recovery
+# screen shows the first eight characters of. The password is a confidential
+# attribute: the directory decides who may read it, not this code.
+BITLOCKER_CLASS = "msFVE-RecoveryInformation"
+BITLOCKER_PASSWORD = "msFVE-RecoveryPassword"
+BITLOCKER_LISTED = ["name", "msFVE-RecoveryGuid", "msFVE-VolumeGuid", "whenCreated"]
+BITLOCKER_FIND_LIMIT = 50
+
+
+def _bitlocker_schema_known(conn: DirectoryConnection) -> bool:
+    """Whether the schema has the recovery class at all.
+
+    Without it a search for the class finds nothing, which reads as "no keys
+    stored". The two are different answers.
+    """
+    try:
+        found = conn.search(
+            conn.info.schema_dn,
+            scope=SCOPE_ONELEVEL,
+            expression=f"(lDAPDisplayName={BITLOCKER_CLASS})",
+            attrs=["lDAPDisplayName"],
+            max_results=1,
+        )
+    except Exception:  # noqa: BLE001 — an unreadable schema is an unknown class
+        return False
+    return len(found) > 0
+
+
+def _bitlocker_key_id(entry: Any) -> str | None:
+    """The key ID, from the GUID attribute or else from the object's name."""
+    guid = values.guid_to_str(values.as_bytes(entry, "msFVE-RecoveryGuid"))
+    if guid:
+        return guid.strip("{}").upper()
+    name = values.as_str(entry, "name") or ""
+    start, end = name.find("{"), name.find("}")
+    if 0 <= start < end:
+        return name[start + 1 : end].upper()
+    return None
+
+
+def _render_bitlocker_key(entry: Any) -> dict[str, Any] | None:
+    key_id = _bitlocker_key_id(entry)
+    if key_id is None:
+        return None
+    volume = values.guid_to_str(values.as_bytes(entry, "msFVE-VolumeGuid"))
+    return {
+        "dn": str(entry.dn) if hasattr(entry, "dn") else values.as_str(entry, "distinguishedName"),
+        "key_id": key_id,
+        "key_id_short": key_id[:8],
+        "volume_id": volume.strip("{}").upper() if volume else None,
+        "created": values.as_generalized_time(entry, "whenCreated"),
+    }
+
+
+def _bitlocker_children(conn: DirectoryConnection, dn: str) -> list[dict[str, Any]]:
+    result = conn.search(
+        dn,
+        scope=SCOPE_ONELEVEL,
+        expression=f"(objectClass={BITLOCKER_CLASS})",
+        attrs=BITLOCKER_LISTED,
+    )
+    keys = [key for key in (_render_bitlocker_key(entry) for entry in result) if key]
+    keys.sort(key=lambda key: key["created"] or datetime.min.replace(tzinfo=UTC), reverse=True)
+    return keys
+
+
+def bitlocker_keys(conn: DirectoryConnection, dn: str) -> dict[str, Any]:
+    """The recovery keys stored for this computer — IDs and dates, never a password."""
+    if not conn.exists(dn):
+        raise NotFound("The computer account does not exist.", context={"dn": dn})
+    if not _bitlocker_schema_known(conn):
+        return {"available": False, "keys": []}
+    return {"available": True, "keys": _bitlocker_children(conn, dn)}
+
+
+def read_bitlocker_key(conn: DirectoryConnection, dn: str, key_id: str) -> dict[str, Any]:
+    """Read one recovery password.
+
+    Separate from the listing for the same reason as LAPS: it hands out a
+    secret, the caller audits it as its own action, and the attribute's ACL
+    is what authorises it. Only the one password asked for is read.
+    """
+    wanted = key_id.strip("{}").upper()
+    match = next((key for key in _bitlocker_children(conn, dn) if key["key_id"] == wanted), None)
+    if match is None:
+        raise NotFound(
+            "This computer has no recovery key with that ID.",
+            code="bitlocker_key_not_found",
+            context={"dn": dn, "key_id": wanted},
+        )
+
+    entry = conn.get(match["dn"], attrs=[BITLOCKER_PASSWORD])
+    password = values.as_str(entry, BITLOCKER_PASSWORD) if entry is not None else None
+    if not password:
+        raise PermissionDenied(
+            "The recovery password is not readable.",
+            code="bitlocker_unreadable",
+            hint=(
+                "The recovery password is a confidential attribute. Your account can see "
+                "that the key exists but lacks the right to read it."
+            ),
+        )
+    return {"key_id": match["key_id"], "created": match["created"], "recovery_password": password}
+
+
+def find_bitlocker_key(conn: DirectoryConnection, key_id_prefix: str) -> dict[str, Any]:
+    """Every stored key whose ID starts with *key_id_prefix*, domain-wide.
+
+    What the recovery screen shows is the first eight characters of the key
+    ID; this finds the computer it belongs to. No password is read here.
+    """
+    prefix = key_id_prefix.strip("{}").upper()
+    result = conn.search(
+        conn.info.base_dn,
+        scope=SCOPE_SUBTREE,
+        expression=(
+            f"(&(objectClass={BITLOCKER_CLASS})(name=*{{{values.escape_filter(prefix)}*))"
+        ),
+        attrs=BITLOCKER_LISTED,
+        max_results=BITLOCKER_FIND_LIMIT,
+    )
+    found = []
+    for entry in result:
+        key = _render_bitlocker_key(entry)
+        if key is None or not key["key_id"].startswith(prefix):
+            continue
+        computer_dn = values.parent_dn(key["dn"]) or ""
+        found.append(
+            {**key, "computer_dn": computer_dn, "computer": values.name_from_dn(computer_dn)}
+        )
+    return {"keys": found, "truncated": getattr(result, "truncated", False)}
+
+
 def list_stale_computers(conn: DirectoryConnection, days: int = 90) -> list[dict[str, Any]]:
     """Computers that have not authenticated for *days*.
 
     Based on lastLogonTimestamp, which replicates but lags by up to 14 days —
     good enough for a cleanup list, not for an audit.
     """
-    from datetime import datetime, timedelta
+    from datetime import timedelta
 
     cutoff = datetime.now(UTC) - timedelta(days=days)
     threshold = values.datetime_to_filetime(cutoff)

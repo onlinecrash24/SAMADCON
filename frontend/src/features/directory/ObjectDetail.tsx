@@ -9,6 +9,7 @@ import type {
   OuDetail,
   UserDetail,
 } from '../../api/types'
+import { BitlockerKeys } from './BitLocker'
 import { ObjectCommands } from './ObjectCommands'
 import { nameFromDn } from '../../dn'
 import { useI18n } from '../../i18n'
@@ -331,6 +332,8 @@ function ComputerSection({ computer }: { computer: ComputerDetail }) {
       ) : (
         <p className="muted">{t('computer.lapsUnavailable')}</p>
       )}
+
+      <BitlockerKeys computerDn={computer.dn} />
     </section>
   )
 }

@@ -891,6 +891,15 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 .row__label { flex: 0 0 42%; color: var(--text-muted); }
 .row__value { flex: 1; word-break: break-word; }
 
+/* BitLocker recovery keys ---------------------------------------------- */
+
+.bitlocker { list-style: none; margin: 4px 0; padding: 0; display: grid; gap: 8px; }
+.bitlocker__key { display: grid; gap: 4px; padding: 6px 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
+.bitlocker__meta { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; }
+.bitlocker__secret { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+/* 55 characters without a space: let it break rather than widen the pane. */
+.bitlocker__secret .mono { word-break: break-all; }
+
 /* Attribute editor ----------------------------------------------------- */
 
 .attrs { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.88em; }

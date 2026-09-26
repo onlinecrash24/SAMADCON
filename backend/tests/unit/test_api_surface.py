@@ -292,3 +292,23 @@ def test_login_without_a_server_is_not_probe_limited(client: TestClient, monkeyp
 
     assert codes == {400}
     probe_limiter.reset()
+
+
+def test_a_bitlocker_password_is_only_read_by_a_verified_post(client: TestClient, tmp_path):
+    """The listing is a GET; handing out the recovery password is not. As a
+    write it needs the CSRF token, which a cross-site page cannot send."""
+    session_id, _ = _open_session(tmp_path)
+    client.cookies.set("samadcon_session", session_id)
+    target = "/api/v1/computers/bitlocker/reveal?dn=CN=PC01,DC=samadcon,DC=test&key_id=1A2B3C4D"
+
+    assert client.get(target).status_code == 405
+    refused = client.post(target)
+    assert refused.status_code == 403
+    assert refused.json()["error"]["code"] == "csrf_failed"
+
+
+def test_the_bitlocker_search_refuses_a_filter_in_the_key_id(client: TestClient, tmp_path):
+    session_id, _ = _open_session(tmp_path)
+    client.cookies.set("samadcon_session", session_id)
+    response = client.get("/api/v1/computers/bitlocker/find?key_id=1A2B)(name=*")
+    assert response.status_code == 422

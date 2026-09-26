@@ -730,6 +730,14 @@ Gruppen (Bereich/Typ, Mitglieder inkl. verschachtelt und primär), Computer (ink
 Konto-Reset), OUs (inkl. Löschschutz), Verschieben/Umbenennen/Löschen, Attribut-Editor,
 ACL- und Delegationseditor, Audit-Log und die deutsche/englische Oberfläche.
 
+BitLocker-Wiederherstellungsschlüssel, sofern Windows-Clients sie im Verzeichnis ablegen, stehen
+beim Computer unter dem LAPS-Kennwort und werden genauso behandelt: Die Liste zeigt
+Schlüssel-IDs und Datum, jedes Wiederherstellungskennwort wird mit einer eigenen Anfrage gelesen
+und im Audit-Log vermerkt, ohne das Kennwort. Eine Schlüssel-ID vom Wiederherstellungsbildschirm
+findet man domänenweit über das Kontextmenü der Domäne, wie in ADUC. Das Kennwort ist ein
+vertrauliches Attribut, über das Leserecht entscheidet also das Verzeichnis; ein Konto ohne dieses
+Recht sieht, dass ein Schlüssel existiert, und erfährt, dass es ihn nicht lesen darf.
+
 Der DNS-Teil aus Meilenstein 2 arbeitet über LDAP statt über die DCE/RPC-Schnittstelle
 (`samba-tool dns`): Zonen aus allen drei Partitionen — Domäne, Forest und der alten Ablage
 unter `CN=System` —, Einträge der Typen A, AAAA, CNAME, NS, PTR, MX, SRV und TXT anlegen,

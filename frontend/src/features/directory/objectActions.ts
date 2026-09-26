@@ -34,6 +34,7 @@ export type ActionId =
   | 'move'
   | 'delete'
   | 'properties'
+  | 'findBitlocker'
 
 export interface ActionItem {
   kind: 'item'
@@ -130,6 +131,13 @@ export function contextMenuActions(object: DirectoryObject, facts = UNKNOWN): Me
 
   if (object.is_container) entries.push(item('open', 'action.open'))
   entries.push(item('refresh', 'action.refresh'))
+
+  // Where ADUC has it: on the domain, because the recovery screen gives a key
+  // ID and nothing about which computer it belongs to.
+  if (object.type === 'domain') {
+    entries.push({ kind: 'separator' })
+    entries.push(item('findBitlocker', 'action.findBitlocker'))
+  }
 
   if (canHoldNewObjects(object)) {
     entries.push({ kind: 'separator' })

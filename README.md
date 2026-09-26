@@ -713,6 +713,13 @@ including nested and primary), computers (including reading LAPS and resetting t
 (including deletion protection), move/rename/delete, the attribute editor, the ACL and delegation
 editor, the audit log and the German/English interface.
 
+BitLocker recovery keys, where Windows clients store them in the directory, are shown under a
+computer's LAPS password and treated like it: the list shows key IDs and dates, and each recovery
+password is read by its own request, recorded in the audit log with the password left out. A key
+ID from the recovery screen is found domain-wide from the domain's context menu, as in ADUC. The
+password is a confidential attribute, so the directory decides who may read it; an account
+without the right sees that a key exists and is told it cannot read it.
+
 The DNS part of milestone 2 works over LDAP rather than through the DCE/RPC interface
 (`samba-tool dns`): zones from all three partitions — domain, forest and the old storage under
 `CN=System` — records of types A, AAAA, CNAME, NS, PTR, MX, SRV and TXT to create, change and

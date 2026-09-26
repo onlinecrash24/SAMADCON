@@ -174,3 +174,17 @@ describe('the two surfaces agree', () => {
     expect(menu && 'danger' in menu && menu.danger).toBe(true)
   })
 })
+
+describe('finding a BitLocker key', () => {
+  it('is offered on the domain, where ADUC has it', () => {
+    const domain = object({ type: 'domain', dn: 'DC=example,DC=test', is_container: true })
+    expect(ids(contextMenuActions(domain))).toContain('findBitlocker')
+  })
+
+  it('is not offered on anything else', () => {
+    for (const type of ['user', 'computer', 'group', 'organizational_unit']) {
+      const shape = { type: type as DirectoryObject['type'], is_container: type === 'organizational_unit' }
+      expect(ids(contextMenuActions(object(shape)))).not.toContain('findBitlocker')
+    }
+  })
+})

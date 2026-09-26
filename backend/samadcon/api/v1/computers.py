@@ -107,6 +107,55 @@ async def reveal_laps_password(
     return {"dn": dn, **result}
 
 
+# The key ID as the recovery screen shows it: at least the first eight hex
+# digits, at most the whole GUID with its dashes.
+KeyIdQuery = Annotated[
+    str, Query(pattern=r"^\{?[0-9A-Fa-f-]{8,36}\}?$", description="BitLocker key ID")
+]
+
+
+@router.get("/bitlocker")
+async def bitlocker_keys(worker: Worker, session: CurrentSession, dn: DnQuery) -> dict[str, Any]:
+    """The recovery keys stored for a computer — IDs and dates, no password."""
+    return await ad_read(worker, session, computers.bitlocker_keys, dn, label="computer.bitlocker")
+
+
+@router.get("/bitlocker/find")
+async def find_bitlocker_key(
+    worker: Worker, session: CurrentSession, key_id: KeyIdQuery
+) -> dict[str, Any]:
+    """Which computer a key ID belongs to, domain-wide. No password is read."""
+    return await ad_read(
+        worker, session, computers.find_bitlocker_key, key_id, label="computer.bitlocker_find"
+    )
+
+
+@router.post("/bitlocker/reveal")
+async def reveal_bitlocker_key(
+    worker: VerifiedWorker,
+    session: VerifiedSession,
+    audit: Audit,
+    dn: DnQuery,
+    key_id: KeyIdQuery,
+) -> dict[str, Any]:
+    """Read one BitLocker recovery password.
+
+    A POST for the same reason as the LAPS one: handing out a secret is an
+    event and is recorded as one. The password is redacted from the entry.
+    """
+    with audit.operation("computer.reveal_bitlocker_key", target=dn) as record:
+        record["extra"]["key_id"] = key_id
+        result = await ad_write(
+            worker,
+            session,
+            computers.read_bitlocker_key,
+            dn,
+            key_id,
+            label="computer.bitlocker_reveal",
+        )
+    return {"dn": dn, **result}
+
+
 @router.get("/stale")
 async def stale_computers(
     worker: Worker,
