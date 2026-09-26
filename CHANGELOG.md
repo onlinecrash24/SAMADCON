@@ -14,6 +14,31 @@ release.
 
 ---
 
+## 0.6.0 — 2026-09-26
+
+A new minor series; each release now gets a GitHub release automatically.
+
+The console behaves exactly as 0.5.19 did. What changed is how a
+release is made.
+
+v0.5.15 to v0.5.19 went out as tags and images. The repository's
+release page still showed 0.5.14 as the latest, because the GitHub
+release was a manual step after the tag and was never taken. Those five
+releases have been created since, each from its own tag's text.
+
+From now on the workflow does this itself. When a version tag is pushed
+and the image has been built and published, a final job creates the
+GitHub release. The tag's notes are the release text, and the title
+follows the pattern every release has used. A release that already
+exists is left alone, so a re-run changes nothing. GitHub decides which
+release is "Latest" by version number, so a patch tagged later for an
+older line does not become the newest release.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.0, :0.6 and :latest. Pin
+`0.6` to follow this series.
+
+---
+
 ## 0.5.19 — 2026-09-26
 
 An outside code review, acted on and checked against a live DC.
