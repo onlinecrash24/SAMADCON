@@ -14,6 +14,61 @@ release.
 
 ---
 
+## 0.6.4 — 2026-09-26
+
+Template uploads above 8 MB, a SYSVOL connection that recovers, and every error in German.
+
+Most of this release came out of testing the template import against the
+maintainer's Samba 4.22 DC.
+
+**Uploads above 8 MB failed.** nginx spools a request body above its
+memory buffer to disk before the application sees it, and the spool sat
+on /run/samadcon - an 8 MB tmpfs in the compose file, sized for a pid
+file. Microsoft's 14 MB template MSI met nginx's own HTML 500 ("No space
+left on device") and never reached SAMADCON; large downloads such as a
+GPO backup used the same spool. The spools now live in /var/lib/nginx.
+A new CI step starts the container with that same 8 MB tmpfs and sends
+20 MB through it; it was committed first, on its own, and failed with
+the error from the DC before the fix made it pass.
+
+An answer that did not come from SAMADCON said only "The upload failed."
+It now names the HTTP status, says it was not SAMADCON answering, and
+points at nginx's error log.
+
+**A dropped SYSVOL connection is opened again.** `smbcontrol smbd
+close-share sysvol` - the README's remedy for a client's lease on the
+central store - ended SAMADCON's own connection to the share too. It was
+never reopened, and every failure read as "not there": the central store
+appeared absent, the editor offered to create one, and configured
+policies had no templates to be shown with, until the administrator
+signed out. A call the server dropped is now repeated once on a new
+connection, and a refused path is reported as refused. Verified on the
+DC: close-share, then the store and a policy's settings still shown
+without signing in again, and the log naming NETWORK_NAME_DELETED.
+
+**Every error code has German words.** 117 of the 236 codes the backend
+can raise had none, and an administrator working in German met them in
+English. Where the English sentence names a value - a field, a limit, a
+record type, the file - the value now travels in the error's context so
+the translation can name it too; a refused template says which file and
+why. scripts/check_translations.py reads every code from the backend's
+syntax tree and fails the lint job on one without a German entry.
+
+**The interface language can be set for a deployment.**
+SAMADCON_DEFAULT_LANGUAGE (en or de) applies to anyone who has not picked
+a language with the DE/EN switch; unset, the browser decides as before,
+and a picked language always wins. Both compose files carry it commented
+out. Anything but en or de stops the container from starting.
+
+Verified on the DC: the 14 MB MSI imported with "skip" (696 skipped) and
+with "replace" (696 replaced), a broken .admx refused and not written,
+and the SYSVOL reconnect as above. The German texts and the default
+language were checked by tests, not yet in a browser against the DC.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.4, :0.6 and :latest.
+
+---
+
 ## 0.6.3 — 2026-09-26
 
 Choose where a copied account goes.
