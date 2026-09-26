@@ -149,7 +149,7 @@ docker pull ghcr.io/onlinecrash24/samadcon:latest
 | Tag | What it is |
 |---|---|
 | `latest` | The newest release. Moves when one is tagged, which is what the examples below use. |
-| `0.5.16` | One release, and it never changes. **Pin this where an upgrade should be a decision.** |
+| `0.5.17` | One release, and it never changes. **Pin this where an upgrade should be a decision.** |
 | `0.5` | The newest release of that minor series. |
 | `dev` | The tip of the DEV branch: what is being worked on, before a release. |
 | `sha-<short>` | One commit. Every build carries one. |
