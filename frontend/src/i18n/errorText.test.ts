@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { ApiError } from '../api/client'
-import { errorText } from './errorText'
+import { errorHint, errorText } from './errorText'
 import { de } from './messages'
 
 describe('the words for an error', () => {
@@ -21,5 +21,46 @@ describe('the words for an error', () => {
   it('keep the server text for a code without a translation', () => {
     const error = new ApiError(409, { code: 'something_new', message: 'Something new happened.' })
     expect(errorText(de, error)).toBe('Something new happened.')
+  })
+})
+
+describe('an error with a reason', () => {
+  // What the DC test met: a hand-made .admx without <resources>, refused in
+  // English, and in a package of hundreds of files without saying which.
+  const refused = new ApiError(422, {
+    code: 'invalid_template',
+    message: 'This template has no <resources> element.',
+    hint: 'Every template needs one; Windows refuses the whole store without it.',
+    context: { file: 'Kaputt.admx', reason: 'no_resources' },
+  })
+
+  it('is told by its reason, in the interface language, naming the file', () => {
+    expect(errorText(de, refused)).toBe('Kaputt.admx hat kein <resources>-Element.')
+  })
+
+  it('gets the advice for that reason, translated', () => {
+    const hint = errorHint(de, refused) ?? ''
+    expect(hint).toContain('zentralen Speicher')
+    expect(hint).not.toBe(refused.hint)
+  })
+
+  it('falls back to the code when the reason has no entry of its own', () => {
+    const unknown = new ApiError(422, {
+      code: 'invalid_template',
+      message: 'x',
+      context: { file: 'Neu.admx', reason: 'something_new' },
+    })
+    expect(errorText(de, unknown)).toBe('Die Vorlage Neu.admx ist ungültig.')
+  })
+
+  it('lists a list, and keeps the server text when a placeholder cannot be filled', () => {
+    const ambiguous = new ApiError(422, {
+      code: 'ambiguous_package',
+      message: 'x',
+      context: { folders: ['a/PolicyDefinitions', 'b/PolicyDefinitions'] },
+    })
+    expect(errorText(de, ambiguous)).toContain('a/PolicyDefinitions, b/PolicyDefinitions')
+    const bare = new ApiError(422, { code: 'invalid_template', message: 'x' })
+    expect(errorText(de, bare)).toBe('x')
   })
 })

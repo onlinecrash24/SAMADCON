@@ -620,3 +620,25 @@ def test_unicode_without_a_byte_order_mark_is_not_guessed_at():
     raw = SAMPLE_ADMX.replace(b'encoding="utf-8"', b"encoding='unicode'", 1)
     with pytest.raises(InvalidRequest):
         parser.validate(raw, "sample.admx")
+
+
+@pytest.mark.parametrize(
+    ("raw", "name", "reason"),
+    [
+        (b"this is not xml", "sample.admx", "not_xml"),
+        (b"<html><body>hello</body></html>", "sample.admx", "wrong_root"),
+        (SAMPLE_ADMX.replace(b'<resources minRequiredRevision="1.0" />', b""), "sample.admx",
+         "no_resources"),
+        (re.sub(rb"<displayName>.*?</displayName>\s*", b"", SAMPLE_ADML), "en-US/sample.adml",
+         "adml_header"),
+    ],
+)
+def test_a_refusal_names_the_file_and_the_reason(raw, name, reason):
+    """One code covers five reasons. Found importing a broken file on a DC:
+    the interface could only show the server's English sentence, and in a
+    package of seven hundred files it did not say which one. The file and
+    the reason travel in the context, where the interface translates them."""
+    with pytest.raises(InvalidRequest) as raised:
+        parser.validate(raw, name)
+    assert raised.value.context["file"] == name
+    assert raised.value.context["reason"] == reason

@@ -250,7 +250,7 @@ def validate(raw: bytes, name: str) -> None:
             "This file is not readable XML.",
             code="invalid_template",
             detail=str(exc),
-            context={"file": name},
+            context={"file": name, "reason": "not_xml"},
         ) from exc
 
     expected = "policyDefinitionResources" if is_text else "policyDefinitions"
@@ -259,7 +259,12 @@ def validate(raw: bytes, name: str) -> None:
             "This file is not an administrative template.",
             code="invalid_template",
             hint=f"Expected a <{expected}> document.",
-            context={"file": name, "found": _tag(root)},
+            context={
+                "file": name,
+                "reason": "wrong_root",
+                "expected": expected,
+                "found": _tag(root),
+            },
         )
 
     if _child(root, "resources") is None:
@@ -270,7 +275,7 @@ def validate(raw: bytes, name: str) -> None:
             "This template has no <resources> element.",
             code="invalid_template",
             hint="Every template needs one; Windows refuses the whole store without it.",
-            context={"file": name},
+            context={"file": name, "reason": "no_resources"},
         )
 
     if is_text:
@@ -284,7 +289,7 @@ def validate(raw: bytes, name: str) -> None:
                     f"This text file has no <{required}> element.",
                     code="invalid_template",
                     hint="An .adml needs <displayName> and <description> before <resources>.",
-                    context={"file": name},
+                    context={"file": name, "reason": "adml_header", "element": required},
                 )
 
     if not is_text:
@@ -294,7 +299,7 @@ def validate(raw: bytes, name: str) -> None:
                 "This template declares no namespace of its own.",
                 code="invalid_template",
                 hint="A <policyNamespaces> element with a <target> is required.",
-                context={"file": name},
+                context={"file": name, "reason": "no_namespace"},
             )
 
 

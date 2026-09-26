@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 
-import { ApiError } from '../api/client'
-import { errorText } from './errorText'
+import { errorHint, errorText } from './errorText'
 import { catalogues, de, type Language, type MessageKey } from './messages'
 
 const STORAGE_KEY = 'samadcon.language'
@@ -71,12 +70,8 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
     const te: I18n['te'] = (error) => errorText({ ...de, ...catalogue }, error)
 
-    const th: I18n['th'] = (error) => {
-      if (!(error instanceof ApiError)) return undefined
-      const key = `error.${error.code}.hint` as MessageKey
-      // An unmapped code keeps the server's English advice, which beats none.
-      return catalogue[key] ?? de[key] ?? error.hint
-    }
+    // An unmapped code keeps the server's English advice, which beats none.
+    const th: I18n['th'] = (error) => errorHint({ ...de, ...catalogue }, error)
 
     return { language, setLanguage, t, tn, te, th }
   }, [language, setLanguage])
