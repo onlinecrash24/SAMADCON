@@ -22,6 +22,17 @@ export function nameFromDn(dn: string): string {
   return first.replace(/^[A-Za-z]+=/, '').replace(/\\(.)/g, '$1')
 }
 
+/**
+ * The container a DN sits in: "CN=Anna,OU=x,DC=y" → "OU=x,DC=y".
+ *
+ * Cut at the first unescaped comma, for the same reason as nameFromDn: the
+ * object "CN=Meyer\, Sarah" lives in OU=x, not in " Sarah,OU=x".
+ */
+export function parentDn(dn: string): string {
+  const first = /^(?:[^,\\]|\\.)*/.exec(dn)?.[0] ?? ''
+  return dn.slice(first.length + 1)
+}
+
 /** Whether *dn* is *ancestor* itself, or sits anywhere below it. */
 export function isAtOrBelow(dn: string | null | undefined, ancestor: string): boolean {
   if (!dn) return false

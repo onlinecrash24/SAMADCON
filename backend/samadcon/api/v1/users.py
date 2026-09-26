@@ -14,6 +14,7 @@ from samadcon.schemas.requests import (
     AccountExpiryRequest,
     CertificateRemoveRequest,
     CertificateUploadRequest,
+    CopyUserRequest,
     CreateUserRequest,
     EnabledRequest,
     MustChangePasswordRequest,
@@ -79,6 +80,53 @@ async def create_user(
             **{k: {"new": v} for k, v in payload.attributes.items()},
         }
     return created
+
+
+@router.post("/copy")
+async def copy_user(
+    payload: CopyUserRequest,
+    worker: VerifiedWorker,
+    session: VerifiedSession,
+    audit: Audit,
+    dn: DnQuery,
+) -> dict[str, Any]:
+    """Create an account from the template account *dn* — ADUC's "Copy…".
+
+    A generated password is in this response and nowhere else: not in the
+    audit entry, not in any later read.
+    """
+    with audit.operation("user.copy", target=payload.parent_dn or dn) as record:
+        result = await ad_write(
+            worker,
+            session,
+            users.copy_user,
+            dn,
+            sam_account_name=payload.sam_account_name,
+            common_name=payload.common_name,
+            parent_dn=payload.parent_dn,
+            attributes=payload.attributes,
+            password=payload.password,
+            generate_password=payload.generate_password,
+            must_change_password=payload.must_change_password,
+            enabled=payload.enabled,
+            groups=payload.groups,
+            label="user.copy",
+        )
+        record["target"] = result["user"]["dn"]
+        record["changes"] = {
+            "sAMAccountName": {"new": payload.sam_account_name},
+            "enabled": {"new": payload.enabled},
+            **{k: {"new": v} for k, v in payload.attributes.items()},
+        }
+        record["extra"].update(
+            {
+                "template": dn,
+                "password_generated": payload.generate_password,
+                "groups_added": result["groups_added"],
+                "failed_groups": [group["dn"] for group in result["failed_groups"]],
+            }
+        )
+    return result
 
 
 @router.patch("")

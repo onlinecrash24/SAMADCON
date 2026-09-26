@@ -18,6 +18,7 @@ import type {
   Certificate,
   ChildListing,
   ComputerDetail,
+  CopyUserResult,
   DelegationTemplate,
   DiagnosticsOverview,
   DnsRecord,
@@ -210,6 +211,20 @@ export const api = {
     enabled?: boolean
     attributes?: Record<string, string>
   }) => http.post<UserDetail>('/users', payload),
+  copyUser: (
+    templateDn: string,
+    payload: {
+      sam_account_name: string
+      common_name?: string
+      parent_dn?: string
+      password?: string
+      generate_password?: boolean
+      must_change_password?: boolean
+      enabled?: boolean
+      attributes?: Record<string, string>
+      groups?: string[]
+    },
+  ) => http.post<CopyUserResult>(`/users/copy?dn=${dnParam(templateDn)}`, payload),
   updateUser: (
     dn: string,
     payload: {

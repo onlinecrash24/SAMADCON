@@ -44,10 +44,14 @@ function useSubmit(onDone: (message: string) => void, onClose: () => void) {
 // New user
 // ---------------------------------------------------------------------------
 
-export function NewUserDialog({ parentDn, onClose, onDone }: DialogProps & { parentDn: string }) {
-  const { t } = useI18n()
+/**
+ * Who the person is: the names both "New user" and "Copy…" ask for.
+ *
+ * One hook for both, so the rules about which name follows which cannot
+ * drift between the two dialogs.
+ */
+export function useUserIdentity() {
   const { session } = useSession()
-  const { error, setError, pending, run } = useSubmit(onDone, onClose)
   const [form, setForm] = useState({
     first_name: '',
     last_name: '',
@@ -68,35 +72,104 @@ export function NewUserDialog({ parentDn, onClose, onDone }: DialogProps & { par
     // first and last name and makes you retype it every time you want the
     // logon name instead. Cleared, it follows the logon name again.
     cn: '',
-    password: '',
-    mustChange: true,
-    enabled: true,
   })
-
-  const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
-    setForm((current) => ({ ...current, [key]: value }))
 
   const commonName = form.cn || form.sam
   const suffix = form.upnSuffix || session?.domain.dns_domain || ''
   const upn = form.upnLocal.trim() ? `${form.upnLocal.trim()}@${suffix}` : ''
   const displayName = [form.first_name, form.last_name].filter(Boolean).join(' ') || commonName
 
+  const attributes: Record<string, string> = {
+    ...(upn ? { upn } : {}),
+    ...(form.first_name ? { first_name: form.first_name } : {}),
+    ...(form.last_name ? { last_name: form.last_name } : {}),
+    ...(displayName ? { display_name: displayName } : {}),
+  }
+
+  return { form, setForm, commonName, attributes }
+}
+
+export type UserIdentity = ReturnType<typeof useUserIdentity>
+
+export function UserIdentityFields({ identity }: { identity: UserIdentity }) {
+  const { t } = useI18n()
+  const { session } = useSession()
+  const { form, setForm, commonName } = identity
+  const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
+    setForm((current) => ({ ...current, [key]: value }))
+
+  return (
+    <>
+      <div className="form__grid">
+        <Field label={t('user.firstName')}>
+          <input value={form.first_name} onChange={(e) => set('first_name', e.target.value)} />
+        </Field>
+        <Field label={t('user.lastName')}>
+          <input value={form.last_name} onChange={(e) => set('last_name', e.target.value)} />
+        </Field>
+      </div>
+      <Field label={t('user.logonName')} hint={t('user.logonNameHint')}>
+        <UpnField
+          required
+          value={form.upnSuffix ? `${form.upnLocal}@${form.upnSuffix}` : form.upnLocal}
+          onChange={(next) => {
+            const { local, suffix } = splitUpn(next)
+            setForm((current) => ({
+              ...current,
+              upnLocal: local,
+              upnSuffix: suffix,
+              // The pre-Windows-2000 name mirrors this one until edited by hand.
+              sam: current.samTouched ? current.sam : local.slice(0, 20),
+            }))
+          }}
+        />
+      </Field>
+      <Field label={t('user.samName')} hint={t('user.samNameHint')}>
+        <div className="field-inline">
+          <span className="muted mono">{session?.domain.netbios_name}\</span>
+          <input
+            required
+            maxLength={20}
+            autoComplete="off"
+            spellCheck={false}
+            value={form.sam}
+            onChange={(e) =>
+              setForm((current) => ({ ...current, sam: e.target.value, samTouched: true }))
+            }
+          />
+        </div>
+      </Field>
+      <Field label={t('user.fullName')} hint={t('dialog.fullNameHint')}>
+        <input
+          maxLength={64}
+          value={commonName}
+          placeholder={form.sam}
+          onChange={(e) => set('cn', e.target.value)}
+        />
+      </Field>
+    </>
+  )
+}
+
+export function NewUserDialog({ parentDn, onClose, onDone }: DialogProps & { parentDn: string }) {
+  const { t } = useI18n()
+  const { error, setError, pending, run } = useSubmit(onDone, onClose)
+  const identity = useUserIdentity()
+  const [password, setPassword] = useState('')
+  const [mustChange, setMustChange] = useState(true)
+  const [enabled, setEnabled] = useState(true)
+
   const submit = (event: FormEvent) => {
     event.preventDefault()
     void run(async () => {
       const created = await api.createUser({
         parent_dn: parentDn,
-        sam_account_name: form.sam.trim(),
-        common_name: commonName,
-        password: form.password || undefined,
-        must_change_password: form.mustChange,
-        enabled: form.enabled,
-        attributes: {
-          ...(upn ? { upn } : {}),
-          ...(form.first_name ? { first_name: form.first_name } : {}),
-          ...(form.last_name ? { last_name: form.last_name } : {}),
-          ...(displayName ? { display_name: displayName } : {}),
-        },
+        sam_account_name: identity.form.sam.trim(),
+        common_name: identity.commonName,
+        password: password || undefined,
+        must_change_password: mustChange,
+        enabled,
+        attributes: identity.attributes,
       })
       return t('status.created', { name: created.name })
     })
@@ -119,78 +192,22 @@ export function NewUserDialog({ parentDn, onClose, onDone }: DialogProps & { par
     >
       <form id="new-user" onSubmit={submit} className="form">
         <ErrorMessage error={error} onDismiss={() => setError(null)} />
-        <div className="form__grid">
-          <Field label={t('user.firstName')}>
-            <input value={form.first_name} onChange={(e) => set('first_name', e.target.value)} />
-          </Field>
-          <Field label={t('user.lastName')}>
-            <input value={form.last_name} onChange={(e) => set('last_name', e.target.value)} />
-          </Field>
-        </div>
-        <Field label={t('user.logonName')} hint={t('user.logonNameHint')}>
-          <UpnField
-            required
-            value={form.upnSuffix ? `${form.upnLocal}@${form.upnSuffix}` : form.upnLocal}
-            onChange={(next) => {
-              const { local, suffix } = splitUpn(next)
-              setForm((current) => ({
-                ...current,
-                upnLocal: local,
-                upnSuffix: suffix,
-                // The pre-Windows-2000 name mirrors this one until edited by hand.
-                sam: current.samTouched ? current.sam : local.slice(0, 20),
-              }))
-            }}
-          />
-        </Field>
-        <Field label={t('user.samName')} hint={t('user.samNameHint')}>
-          <div className="field-inline">
-            <span className="muted mono">{session?.domain.netbios_name}\</span>
-            <input
-              required
-              maxLength={20}
-              autoComplete="off"
-              spellCheck={false}
-              value={form.sam}
-              onChange={(e) =>
-                setForm((current) => ({ ...current, sam: e.target.value, samTouched: true }))
-              }
-            />
-          </div>
-        </Field>
-        <Field label={t('user.fullName')} hint={t('dialog.fullNameHint')}>
-          <input
-            maxLength={64}
-            value={commonName}
-            placeholder={form.sam}
-            onChange={(e) => set('cn', e.target.value)}
-          />
-        </Field>
+        <UserIdentityFields identity={identity} />
         <Field label={t('login.password')}>
           <input
             type="password"
             autoComplete="new-password"
-            value={form.password}
-            onChange={(e) => set('password', e.target.value)}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
           />
         </Field>
         <label className="checkbox">
-          <input
-            type="checkbox"
-            checked={form.mustChange}
-            onChange={(e) => set('mustChange', e.target.checked)}
-          />
+          <input type="checkbox" checked={mustChange} onChange={(e) => setMustChange(e.target.checked)} />
           <span>{t('dialog.passwordMustChange')}</span>
         </label>
-        {form.mustChange && (
-          <p className="muted small">{t('dialog.passwordMustChangeHint')}</p>
-        )}
+        {mustChange && <p className="muted small">{t('dialog.passwordMustChangeHint')}</p>}
         <label className="checkbox">
-          <input
-            type="checkbox"
-            checked={form.enabled}
-            onChange={(e) => set('enabled', e.target.checked)}
-          />
+          <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
           <span>{t('user.status.active')}</span>
         </label>
       </form>

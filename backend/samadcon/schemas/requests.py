@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class StrictModel(BaseModel):
@@ -90,6 +90,31 @@ class CreateUserRequest(StrictModel):
     enabled: bool = True
     attributes: dict[str, Any] = Field(default_factory=dict)
     flags: dict[str, bool] = Field(default_factory=dict)
+
+
+class CopyUserRequest(StrictModel):
+    """A new account from a template account.
+
+    What the template does not decide: who the person is, and how they sign
+    in the first time. Without ``parent_dn`` the account goes where the
+    template is; without ``groups`` it gets all of the template's groups.
+    """
+
+    sam_account_name: str = Field(min_length=1, max_length=20)
+    common_name: str | None = Field(default=None, max_length=64)
+    parent_dn: str | None = Field(default=None, min_length=3)
+    password: str | None = Field(default=None, max_length=512)
+    generate_password: bool = False
+    must_change_password: bool = True
+    enabled: bool = True
+    attributes: dict[str, Any] = Field(default_factory=dict)
+    groups: list[str] | None = Field(default=None, max_length=1000)
+
+    @model_validator(mode="after")
+    def _one_password(self) -> CopyUserRequest:
+        if self.password and self.generate_password:
+            raise ValueError("give a password or have one generated, not both")
+        return self
 
 
 class UpdateUserRequest(StrictModel):

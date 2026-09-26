@@ -43,6 +43,7 @@ SENSITIVE_ATTRIBUTES = frozenset(
         "msfve-recoverypassword",
         "msfve-keypackage",
         "recovery_password",
+        "generated_password",
         "msds-keycredentiallink",
         "password",
         "new_password",

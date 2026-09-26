@@ -6,6 +6,7 @@ import type { DirectoryObject } from '../../api/types'
 import { DeleteDialog, MoveDialog, PasswordDialog, RenameDialog } from '../../components/dialogs'
 import { ErrorMessage } from '../../components/primitives'
 import { useI18n } from '../../i18n'
+import { CopyUserDialog } from './CopyUserDialog'
 import { detailRowActions, type AccountFacts, type ActionId } from './objectActions'
 import { useDisableAccount } from './useDisableAccount'
 
@@ -33,7 +34,9 @@ export function ObjectCommands({
 }) {
   const { t } = useI18n()
   const queryClient = useQueryClient()
-  const [dialog, setDialog] = useState<'password' | 'rename' | 'move' | 'delete' | null>(null)
+  const [dialog, setDialog] = useState<'password' | 'rename' | 'move' | 'delete' | 'copy' | null>(
+    null,
+  )
   const [error, setError] = useState<unknown>(null)
 
   const invalidate = () => {
@@ -97,6 +100,7 @@ export function ObjectCommands({
       case 'rename':
       case 'move':
       case 'delete':
+      case 'copy':
         setDialog(id)
         return
       default:
@@ -125,6 +129,9 @@ export function ObjectCommands({
         ))}
       </div>
 
+      {dialog === 'copy' && (
+        <CopyUserDialog template={object} onClose={() => setDialog(null)} onDone={done} />
+      )}
       {dialog === 'password' && (
         <PasswordDialog dn={object.dn} onClose={() => setDialog(null)} onDone={done} />
       )}

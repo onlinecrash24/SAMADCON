@@ -34,6 +34,7 @@ const ids = (entries: { kind: string; id?: string }[]) =>
 describe('what each type offers', () => {
   it('gives a user the account actions', () => {
     expect(ids(detailRowActions(object(), UNKNOWN))).toEqual([
+      'copy',
       'disable',
       'unlock',
       'resetPassword',
@@ -46,6 +47,14 @@ describe('what each type offers', () => {
   it('gives a managed service account the same, because it is one', () => {
     const msa = detailRowActions(object({ type: 'managed_service_account' }), UNKNOWN)
     expect(ids(msa)).toContain('resetPassword')
+  })
+
+  it('offers a user, and only a user, as a template to copy', () => {
+    expect(ids(contextMenuActions(object()))).toContain('copy')
+    for (const type of ['managed_service_account', 'computer', 'group', 'contact']) {
+      const shape = { type: type as DirectoryObject['type'] }
+      expect(ids(contextMenuActions(object(shape)))).not.toContain('copy')
+    }
   })
 
   it('gives a computer its own reset and no password reset', () => {

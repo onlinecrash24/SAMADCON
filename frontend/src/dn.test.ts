@@ -1,6 +1,20 @@
 import { describe, expect, it } from 'vitest'
 
-import { isAtOrBelow, nameFromDn } from './dn'
+import { isAtOrBelow, nameFromDn, parentDn } from './dn'
+
+describe('parentDn', () => {
+  it('is everything after the first component', () => {
+    expect(parentDn('CN=Anna,OU=Vertrieb,DC=example,DC=test')).toBe('OU=Vertrieb,DC=example,DC=test')
+  })
+
+  it('does not cut inside an escaped comma', () => {
+    expect(parentDn('CN=Meyer\\, Sarah,OU=Users,DC=example,DC=test')).toBe('OU=Users,DC=example,DC=test')
+  })
+
+  it('is empty for a DN of one component', () => {
+    expect(parentDn('DC=test')).toBe('')
+  })
+})
 
 describe('nameFromDn', () => {
   it('is the first component without its attribute', () => {

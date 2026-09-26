@@ -738,6 +738,19 @@ findet man domänenweit über das Kontextmenü der Domäne, wie in ADUC. Das Ken
 vertrauliches Attribut, über das Leserecht entscheidet also das Verzeichnis; ein Konto ohne dieses
 Recht sieht, dass ein Schlüssel existiert, und erfährt, dass es ihn nicht lesen darf.
 
+Onboarding geht wie in ADUC über ein Vorlagenkonto: ein gewöhnliches, deaktiviertes Konto — per
+Konvention etwa `_Vorlage_Vertrieb` — in der OU, in die neue Kolleginnen und Kollegen gehören, und
+Mitglied der Gruppen, die sie brauchen. **Kopieren…** an einem Benutzer legt daraus ein neues
+Konto an. Übernommen werden die Gruppen (jede lässt sich abwählen; eine primäre Gruppe außer
+Domänen-Benutzer kommt mit), Abteilung, Firma, Vorgesetzter, die Adresse ohne Straße, Profil- und
+Basisordner, Anmeldeskript, Anmeldezeiten, Arbeitsstationen, Ablaufdatum und Kontooptionen; ein
+Pfad, der auf den Anmeldenamen der Vorlage endet, endet auf den neuen. Nicht übernommen werden
+Beschreibung, Büro, Telefon, Mail, Titel und Straße. Das Kennwort wird standardmäßig erzeugt,
+nach der Richtlinie der Domäne und nie mit den Namen des Kontos darin, muss bei der ersten
+Anmeldung geändert werden und wird einmal angezeigt, nachdem das Konto existiert — gespeichert
+wird es nirgends, und im Audit-Log steht es nicht. Eine Gruppe, in die das angemeldete Konto nicht
+schreiben darf, wird gemeldet, und das neue Konto bleibt bestehen.
+
 Der DNS-Teil aus Meilenstein 2 arbeitet über LDAP statt über die DCE/RPC-Schnittstelle
 (`samba-tool dns`): Zonen aus allen drei Partitionen — Domäne, Forest und der alten Ablage
 unter `CN=System` —, Einträge der Typen A, AAAA, CNAME, NS, PTR, MX, SRV und TXT anlegen,

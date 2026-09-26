@@ -35,6 +35,7 @@ export type ActionId =
   | 'delete'
   | 'properties'
   | 'findBitlocker'
+  | 'copy'
 
 export interface ActionItem {
   kind: 'item'
@@ -88,6 +89,10 @@ const item = (id: ActionId, labelKey: MessageKey, danger?: boolean): ActionItem 
  */
 function objectActions(object: DirectoryObject, facts: AccountFacts): ActionItem[] {
   const actions: ActionItem[] = []
+
+  // ADUC's "Copy…": a new account from this one, as a template. A user only —
+  // a managed service account belongs to one service and is not a pattern.
+  if (object.type === 'user') actions.push(item('copy', 'action.copyUser'))
 
   if (isAccount(object.type)) {
     // The row already carries `disabled`, so this needs nothing loaded. Where

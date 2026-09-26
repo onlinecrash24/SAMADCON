@@ -66,7 +66,7 @@ function KeyRow({
           disabled={reveal.isPending}
           onClick={() => reveal.mutate()}
         >
-          {t('computer.lapsReveal')}
+          {t('computer.bitlockerReveal')}
         </button>
       )}
       <ErrorMessage error={error} onDismiss={() => setError(null)} />

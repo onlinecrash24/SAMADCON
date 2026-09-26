@@ -35,6 +35,7 @@ import { DiagnosticsView } from './features/diagnostics/DiagnosticsView'
 import { SecurityFindings } from './features/diagnostics/SecurityFindings'
 import { DnsView } from './features/dns/DnsView'
 import { FindBitlockerDialog } from './features/directory/BitLocker'
+import { CopyUserDialog } from './features/directory/CopyUserDialog'
 import { contextMenuActions } from './features/directory/objectActions'
 import { GpoView } from './features/gpo/GpoView'
 import { TemplateStore } from './features/gpo/admx/TemplateStore'
@@ -154,7 +155,10 @@ function Console() {
   // at the top, and dismissible.
   const [shellError, setShellError] = useState<unknown>(null)
   const [objectDialog, setObjectDialog] = useState<
-    | { kind: 'rename' | 'move' | 'delete' | 'password' | 'findBitlocker'; object: DirectoryObject }
+    | {
+        kind: 'rename' | 'move' | 'delete' | 'password' | 'findBitlocker' | 'copy'
+        object: DirectoryObject
+      }
     | null
   >(null)
   // Disabling from a row's menu; asks first when the account is an administrator.
@@ -342,6 +346,9 @@ function Console() {
         return
       case 'findBitlocker':
         setObjectDialog({ kind: 'findBitlocker', object })
+        return
+      case 'copy':
+        setObjectDialog({ kind: 'copy', object })
         return
       case 'properties':
         windows.open({
@@ -682,6 +689,13 @@ function Console() {
             if (selected?.dn === objectDialog.object.dn) setSelected(null)
             onChanged(message)
           }}
+        />
+      )}
+      {objectDialog?.kind === 'copy' && (
+        <CopyUserDialog
+          template={objectDialog.object}
+          onClose={() => setObjectDialog(null)}
+          onDone={onChanged}
         />
       )}
       {objectDialog?.kind === 'findBitlocker' && (

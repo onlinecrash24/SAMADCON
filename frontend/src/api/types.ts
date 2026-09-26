@@ -242,6 +242,17 @@ export interface ComputerDetail extends DirectoryObject {
   member_of: string[]
 }
 
+/** What "Copy…" made, and what it could not do. */
+export interface CopyUserResult {
+  user: UserDetail
+  template: string
+  groups_added: string[]
+  /** Groups the account could not be added to; the account itself exists. */
+  failed_groups: { dn: string; code: string | null; message: string; primary?: boolean }[]
+  /** Only when it was generated, and only in this one response. */
+  generated_password: string | null
+}
+
 /** A BitLocker recovery key as the listing shows it: never the password. */
 export interface BitlockerKey {
   dn: string

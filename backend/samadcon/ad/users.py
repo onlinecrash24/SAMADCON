@@ -12,6 +12,7 @@ the domains that have a password policy worth having.
 from __future__ import annotations
 
 import contextlib
+import re
 from datetime import UTC, datetime
 from typing import Any
 
@@ -256,7 +257,13 @@ def create_user(
     enabled: bool = True,
     attributes: dict[str, Any] | None = None,
     flags: dict[str, bool] | None = None,
+    raw_attributes: dict[str, bytes | str] | None = None,
 ) -> dict[str, Any]:
+    """Create a user account.
+
+    *raw_attributes* are written as given, at creation — for values a copy
+    carries over that have no field of their own, such as logon hours.
+    """
     import ldb
 
     sam = sam_account_name.strip()
@@ -314,6 +321,8 @@ def create_user(
         if value in (None, ""):
             continue
         message[attribute] = ldb.MessageElement(str(value), ldb.FLAG_MOD_ADD, attribute)
+    for attribute, raw in (raw_attributes or {}).items():
+        message[attribute] = ldb.MessageElement(raw, ldb.FLAG_MOD_ADD, attribute)
 
     conn.add(message)
 
@@ -355,6 +364,202 @@ def _ensure_sam_available(conn: DirectoryConnection, sam: str) -> None:
             code="sam_account_name_taken",
             context={"sam_account_name": sam},
         )
+
+
+# ---------------------------------------------------------------------------
+# Copying from a template account
+# ---------------------------------------------------------------------------
+
+# What "Copy…" carries over, as ADUC does: where the person sits and what they
+# are given, not who they are. Description, office, telephone, mail, title and
+# street stay behind.
+COPIED_FIELDS = (
+    "post_office_box",
+    "city",
+    "state",
+    "postal_code",
+    "country",
+    "profile_path",
+    "logon_script",
+    "home_directory",
+    "home_drive",
+    "department",
+    "company",
+    "manager",
+    "logon_workstations",
+)
+#: Paths that usually end in the account's own name, and follow the new one.
+PER_ACCOUNT_PATHS = ("profile_path", "home_directory")
+DOMAIN_USERS_RID = 513
+#: accountExpires values that both mean "never".
+NEVER_EXPIRES = (0, 0x7FFFFFFFFFFFFFFF)
+
+
+def follow_name(path: str, template_sam: str | None, new_sam: str) -> str:
+    r"""*path* with every segment that is the template's logon name replaced by
+    the new one: ``\\srv\home\_Vorlage_Vertrieb`` becomes ``\\srv\home\mmuster``.
+
+    Whole segments only, compared without regard to case, so a template named
+    "vt" does not rewrite ``\\srv\vthome``.
+    """
+    if not template_sam:
+        return path
+    wanted = template_sam.lower()
+    return re.sub(
+        r"[^\\/]+",
+        lambda segment: new_sam if segment.group(0).lower() == wanted else segment.group(0),
+        path,
+    )
+
+
+def copy_user(
+    conn: DirectoryConnection,
+    template_dn: str,
+    *,
+    sam_account_name: str,
+    common_name: str | None = None,
+    parent_dn: str | None = None,
+    attributes: dict[str, Any] | None = None,
+    password: str | None = None,
+    generate_password: bool = False,
+    must_change_password: bool = True,
+    enabled: bool = True,
+    groups: list[str] | None = None,
+) -> dict[str, Any]:
+    """Create an account from a template account — ADUC's "Copy…".
+
+    The account is created first, with everything that can be written at
+    creation, and rolled back if that fails. Group memberships follow one
+    group at a time: the account exists by then and is usable, so a group the
+    caller may not write to is reported in ``failed_groups`` rather than
+    undoing the account.
+
+    *groups* narrows the template's groups; ``None`` takes all of them. A
+    generated password is returned once, here, and nowhere else.
+    """
+    from samadcon.ad import groups as group_ops
+    from samadcon.ad import passwords
+    from samadcon.core.errors import SamadconError
+
+    if password and generate_password:
+        raise InvalidRequest(
+            "Give a password or have one generated, not both.", code="password_conflict"
+        )
+
+    template = conn.get(
+        template_dn,
+        attrs=[
+            *(USER_FIELDS[field] for field in COPIED_FIELDS),
+            "objectClass",
+            "objectSid",
+            "sAMAccountName",
+            "userAccountControl",
+            "memberOf",
+            "primaryGroupID",
+            "logonHours",
+            "accountExpires",
+        ],
+    )
+    if template is None:
+        raise NotFound("The template account does not exist.", context={"dn": template_dn})
+    classes = {c.lower() for c in values.as_list(template, "objectClass")}
+    if "user" not in classes or "computer" in classes:
+        raise InvalidRequest("Only a user account can be copied.", code="not_a_user_template")
+
+    sam = sam_account_name.strip()
+    template_sam = values.as_str(template, "sAMAccountName")
+
+    fields: dict[str, Any] = {}
+    for field in COPIED_FIELDS:
+        value = values.as_str(template, USER_FIELDS[field])
+        if not value:
+            continue
+        fields[field] = (
+            follow_name(value, template_sam, sam) if field in PER_ACCOUNT_PATHS else value
+        )
+    fields.update(attributes or {})
+
+    template_uac = values.as_int(template, "userAccountControl", 0) or 0
+    flags = {
+        name: True
+        for name, bit in uac.EDITABLE_FLAGS.items()
+        if name != "account_disabled" and template_uac & bit
+    }
+
+    raw: dict[str, bytes | str] = {}
+    logon_hours = values.as_bytes(template, "logonHours")
+    if logon_hours:
+        raw["logonHours"] = logon_hours
+    expires = values.as_int(template, "accountExpires")
+    if expires is not None and expires not in NEVER_EXPIRES:
+        raw["accountExpires"] = str(expires)
+
+    # The template's groups: its memberships, and its primary group when that
+    # is not Domain Users, which every new account is given anyway.
+    offered = values.as_list(template, "memberOf")
+    primary = None
+    if values.as_int(template, "primaryGroupID") not in (None, DOMAIN_USERS_RID):
+        primary = primary_group_dn(conn, template)
+        if primary:
+            offered.append(primary)
+    by_name = {group.lower(): group for group in offered}
+    if groups is None:
+        chosen = offered
+    else:
+        strangers = [group for group in groups if group.lower() not in by_name]
+        if strangers:
+            raise InvalidRequest(
+                "Only the template's own groups can be chosen.",
+                code="group_not_in_template",
+                context={"groups": strangers},
+            )
+        chosen = [by_name[group.lower()] for group in groups]
+
+    new_password = password
+    if generate_password:
+        names = [
+            sam,
+            common_name,
+            *(fields.get(key) for key in ("first_name", "last_name", "display_name")),
+        ]
+        new_password = passwords.for_domain(conn, avoid=names)
+
+    created = create_user(
+        conn,
+        parent_dn=parent_dn or values.parent_dn(template_dn) or "",
+        sam_account_name=sam,
+        common_name=common_name,
+        password=new_password,
+        must_change_password=must_change_password,
+        enabled=enabled,
+        attributes=fields,
+        flags=flags,
+        raw_attributes=raw,
+    )
+    new_dn = created["dn"]
+
+    added: list[str] = []
+    failed: list[dict[str, Any]] = []
+    for group in chosen:
+        try:
+            group_ops.add_members(conn, group, [new_dn])
+            added.append(group)
+        except SamadconError as exc:
+            failed.append({"dn": group, "code": exc.code, "message": str(exc)})
+
+    if primary and primary in added:
+        try:
+            set_primary_group(conn, new_dn, primary)
+        except SamadconError as exc:
+            failed.append({"dn": primary, "code": exc.code, "message": str(exc), "primary": True})
+
+    return {
+        "user": get_user(conn, new_dn),
+        "template": template_dn,
+        "groups_added": added,
+        "failed_groups": failed,
+        "generated_password": new_password if generate_password else None,
+    }
 
 
 # ---------------------------------------------------------------------------
