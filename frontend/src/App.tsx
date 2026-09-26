@@ -157,7 +157,7 @@ function Console() {
   >(null)
   // Disabling from a row's menu; asks first when the account is an administrator.
   const accountDisable = useDisableAccount({
-    onDone: () => onChanged(t('status.saved')),
+    onDone: () => changedInPlace(t('status.saved')),
     onError: setShellError,
   })
   // Which container a "Neu" command creates into. A menu on a row means that
@@ -293,7 +293,7 @@ function Console() {
   const runAction = (object: DirectoryObject, id: string) => {
     const write = (call: Promise<unknown>, message: string) => {
       setShellError(null)
-      call.then(() => onChanged(message)).catch(setShellError)
+      call.then(() => changedInPlace(message)).catch(setShellError)
     }
 
     switch (id) {
@@ -370,6 +370,16 @@ function Console() {
     setNotice(message)
     void queryClient.invalidateQueries({ queryKey: ['children'] })
     void queryClient.invalidateQueries({ queryKey: ['tree'] })
+  }
+
+  // A row's menu changed an object that still exists — enabled, disabled,
+  // unlocked, reset. The detail pane beside the list reads it through its own
+  // query and kept showing "Aktiv" after the menu had disabled the account;
+  // the detail pane's own commands refreshed it, the menu never did.
+  const changedInPlace = (message: string) => {
+    void queryClient.invalidateQueries({ queryKey: ['object-detail'] })
+    void queryClient.invalidateQueries({ queryKey: ['object'] })
+    onChanged(message)
   }
 
   // Three shapes rather than one boolean modifier. The old one only ever
