@@ -107,7 +107,15 @@ def test_browsing_leaves_them_out_by_default_and_searching_does_not():
 def test_info_reports_the_realm(client: TestClient):
     payload = client.get("/api/v1/info").json()
     assert payload["realm"] == "SAMADCON.TEST"
-    assert set(payload) == {"version", "realm", "ldap_insecure", "ldap_transports"}
+    # default_language is read before sign-in on purpose: the sign-in page is
+    # the first thing shown in it. A language code tells a stranger nothing.
+    assert set(payload) == {
+        "version",
+        "realm",
+        "ldap_insecure",
+        "ldap_transports",
+        "default_language",
+    }
 
 
 def test_info_withholds_internal_topology_before_sign_in(client: TestClient):

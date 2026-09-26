@@ -1,14 +1,37 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
 
+import { api } from '../api/endpoints'
+import { chooseLanguage, isLanguage } from './chooseLanguage'
 import { errorHint, errorText } from './errorText'
 import { catalogues, de, type Language, type MessageKey } from './messages'
 
+/** What this person picked with the DE/EN switch. */
 const STORAGE_KEY = 'samadcon.language'
+/**
+ * The deployment's default as last seen. Not a choice, and never written by
+ * the switch: kept only so the page starts in it instead of flashing the
+ * browser's language until /info has answered.
+ */
+const DEFAULT_KEY = 'samadcon.defaultLanguage'
+
+function read(key: string): string | null {
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
 
 function detectLanguage(): Language {
-  const stored = localStorage.getItem(STORAGE_KEY)
-  if (stored === 'de' || stored === 'en') return stored
-  return navigator.language.toLowerCase().startsWith('de') ? 'de' : 'en'
+  return chooseLanguage(read(STORAGE_KEY), read(DEFAULT_KEY), navigator.language)
 }
 
 /** Keys that exist in _one/_other pairs and are used through `tn()`. */
@@ -43,6 +66,34 @@ const I18nContext = createContext<I18n | null>(null)
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>(detectLanguage)
+
+  // The deployment's default, from the server. Applied only while this
+  // person has picked nothing; remembered for the next start either way.
+  useEffect(() => {
+    let current = true
+    api
+      .info()
+      .then((info) => {
+        if (!current) return
+        const fallback = isLanguage(info.default_language) ? info.default_language : null
+        try {
+          if (fallback) localStorage.setItem(DEFAULT_KEY, fallback)
+          else localStorage.removeItem(DEFAULT_KEY)
+        } catch {
+          // No storage: the default still applies to this page.
+        }
+        if (isLanguage(read(STORAGE_KEY))) return
+        const next = chooseLanguage(null, fallback, navigator.language)
+        document.documentElement.lang = next
+        setLanguageState(next)
+      })
+      .catch(() => {
+        // Unreachable server: the sign-in page says so; the language stays.
+      })
+    return () => {
+      current = false
+    }
+  }, [])
 
   const setLanguage = useCallback((next: Language) => {
     localStorage.setItem(STORAGE_KEY, next)

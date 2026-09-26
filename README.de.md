@@ -210,6 +210,9 @@ services:
       # Nur die Domäne oben; die Anmeldemaske verliert ihr freies
       # Adressfeld. 1 nur, wenn Administratoren beliebige Adressen eintippen sollen.
       SAMADCON_ALLOW_CUSTOM_SERVERS: "0"
+      # Sprache der Oberfläche für alle, die keine gewählt haben: en oder de.
+      # Auskommentiert entscheidet die Sprache des Browsers.
+#      SAMADCON_DEFAULT_LANGUAGE: "en"
     ports:
       # Jede Schnittstelle — das braucht ein Browser auf einer anderen Maschine.
       # "127.0.0.1:8443:8443", wenn ein Reverse Proxy auf diesem Host läuft.
@@ -311,6 +314,9 @@ services:
       # to 1 here, in the file, for an instance meant to reach several. A
       # Portainer environment field cannot reach it — those feed ${VAR} only.
       SAMADCON_ALLOW_CUSTOM_SERVERS: "0"
+      # Sprache der Oberfläche für alle, die keine gewählt haben: en oder de.
+      # Auskommentiert entscheidet die Sprache des Browsers.
+#      SAMADCON_DEFAULT_LANGUAGE: "en"
       # Nur hinter einem Reverse Proxy, und dann dessen Host-Adresse. Nie 0.0.0.0/0.
       SAMADCON_TRUSTED_PROXIES: "${SAMADCON_TRUSTED_PROXIES}"
     ports:
@@ -547,6 +553,7 @@ und ermittelt die Domäne daraus.
 | `SAMADCON_WORKGROUP` | der Realm bis zum ersten Punkt | Der NetBIOS-Name, wo diese Ableitung falsch ist. |
 | `SAMADCON_SERVERS_FILE` | keine | Eine JSON-Datei mit Domänen, die die Anmeldemaske anbietet; siehe `docker/servers/servers.example.json`. |
 | `SAMADCON_ALLOW_CUSTOM_SERVERS` | `1`, im Stack oben `0` | `0` lässt nur die eingetragenen Domänen zu: die Anmeldemaske verliert „Anderer Server …" und ihr freies Adressfeld, und das Backend weist eine getippte Adresse ebenfalls ab. Profile aus `SAMADCON_SERVERS_FILE` werden weiter angeboten. Der Stack trägt den Wert fest ein, geändert wird er also in der Datei. Wer ihn doch aus der Umgebung setzt, setzt ihn nicht leer — er ist ein Bool, und ein leerer Wert verhindert den Start. |
+| `SAMADCON_DEFAULT_LANGUAGE` | nicht gesetzt | Die Sprache der Oberfläche für alle, die mit dem Schalter DE/EN keine gewählt haben: `en` oder `de`. Ohne Eintrag entscheidet die Sprache des Browsers — Deutsch für einen deutschen Browser, sonst Englisch. Eine mit dem Schalter gewählte Sprache geht vor und bleibt je Browser gespeichert. Alles außer `en` und `de` verhindert den Start des Containers. Der Stack trägt die Zeile auskommentiert. |
 
 **LDAP.**
 

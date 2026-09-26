@@ -68,6 +68,10 @@ services:
       # administrators should be able to type any address. A Portainer
       # environment field cannot reach it — those feed ${VAR} only.
       SAMADCON_ALLOW_CUSTOM_SERVERS: "0"
+      # The interface language for anyone who has not picked one with the
+      # DE/EN switch: en or de. Left commented out, the browser's language
+      # decides, as it always has; a picked language wins either way.
+#      SAMADCON_DEFAULT_LANGUAGE: "en"
       # Several domains from one instance: list them in a servers.json and
       # mount its directory below. Profiles work with the line above at "0".
       # See docker/servers/servers.example.json for the format.

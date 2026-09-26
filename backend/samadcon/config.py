@@ -21,6 +21,9 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
 
+#: The interface languages, as frontend/src/i18n/messages.ts has them.
+LANGUAGES = ("de", "en")
+
 
 class ServerProfile(BaseModel):
     """A pre-configured domain, offered in the sign-in form.
@@ -97,6 +100,13 @@ class Settings(BaseSettings):
         default=True,
         description="Whether administrators may type an arbitrary server address",
     )
+    # The interface language for someone who has not picked one. Unset keeps
+    # the browser's language, as before; a choice made with the DE/EN switch
+    # always wins over both.
+    default_language: str | None = Field(
+        default=None,
+        description="Interface language when the user has chosen none: de or en",
+    )
 
     # --- LDAP -------------------------------------------------------------
     ldap_ca_file: Path | None = Field(
@@ -154,6 +164,21 @@ class Settings(BaseSettings):
     @classmethod
     def _upper_realm(cls, value: str) -> str:
         return value.strip().upper()
+
+    @field_validator("default_language", mode="before")
+    @classmethod
+    def _known_language(cls, value: object) -> object:
+        """Empty is unset, as compose leaves an unset variable; anything else
+        must be a language the interface has. A typo refused at start-up beats
+        an interface that silently ignores the setting."""
+        if value is None:
+            return None
+        text = str(value).strip().lower()
+        if not text:
+            return None
+        if text not in LANGUAGES:
+            raise ValueError(f"SAMADCON_DEFAULT_LANGUAGE must be one of {', '.join(LANGUAGES)}")
+        return text
 
     @field_validator("ldap_ca_file", "servers_file", mode="before")
     @classmethod

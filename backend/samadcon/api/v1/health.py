@@ -40,4 +40,7 @@ def info() -> dict[str, Any]:
         # beside what the session actually got, because the two answer
         # different questions: one is policy, the other is what happened.
         "ldap_transports": list(settings.ldap_transports),
+        # The interface language for someone who has not chosen one; None
+        # leaves it to the browser.
+        "default_language": settings.default_language,
     }

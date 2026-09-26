@@ -205,6 +205,9 @@ services:
       # Only the domain above; the sign-in form loses its free address
       # field. 1 only if administrators should type any address.
       SAMADCON_ALLOW_CUSTOM_SERVERS: "0"
+      # Interface language for anyone who has not picked one: en or de.
+      # Commented out, the browser's language decides.
+#      SAMADCON_DEFAULT_LANGUAGE: "en"
     ports:
       # Every interface, which is what a browser on another machine needs.
       # Use "127.0.0.1:8443:8443" when a reverse proxy runs on this host.
@@ -304,6 +307,9 @@ services:
       # to 1 here, in the file, for an instance meant to reach several. A
       # Portainer environment field cannot reach it — those feed ${VAR} only.
       SAMADCON_ALLOW_CUSTOM_SERVERS: "0"
+      # Interface language for anyone who has not picked one: en or de.
+      # Commented out, the browser's language decides.
+#      SAMADCON_DEFAULT_LANGUAGE: "en"
       # Only behind a reverse proxy, and then its host's address. Never 0.0.0.0/0.
       SAMADCON_TRUSTED_PROXIES: "${SAMADCON_TRUSTED_PROXIES}"
     ports:
@@ -531,6 +537,7 @@ the domain out from it.
 | `SAMADCON_WORKGROUP` | the realm up to the first dot | The NetBIOS name, when that derivation is wrong. |
 | `SAMADCON_SERVERS_FILE` | none | A JSON file of domains to offer in the sign-in form; see `docker/servers/servers.example.json`. |
 | `SAMADCON_ALLOW_CUSTOM_SERVERS` | `1`, and `0` in the stack above | `0` allows only the configured domains: the sign-in form loses "Anderer Server ..." and its free address field, and the backend refuses a typed address too. Profiles from `SAMADCON_SERVERS_FILE` are still offered. The stack sets it as a literal, so it is changed in the file. If you do set it from the environment, do not set it empty — it is a boolean, and an empty value stops the container from starting. |
+| `SAMADCON_DEFAULT_LANGUAGE` | unset | The interface language for someone who has not picked one with the DE/EN switch: `en` or `de`. Unset, the browser's language decides — German for a German browser, English for any other. A language picked with the switch wins over this, and is kept per browser. Anything other than `en` or `de` stops the container from starting. The stack carries it commented out. |
 
 **LDAP.**
 

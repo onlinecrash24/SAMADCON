@@ -472,6 +472,8 @@ export interface ServerInfo {
   ldap_insecure: boolean
   /** Transports this deployment permits, in the order they are tried. */
   ldap_transports: string[]
+  /** SAMADCON_DEFAULT_LANGUAGE; null leaves the language to the browser. */
+  default_language?: 'de' | 'en' | null
 }
 
 // ---------------------------------------------------------------------------
