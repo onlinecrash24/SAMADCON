@@ -88,8 +88,13 @@ The domain is chosen **at sign-in**, not when the container starts. The sign-in 
 into the compose file itself, because one instance per domain is the arrangement it is
 written for: the sign-in form then shows the configured domain and nothing else, and the
 backend refuses a typed address as well. It is a fixed value rather than a `${VAR}`, so
-changing it means editing the file — a Portainer environment field cannot reach it. Set it
-to `1` for an instance meant to reach several domains; everything below describes that case.
+changing it means editing the file — a Portainer environment field cannot reach it.
+
+**Several domains from one instance still work with that setting.** It shuts the free address
+field, not the configured domains: list them in a `servers.json`, mount its directory, and set
+`SAMADCON_SERVERS_FILE` — the stack carries both lines, commented out, beside the setting they
+belong to. Set `SAMADCON_ALLOW_CUSTOM_SERVERS` to `1` only if administrators should be able to
+type any address; everything below describes that case.
 
 Given an IP address, SAMADCON works the domain out for itself: an anonymous rootDSE read returns
 the realm, the domain controller's FQDN and the naming contexts. That step is necessary because
@@ -176,7 +181,7 @@ services:
       # INFO names what happens; DEBUG is for tracking a problem down.
       SAMADCON_LOG_LEVEL: "INFO"
       # Only the domain above; the sign-in form loses its free address
-      # field. 1 for an instance that should reach several domains.
+      # field. 1 only if administrators should type any address.
       SAMADCON_ALLOW_CUSTOM_SERVERS: "0"
     ports:
       # Every interface, which is what a browser on another machine needs.
@@ -280,7 +285,8 @@ services:
       # Only behind a reverse proxy, and then its host's address. Never 0.0.0.0/0.
       SAMADCON_TRUSTED_PROXIES: "${SAMADCON_TRUSTED_PROXIES}"
     ports:
-      - "${SAMADCON_HTTPS_PORT}:8443"
+      # Unset SAMADCON_BIND: every interface. 127.0.0.1 behind a proxy on this host.
+      - "${SAMADCON_BIND:+${SAMADCON_BIND}:}${SAMADCON_HTTPS_PORT}:8443"
     dns:
       - "${SAMADCON_DNS}"
     dns_search:
@@ -324,7 +330,8 @@ the two files still list the same ones — a variable added to the stack and for
 example is a setting nobody knows they can change, and one left in the example after the
 stack stopped reading it is a setting that does nothing, which is worse.
 
-**None of the values is optional here.** A name that is not set becomes an empty string, not
+**None of the values is optional here**, bar one: `SAMADCON_BIND` is meant to be left out, and
+unset it binds every interface. For the rest, a name that is not set becomes an empty string, not
 a default: an empty `dns:` leaves the container without a resolver, and an empty port turns
 `"${SAMADCON_HTTPS_PORT}:8443"` into `":8443"`, which Docker reads as *any free host port*.
 That is the trade for keeping the values out of the file. Example 1 above is the version for
@@ -385,8 +392,11 @@ The named volumes survive that — the audit trail lives in `samadcon-logs`.
 ### Behind a reverse proxy
 
 The stacks above publish on every interface, because a proxy on another machine has to be able
-to reach it. With the proxy on this host, bind to loopback instead — `127.0.0.1:8443:8443` — and
-then nothing outside the host can reach the console at all. (A source build run by hand binds to loopback — see
+to reach it. With the proxy on this host, bind to loopback instead — `SAMADCON_BIND=127.0.0.1` in
+the `.env` or the stack's environment fields, or `127.0.0.1:8443:8443` in the first example — and
+then nothing outside the host can reach the console at all. `SAMADCON_BIND` was introduced in
+0.5.2 with loopback as its default, dropped out of the stack in 0.5.15 without being announced,
+and is back: unset now means every interface, which is what the stack did in between. (A source build run by hand binds to loopback — see
 [Building from source](#3--building-from-source) — because that is the safe default while
 working on it; the published-image stack publishes on every interface, because that is what
 a stack on another machine needs.)
@@ -397,7 +407,7 @@ usual mistakes is one of them pointing at the wrong thing:
 
 | Setting | What it has to be | Wrong when |
 |---|---|---|
-| The address in `ports:` (or in `-p`) | An address the proxy host can reach — the LAN address of this host, or none at all, which publishes on every interface | Left at `127.0.0.1`: the proxy gets connection refused |
+| `SAMADCON_BIND` (or the address in `-p`) | An address the proxy host can reach — the LAN address of this host, or none at all, which publishes on every interface | Left at `127.0.0.1`: the proxy gets connection refused |
 | `SAMADCON_TRUSTED_PROXIES` | The proxy **host's** address, not its container's | The audit log keeps showing the proxy |
 | `SAMADCON_PUBLIC_HOST` | The name people type in the browser | Only affects the self-signed certificate, which the proxy does not check |
 | `SAMADCON_PUBLIC_HTTPS_PORT` | The port people reach, so `443` when the proxy serves 443 | Only affects the redirect on 8080, which nobody reaches through a proxy |
@@ -495,7 +505,7 @@ the domain out from it.
 | `SAMADCON_DC_HOSTS` | empty | The controllers, comma-separated. An IP is fine: Kerberos issues tickets for `ldap/<hostname>@REALM` and has no principal for a bare address, so a configured address is probed like a typed one and the DC's own name comes from its rootDSE. |
 | `SAMADCON_WORKGROUP` | the realm up to the first dot | The NetBIOS name, when that derivation is wrong. |
 | `SAMADCON_SERVERS_FILE` | none | A JSON file of domains to offer in the sign-in form; see `docker/servers/servers.example.json`. |
-| `SAMADCON_ALLOW_CUSTOM_SERVERS` | `1`, and `0` in the stack above | `0` allows only the configured domains: the sign-in form loses "Anderer Server ..." and its free address field, and the backend refuses a typed address too. The stack sets it as a literal, so it is changed in the file. If you do set it from the environment, do not set it empty — it is a boolean, and an empty value stops the container from starting. |
+| `SAMADCON_ALLOW_CUSTOM_SERVERS` | `1`, and `0` in the stack above | `0` allows only the configured domains: the sign-in form loses "Anderer Server ..." and its free address field, and the backend refuses a typed address too. Profiles from `SAMADCON_SERVERS_FILE` are still offered. The stack sets it as a literal, so it is changed in the file. If you do set it from the environment, do not set it empty — it is a boolean, and an empty value stops the container from starting. |
 
 **LDAP.**
 

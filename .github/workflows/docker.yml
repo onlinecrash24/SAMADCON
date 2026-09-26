@@ -130,6 +130,16 @@ jobs:
         env:
           EXPECTED_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
 
+      # check_versions reads the compose files as text; this asks Compose what
+      # they mean. The port line nests :+ interpolation so that an unset
+      # SAMADCON_BIND keeps meaning every interface, IPv4 and IPv6, and a set
+      # one narrows it. It was written on a machine without Docker, so this is
+      # where it is proven — and where it stays proven.
+      - name: The stack binds where it says it does
+        run: python scripts/check_compose.py
+        env:
+          REQUIRE_DOCKER: "1"
+
       # Two passes, because they answer different questions and the second
       # is the one nothing else here asks.
       #

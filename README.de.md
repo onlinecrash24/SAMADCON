@@ -90,8 +90,14 @@ Anmeldemaske stehen zur Auswahl:
 die Aufteilung ist, für die er geschrieben ist: die Anmeldemaske zeigt dann die eingetragene
 Domäne und sonst nichts, und das Backend weist eine getippte Adresse ebenfalls ab. Es ist ein
 fester Wert und kein `${VAR}`, geändert wird er also in der Datei — ein Umgebungsfeld in
-Portainer erreicht ihn nicht. Für eine Instanz, die mehrere Domänen erreichen soll, auf `1`
-setzen; alles Folgende beschreibt diesen Fall.
+Portainer erreicht ihn nicht.
+
+**Mehrere Domänen aus einer Instanz gehen mit dieser Einstellung trotzdem.** Sie schließt das
+freie Adressfeld, nicht die eingetragenen Domänen: sie in einer `servers.json` aufführen, deren
+Verzeichnis einhängen und `SAMADCON_SERVERS_FILE` setzen — beide Zeilen stehen auskommentiert im
+Stack, neben der Einstellung, zu der sie gehören. `SAMADCON_ALLOW_CUSTOM_SERVERS` nur dann auf
+`1` setzen, wenn Administratoren beliebige Adressen eintippen können sollen; alles Folgende
+beschreibt diesen Fall.
 
 Bei Eingabe einer IP ermittelt SAMADCON die Domäne selbst: Ein anonymer rootDSE-Abruf liefert
 Realm, den FQDN des Domänencontrollers und die Naming Contexts. Das ist nötig, weil Kerberos
@@ -179,7 +185,7 @@ services:
       # INFO benennt, was passiert; DEBUG ist zum Eingrenzen eines Problems.
       SAMADCON_LOG_LEVEL: "INFO"
       # Nur die Domäne oben; die Anmeldemaske verliert ihr freies
-      # Adressfeld. 1 für eine Instanz, die mehrere erreichen soll.
+      # Adressfeld. 1 nur, wenn Administratoren beliebige Adressen eintippen sollen.
       SAMADCON_ALLOW_CUSTOM_SERVERS: "0"
     ports:
       # Jede Schnittstelle — das braucht ein Browser auf einer anderen Maschine.
@@ -285,7 +291,8 @@ services:
       # Nur hinter einem Reverse Proxy, und dann dessen Host-Adresse. Nie 0.0.0.0/0.
       SAMADCON_TRUSTED_PROXIES: "${SAMADCON_TRUSTED_PROXIES}"
     ports:
-      - "${SAMADCON_HTTPS_PORT}:8443"
+      # SAMADCON_BIND ungesetzt: jede Schnittstelle. 127.0.0.1 hinter einem Proxy auf diesem Host.
+      - "${SAMADCON_BIND:+${SAMADCON_BIND}:}${SAMADCON_HTTPS_PORT}:8443"
     dns:
       - "${SAMADCON_DNS}"
     dns_search:
@@ -330,8 +337,9 @@ ist eine Einstellung, von der niemand weiß, dass es sie gibt — und eine, die 
 stehen blieb, nachdem der Stack sie nicht mehr liest, ist eine Einstellung, die nichts tut. Das
 ist schlimmer, denn irgendwer wird sie setzen und daran glauben.
 
-**Keiner der Werte ist hier optional.** Ein nicht gesetzter Name wird zur leeren Zeichenkette,
-nicht zu einer Vorgabe: ein leeres `dns:` lässt den Container ohne Namensauflösung, und ein
+**Keiner der Werte ist hier optional**, bis auf einen: `SAMADCON_BIND` ist zum Weglassen gedacht,
+und ungesetzt bindet er jede Schnittstelle. Für den Rest gilt: ein nicht gesetzter Name wird zur
+leeren Zeichenkette, nicht zu einer Vorgabe: ein leeres `dns:` lässt den Container ohne Namensauflösung, und ein
 leerer Port macht aus `"${SAMADCON_HTTPS_PORT}:8443"` ein `":8443"` — und das liest Docker als
 *irgendein freier Host-Port*. Das ist der Preis dafür, die Werte aus der Datei zu halten.
 Beispiel 1 oben ist die Fassung für eine Installation, die lieber eine Datei und keinen zweiten
@@ -395,7 +403,11 @@ Die benannten Volumes überleben das — der Audit-Verlauf liegt in `samadcon-lo
 
 Die Stacks oben veröffentlichen auf jeder Schnittstelle, weil ein Proxy auf einer anderen
 Maschine herankommen muss. Läuft der Proxy auf diesem Host, stattdessen auf Loopback binden —
-`127.0.0.1:8443:8443` — dann erreicht die Konsole von außerhalb des Hosts überhaupt niemand. (Ein von Hand gestarteter
+`SAMADCON_BIND=127.0.0.1` in der `.env` oder in den Umgebungsfeldern des Stacks, oder
+`127.0.0.1:8443:8443` im ersten Beispiel — dann erreicht die Konsole von außerhalb des Hosts
+überhaupt niemand. `SAMADCON_BIND` kam in 0.5.2 mit Loopback als Vorgabe, fiel in 0.5.15 ohne
+Ankündigung aus dem Stack und ist zurück: ungesetzt heißt jetzt jede Schnittstelle, und genau
+das hat der Stack in der Zwischenzeit getan. (Ein von Hand gestarteter
 Quelltext-Bau bindet auf Loopback — siehe [Aus dem Quelltext bauen](#3--aus-dem-quelltext-bauen)
 —, weil das beim Arbeiten daran die sichere Vorgabe ist; der Stack mit dem fertigen Image
 veröffentlicht auf allen Schnittstellen, weil ein Stack auf einer anderen Maschine genau das
@@ -407,7 +419,7 @@ und jeder der üblichen Fehler ist eine davon, die auf das Falsche zeigt:
 
 | Einstellung | Was sie sein muss | Falsch, wenn |
 |---|---|---|
-| Die Adresse in `ports:` (oder in `-p`) | Eine Adresse, die der Proxy-Host erreicht — die LAN-Adresse dieses Hosts, oder gar keine, dann jede Schnittstelle | Auf `127.0.0.1` gelassen: der Proxy bekommt „connection refused“ |
+| `SAMADCON_BIND` (oder die Adresse in `-p`) | Eine Adresse, die der Proxy-Host erreicht — die LAN-Adresse dieses Hosts, oder gar keine, dann jede Schnittstelle | Auf `127.0.0.1` gelassen: der Proxy bekommt „connection refused“ |
 | `SAMADCON_TRUSTED_PROXIES` | Die Adresse des Proxy-**Hosts**, nicht die seines Containers | Im Audit-Log steht weiterhin der Proxy |
 | `SAMADCON_PUBLIC_HOST` | Der Name, den die Leute im Browser eintippen | Betrifft nur das selbstsignierte Zertifikat, das der Proxy nicht prüft |
 | `SAMADCON_PUBLIC_HTTPS_PORT` | Der Port, den die Leute erreichen, also `443`, wenn der Proxy auf 443 lauscht | Betrifft nur die Weiterleitung auf 8080, an die hinter einem Proxy niemand kommt |
@@ -509,7 +521,7 @@ und ermittelt die Domäne daraus.
 | `SAMADCON_DC_HOSTS` | leer | Die Controller, komma-getrennt. Eine IP genügt: Kerberos stellt Tickets für `ldap/<hostname>@REALM` aus und kennt kein Principal für eine nackte Adresse, deshalb wird eine eingetragene Adresse wie eine eingetippte geprüft und der Name des DC kommt aus seiner rootDSE. |
 | `SAMADCON_WORKGROUP` | der Realm bis zum ersten Punkt | Der NetBIOS-Name, wo diese Ableitung falsch ist. |
 | `SAMADCON_SERVERS_FILE` | keine | Eine JSON-Datei mit Domänen, die die Anmeldemaske anbietet; siehe `docker/servers/servers.example.json`. |
-| `SAMADCON_ALLOW_CUSTOM_SERVERS` | `1`, im Stack oben `0` | `0` lässt nur die eingetragenen Domänen zu: die Anmeldemaske verliert „Anderer Server …" und ihr freies Adressfeld, und das Backend weist eine getippte Adresse ebenfalls ab. Der Stack trägt den Wert fest ein, geändert wird er also in der Datei. Wer ihn doch aus der Umgebung setzt, setzt ihn nicht leer — er ist ein Bool, und ein leerer Wert verhindert den Start. |
+| `SAMADCON_ALLOW_CUSTOM_SERVERS` | `1`, im Stack oben `0` | `0` lässt nur die eingetragenen Domänen zu: die Anmeldemaske verliert „Anderer Server …" und ihr freies Adressfeld, und das Backend weist eine getippte Adresse ebenfalls ab. Profile aus `SAMADCON_SERVERS_FILE` werden weiter angeboten. Der Stack trägt den Wert fest ein, geändert wird er also in der Datei. Wer ihn doch aus der Umgebung setzt, setzt ihn nicht leer — er ist ein Bool, und ein leerer Wert verhindert den Start. |
 
 **LDAP.**
 

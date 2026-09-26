@@ -61,18 +61,31 @@ services:
       SAMADCON_REALM: "${SAMADCON_REALM}"
       SAMADCON_DC_HOSTS: "${SAMADCON_DC_HOSTS}"
       SAMADCON_LOG_LEVEL: "${SAMADCON_LOG_LEVEL}"
-      # Only the domain configured above. The sign-in form then shows that one
-      # and nothing else. One instance per domain is the arrangement this stack
-      # is written for, so it is a fixed value rather than a variable: set it
-      # to 1 here, in the file, for an instance meant to reach several. A
-      # Portainer environment field cannot reach it — those feed ${VAR} only.
+      # No free address field in the sign-in form: only the domain configured
+      # above, and any listed in a servers file below. One instance per domain
+      # is the arrangement this stack is written for, so it is a fixed value
+      # rather than a variable; set it to 1, here in the file, only if
+      # administrators should be able to type any address. A Portainer
+      # environment field cannot reach it — those feed ${VAR} only.
       SAMADCON_ALLOW_CUSTOM_SERVERS: "0"
+      # Several domains from one instance: list them in a servers.json and
+      # mount its directory below. Profiles work with the line above at "0".
+      # See docker/servers/servers.example.json for the format.
+#      SAMADCON_SERVERS_FILE: "/etc/samadcon/servers/servers.json"
       # Only behind a reverse proxy, and then its host's address. Never 0.0.0.0/0.
       SAMADCON_TRUSTED_PROXIES: "${SAMADCON_TRUSTED_PROXIES}"
     ports:
       # host port : container port. The container always listens on 8443 and
       # that does not change; the left one is for a host where 8443 is taken.
-      - "${SAMADCON_HTTPS_PORT}:8443"
+      #
+      # SAMADCON_BIND narrows the address the host answers on. Unset or empty,
+      # it answers on every interface, IPv4 and IPv6 — what a browser or proxy
+      # on another machine needs. Behind a reverse proxy on this same host, set
+      # it to 127.0.0.1: then nothing outside the host reaches a sign-in form
+      # that issues Kerberos tickets for the domain. An IPv6 address goes in
+      # brackets, [::1]. Written with :+ rather than :-0.0.0.0, because naming
+      # 0.0.0.0 would quietly publish on IPv4 alone.
+      - "${SAMADCON_BIND:+${SAMADCON_BIND}:}${SAMADCON_HTTPS_PORT}:8443"
     # The container asks the domain controller for names. That is what lets
     # Kerberos find its KDC and the console find the other controllers, both of
     # which are SRV lookups in the domain's own zone.
@@ -101,6 +114,10 @@ services:
       - samadcon-cache:/var/cache/samadcon
       - samadcon-data:/var/lib/samadcon
       - samadcon-logs:/var/log/samadcon
+      # The servers file, when SAMADCON_SERVERS_FILE above is set. An absolute
+      # path on the host: a relative one resolves nowhere useful in a
+      # Portainer stack. Read-only is enough; the file only has to be readable.
+#      - /srv/samadcon/servers:/etc/samadcon/servers:ro
     shm_size: 64m
     tmpfs:
       - /run/samadcon:mode=0700,uid=1000,gid=1000,size=8m
