@@ -211,6 +211,10 @@ export const api = {
     enabled?: boolean
     attributes?: Record<string, string>
   }) => http.post<UserDetail>('/users', payload),
+  copyTemplateGroups: (templateDn: string) =>
+    http.get<{ groups: { dn: string; primary: boolean }[] }>(
+      `/users/copy/groups?dn=${dnParam(templateDn)}`,
+    ),
   copyUser: (
     templateDn: string,
     payload: {

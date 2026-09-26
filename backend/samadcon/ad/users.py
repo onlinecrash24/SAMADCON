@@ -161,7 +161,15 @@ def primary_group_dn(conn: DirectoryConnection, entry: Any) -> str | None:
     One indexed search; None when either half is missing or nothing matches,
     which the sheet shows as a dash rather than as a number nobody can read.
     """
-    rid = values.as_int(entry, "primaryGroupID")
+    return group_dn_by_rid(conn, entry, values.as_int(entry, "primaryGroupID"))
+
+
+def group_dn_by_rid(conn: DirectoryConnection, entry: Any, rid: int | None) -> str | None:
+    """The group in *entry*'s own domain whose RID is *rid*, as a DN.
+
+    By SID and not by name: Domain Users is "Domänen-Benutzer" on a German
+    domain, and any group can be renamed.
+    """
     account_sid = values.sid_to_str(values.as_bytes(entry, "objectSid"))
     if rid is None or not account_sid:
         return None
@@ -412,6 +420,47 @@ def follow_name(path: str, template_sam: str | None, new_sam: str) -> str:
     )
 
 
+def _template_groups(conn: DirectoryConnection, template: Any) -> list[dict[str, Any]]:
+    """The groups a copy of *template* is offered.
+
+    Its memberships, and its primary group when that is not Domain Users —
+    less Domain Users itself. Every new account starts with Domain Users as
+    its primary group, and the directory refuses it as a member of that
+    group a second time. When the copy's primary group is then switched to
+    the template's, the DC turns Domain Users into an ordinary membership on
+    its own, as it did for the template. Offering it anyway made a copy report
+    a failure for a group it ended up in (found on a Samba 4.22 DC).
+    """
+    domain_users = (group_dn_by_rid(conn, template, DOMAIN_USERS_RID) or "").lower()
+    groups = [
+        {"dn": dn, "primary": False}
+        for dn in values.as_list(template, "memberOf")
+        if dn.lower() != domain_users
+    ]
+    if values.as_int(template, "primaryGroupID") not in (None, DOMAIN_USERS_RID):
+        primary = primary_group_dn(conn, template)
+        if primary and primary.lower() != domain_users:
+            groups.append({"dn": primary, "primary": True})
+    return groups
+
+
+def copy_template_groups(conn: DirectoryConnection, template_dn: str) -> list[dict[str, Any]]:
+    """What the copy dialog lists: the groups :func:`copy_user` would give."""
+    template = conn.get(
+        template_dn, attrs=["objectClass", "objectSid", "memberOf", "primaryGroupID"]
+    )
+    if template is None:
+        raise NotFound("The template account does not exist.", context={"dn": template_dn})
+    _require_user_template(template)
+    return _template_groups(conn, template)
+
+
+def _require_user_template(template: Any) -> None:
+    classes = {c.lower() for c in values.as_list(template, "objectClass")}
+    if "user" not in classes or "computer" in classes:
+        raise InvalidRequest("Only a user account can be copied.", code="not_a_user_template")
+
+
 def copy_user(
     conn: DirectoryConnection,
     template_dn: str,
@@ -462,9 +511,7 @@ def copy_user(
     )
     if template is None:
         raise NotFound("The template account does not exist.", context={"dn": template_dn})
-    classes = {c.lower() for c in values.as_list(template, "objectClass")}
-    if "user" not in classes or "computer" in classes:
-        raise InvalidRequest("Only a user account can be copied.", code="not_a_user_template")
+    _require_user_template(template)
 
     sam = sam_account_name.strip()
     template_sam = values.as_str(template, "sAMAccountName")
@@ -494,14 +541,9 @@ def copy_user(
     if expires is not None and expires not in NEVER_EXPIRES:
         raw["accountExpires"] = str(expires)
 
-    # The template's groups: its memberships, and its primary group when that
-    # is not Domain Users, which every new account is given anyway.
-    offered = values.as_list(template, "memberOf")
-    primary = None
-    if values.as_int(template, "primaryGroupID") not in (None, DOMAIN_USERS_RID):
-        primary = primary_group_dn(conn, template)
-        if primary:
-            offered.append(primary)
+    template_groups = _template_groups(conn, template)
+    offered = [group["dn"] for group in template_groups]
+    primary = next((group["dn"] for group in template_groups if group["primary"]), None)
     by_name = {group.lower(): group for group in offered}
     if groups is None:
         chosen = offered

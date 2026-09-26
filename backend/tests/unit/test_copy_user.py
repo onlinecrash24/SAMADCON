@@ -33,6 +33,7 @@ SALES = f"CN=Vertrieb,OU=Gruppen,{BASE}"
 VPN = f"CN=VPN-Nutzer,OU=Gruppen,{BASE}"
 GUARDED = f"CN=Tresor,OU=Gruppen,{BASE}"
 PRIMARY = f"CN=Vertrieb-Primaer,OU=Gruppen,{BASE}"
+DOMAIN_USERS = f"CN=Domain Users,CN=Users,{BASE}"
 LOGON_HOURS = bytes([0x00, 0xFF, 0x0F] * 7)
 EXPIRES = 134_000_000_000_000_000  # a date in 2025, as a FILETIME
 
@@ -138,12 +139,40 @@ class Directory:
         self.objects[dn.lower()].setdefault("primaryGroupID", [b"513"])
         self.next_rid += 1
 
+    def rid(self, dn: str) -> int:
+        return int(values.sid_to_str(self.raw(dn, "objectSid")[0]).rsplit("-", 1)[1])
+
+    def by_rid(self, rid: int) -> str:
+        return next(
+            e["distinguishedName"][0].decode()
+            for e in self.objects.values()
+            if e.get("objectSid") and values.sid_to_str(e["objectSid"][0]).endswith(f"-{rid}")
+        )
+
     def modify(self, message: Any) -> None:
         dn = message.dn.text
         entry = self.objects[dn.lower()]
         for name, element in message.items():
             if name == "member" and dn.lower() in self.refuse:
                 raise PermissionDenied("Insufficient access rights.", code="insufficient_rights")
+            if name == "member" and element.flags == FakeLdb.FLAG_MOD_ADD:
+                # As Samba does: an account is never an explicit member of its
+                # own primary group.
+                for member in encoded(element.value):
+                    if self.text(member.decode(), "primaryGroupID") == str(self.rid(dn)):
+                        raise Conflict(
+                            "An object with this name already exists.", code="already_exists"
+                        )
+            if name == "primaryGroupID":
+                # As Samba does: the old primary group becomes an ordinary
+                # membership, and the new one stops being one.
+                old = self.by_rid(int(self.text(dn, "primaryGroupID") or 513))
+                new = self.by_rid(int(element.value))
+                self.objects[old.lower()].setdefault("member", []).append(dn.encode())
+                members = self.objects[new.lower()].get("member", [])
+                self.objects[new.lower()]["member"] = [
+                    m for m in members if m.decode().lower() != dn.lower()
+                ]
             if element.flags == FakeLdb.FLAG_MOD_ADD:
                 entry.setdefault(name, []).extend(encoded(element.value))
             else:
@@ -197,6 +226,7 @@ def directory(monkeypatch) -> Directory:
         physicalDeliveryOfficeName="Raum 0",
         streetAddress="Hauptstrasse 1",
     )
+    group(d, DOMAIN_USERS, 513, [])
     group(d, SALES, 1201, [TEMPLATE])
     group(d, VPN, 1202, [TEMPLATE])
     group(d, GUARDED, 1203, [TEMPLATE])
@@ -305,16 +335,54 @@ def test_a_group_the_template_does_not_have_is_refused_before_anything_is_made(d
     assert not directory.exists(NEW)
 
 
-def test_a_primary_group_other_than_domain_users_comes_along(directory):
-    # Primary membership is implicit: the template is not in the group's member list.
+def with_primary_group(directory: Directory) -> None:
+    """The template as samba-tool user setprimarygroup leaves it: primary group
+    PRIMARY, which it is no longer an explicit member of, and an explicit
+    member of Domain Users instead."""
     group(directory, PRIMARY, 1300, [])
     directory.objects[TEMPLATE.lower()]["primaryGroupID"] = [b"1300"]
+    directory.objects[DOMAIN_USERS.lower()]["member"] = [TEMPLATE.encode()]
 
+
+def test_a_primary_group_other_than_domain_users_comes_along(directory):
+    with_primary_group(directory)
     result = copy(directory)
 
     assert PRIMARY in result["groups_added"]
     assert directory.text(NEW, "primaryGroupID") == "1300"
+
+
+def test_domain_users_is_not_reported_as_a_group_the_copy_could_not_join(directory):
+    """Found on a Samba 4.22 DC: the template listed Domain Users, the new
+    account already had it as its primary group, the directory refused it a
+    second time, and the copy reported a failure for a group it ended up in
+    once its primary group was switched."""
+    with_primary_group(directory)
+    result = copy(directory)
+
     assert result["failed_groups"] == []
+    assert DOMAIN_USERS not in result["groups_added"]
+    assert DOMAIN_USERS in result["user"]["member_of"]  # the DC's doing, not the copy's
+
+
+def test_the_dialog_is_offered_the_groups_the_copy_would_give(directory):
+    with_primary_group(directory)
+    offered = users.copy_template_groups(directory, TEMPLATE)
+
+    assert {g["dn"]: g["primary"] for g in offered} == {
+        SALES: False,
+        VPN: False,
+        GUARDED: False,
+        PRIMARY: True,
+    }
+
+
+def test_domain_users_is_recognised_by_its_sid_not_its_name(directory):
+    renamed = f"CN=Domaenen-Benutzer,CN=Users,{BASE}"
+    directory.objects.pop(DOMAIN_USERS.lower())
+    group(directory, renamed, 513, [TEMPLATE])
+    offered = [g["dn"] for g in users.copy_template_groups(directory, TEMPLATE)]
+    assert renamed not in offered
 
 
 # ---------------------------------------------------------------------------

@@ -12,6 +12,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useEffect, useState, type FormEvent } from 'react'
 
+import { ApiError } from '../../api/client'
 import { api } from '../../api/endpoints'
 import type { CopyUserResult } from '../../api/types'
 import { UserIdentityFields, useUserIdentity } from '../../components/dialogs'
@@ -25,7 +26,7 @@ import {
 } from '../../components/primitives'
 import { nameFromDn, parentDn } from '../../dn'
 import { useI18n } from '../../i18n'
-import { requestedGroups, templateGroups } from './copyUser'
+import { requestedGroups } from './copyUser'
 
 export function CopyUserDialog({
   template,
@@ -36,11 +37,15 @@ export function CopyUserDialog({
   onClose: () => void
   onDone: (message: string) => void
 }) {
-  const { t } = useI18n()
+  const { t, te } = useI18n()
   const identity = useUserIdentity()
   const source = useQuery({
     queryKey: ['copy-template', template.dn],
     queryFn: () => api.user(template.dn),
+  })
+  const offered = useQuery({
+    queryKey: ['copy-template-groups', template.dn],
+    queryFn: () => api.copyTemplateGroups(template.dn),
   })
   const [generate, setGenerate] = useState(true)
   const [password, setPassword] = useState('')
@@ -59,7 +64,8 @@ export function CopyUserDialog({
     setForm((current) => (current.upnSuffix ? current : { ...current, upnSuffix: suffix }))
   }, [templateUpn, setForm])
 
-  const groups = source.data ? templateGroups(source.data) : []
+  const templateGroups = offered.data?.groups ?? []
+  const groups = templateGroups.map((group) => group.dn)
   const target = parentDn(template.dn)
 
   const create = useMutation({
@@ -136,7 +142,8 @@ export function CopyUserDialog({
                 {result.failed_groups.map((failure) => (
                   <li key={failure.dn} title={failure.dn}>
                     <strong>{nameFromDn(failure.dn)}</strong>
-                    {failure.primary && ` (${t('copy.primaryGroup')})`}: {failure.message}
+                    {failure.primary && ` (${t('copy.primaryGroup')})`}:{' '}
+                    {te(new ApiError(0, { code: failure.code ?? '', message: failure.message }))}
                   </li>
                 ))}
               </ul>
@@ -160,7 +167,7 @@ export function CopyUserDialog({
             type="submit"
             form="copy-user"
             className="button button--primary"
-            disabled={create.isPending || !source.data}
+            disabled={create.isPending || !source.data || !offered.data}
           >
             {t('action.create')}
           </button>
@@ -168,7 +175,7 @@ export function CopyUserDialog({
       }
     >
       <form id="copy-user" onSubmit={submit} className="form">
-        <ErrorMessage error={error ?? source.error} onDismiss={() => setError(null)} />
+        <ErrorMessage error={error ?? source.error ?? offered.error} onDismiss={() => setError(null)} />
         <TextRow label={t('copy.target')} value={<span title={target}>{nameFromDn(target)}</span>} />
         <UserIdentityFields identity={identity} />
 
@@ -202,19 +209,22 @@ export function CopyUserDialog({
 
         <fieldset className="radio-group radio-group--block">
           <legend>{t('copy.groups')}</legend>
-          {source.isPending ? (
+          {offered.isPending ? (
             <Spinner />
-          ) : groups.length === 0 ? (
+          ) : templateGroups.length === 0 ? (
             <p className="muted small">{t('copy.noGroups')}</p>
           ) : (
-            groups.map((group) => (
-              <label key={group} className="checkbox" title={group}>
+            templateGroups.map((group) => (
+              <label key={group.dn} className="checkbox" title={group.dn}>
                 <input
                   type="checkbox"
-                  checked={!leftOut.has(group.toLowerCase())}
-                  onChange={() => toggle(group)}
+                  checked={!leftOut.has(group.dn.toLowerCase())}
+                  onChange={() => toggle(group.dn)}
                 />
-                <span>{nameFromDn(group)}</span>
+                <span>
+                  {nameFromDn(group.dn)}
+                  {group.primary && <span className="muted"> ({t('copy.primaryGroup')})</span>}
+                </span>
               </label>
             ))
           )}

@@ -82,6 +82,22 @@ async def create_user(
     return created
 
 
+@router.get("/copy/groups")
+async def copy_template_groups(
+    worker: Worker, session: CurrentSession, dn: DnQuery
+) -> dict[str, Any]:
+    """The groups a copy of the template *dn* would be given.
+
+    Asked of the server rather than worked out in the browser, because the one
+    group left out — Domain Users — is recognised by its SID, and its name
+    depends on the domain's language.
+    """
+    groups = await ad_read(
+        worker, session, users.copy_template_groups, dn, label="user.copy_groups"
+    )
+    return {"groups": groups}
+
+
 @router.post("/copy")
 async def copy_user(
     payload: CopyUserRequest,
