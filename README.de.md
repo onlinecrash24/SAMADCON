@@ -166,8 +166,8 @@ docker pull ghcr.io/onlinecrash24/samadcon:latest
 | Tag | Was er ist |
 |---|---|
 | `latest` | Das neueste Release. Wandert mit jedem getaggten Release — das benutzen die Beispiele unten. |
-| `0.5.19` | Ein Release, und es ändert sich nie. **Hier festnageln, wo ein Upgrade eine Entscheidung sein soll.** |
-| `0.5` | Das neueste Release dieser Minor-Reihe. |
+| `0.6.0` | Ein Release, und es ändert sich nie. **Hier festnageln, wo ein Upgrade eine Entscheidung sein soll.** |
+| `0.6` | Das neueste Release dieser Minor-Reihe. |
 | `dev` | Die Spitze des DEV-Zweigs: woran gearbeitet wird, vor einem Release. |
 | `sha-<kurz>` | Ein Commit. Jeder Build trägt einen. |
 
