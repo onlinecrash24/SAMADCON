@@ -94,6 +94,35 @@ jobs:
           docker run --rm -e SAMADCON_TRUSTED_PROXIES='10.0.0.0/8, 192.168.1.2' \
             samadcon:test nginx -t -c /etc/samadcon/nginx.conf
 
+      # nginx spools a request body larger than its memory buffer to disk
+      # before the application sees it. The spool used to sit on
+      # /run/samadcon, which the compose file mounts as an 8 MB tmpfs:
+      # Microsoft's 14 MB template MSI met an HTML 500 from nginx and never
+      # reached the application. Started with that same tmpfs, the container
+      # has to hand a 20 MB body through. Whatever the application answers —
+      # here a refusal, since there is no session — it has to be the one
+      # answering, in JSON.
+      - name: A large upload reaches the application
+        run: |
+          docker run -d --name upload-check -p 127.0.0.1:18443:8443 \
+            --tmpfs /run/samadcon:mode=0700,uid=1000,gid=1000,size=8m samadcon:test
+          for attempt in $(seq 1 45); do
+            curl -fsk https://127.0.0.1:18443/api/v1/health >/dev/null 2>&1 && break
+            sleep 2
+          done
+          head -c 20000000 /dev/zero > "${RUNNER_TEMP}/body.bin"
+          result=$(curl -sk -o "${RUNNER_TEMP}/answer" -w '%{http_code} %{content_type}' \
+            -F "files=@${RUNNER_TEMP}/body.bin;filename=package.msi" \
+            https://127.0.0.1:18443/api/v1/admx/store)
+          echo "answer: ${result}"
+          head -c 400 "${RUNNER_TEMP}/answer"; echo
+          docker exec upload-check tail -n 5 /var/log/nginx/error.log || true
+          docker rm -f upload-check >/dev/null
+          case "${result}" in
+            *application/json*) ;;
+            *) echo "nginx answered instead of the application"; exit 1 ;;
+          esac
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
