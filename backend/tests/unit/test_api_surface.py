@@ -301,7 +301,11 @@ def test_a_bitlocker_password_is_only_read_by_a_verified_post(client: TestClient
     client.cookies.set("samadcon_session", session_id)
     target = "/api/v1/computers/bitlocker/reveal?dn=CN=PC01,DC=samadcon,DC=test&key_id=1A2B3C4D"
 
-    assert client.get(target).status_code == 405
+    # Only a POST route exists. What a GET gets back depends on what else is
+    # mounted: 405 here, 404 in the image, where the front end is served from
+    # "/" and takes the GET. Either way it is not the password.
+    assert set(app.openapi()["paths"]["/api/v1/computers/bitlocker/reveal"]) == {"post"}
+    assert client.get(target).status_code in (404, 405)
     refused = client.post(target)
     assert refused.status_code == 403
     assert refused.json()["error"]["code"] == "csrf_failed"
