@@ -76,10 +76,16 @@ def _purposes(cert: x509.Certificate) -> list[str]:
     return [_PURPOSES.get(oid, oid.dotted_string) for oid in eku]
 
 
-def describe(cert: x509.Certificate) -> dict[str, Any]:
-    der = cert.public_bytes(Encoding.DER)
+def describe(cert: x509.Certificate, *, content: bool = True) -> dict[str, Any]:
+    """What the tab shows of a certificate; with ``content``, the certificate too.
+
+    The list leaves the content out. An account can carry dozens of
+    certificates, and each came along twice, as DER and as PEM, for a view that
+    shows one of them at a time — so the content is fetched when someone opens
+    or saves that one (:func:`get_certificate`).
+    """
     fingerprint = cert.fingerprint(hashes.SHA256()).hex()
-    return {
+    summary = {
         "fingerprint": fingerprint,
         "subject": _name(cert.subject),
         "issuer": _name(cert.issuer),
@@ -89,11 +95,13 @@ def describe(cert: x509.Certificate) -> dict[str, Any]:
         "not_before": cert.not_valid_before_utc.isoformat(),
         "not_after": cert.not_valid_after_utc.isoformat(),
         "purposes": _purposes(cert),
+    }
+    if content:
         # For "Copy to File" and for showing the whole thing: the DER as
         # base64, and the PEM as text.
-        "der": base64.b64encode(der).decode("ascii"),
-        "pem": cert.public_bytes(Encoding.PEM).decode("ascii"),
-    }
+        summary["der"] = base64.b64encode(cert.public_bytes(Encoding.DER)).decode("ascii")
+        summary["pem"] = cert.public_bytes(Encoding.PEM).decode("ascii")
+    return summary
 
 
 def inspect(data_b64: str) -> dict[str, Any]:
@@ -123,16 +131,38 @@ def list_certificates(conn: DirectoryConnection, dn: str) -> list[dict[str, Any]
     out: list[dict[str, Any]] = []
     for raw in _stored(conn, dn):
         try:
-            out.append(describe(x509.load_der_x509_certificate(raw)))
+            out.append(describe(x509.load_der_x509_certificate(raw), content=False))
         except ValueError:
             out.append({
                 "fingerprint": _raw_fingerprint(raw),
                 "subject": None,
                 "issuer": None,
                 "unparseable": True,
-                "der": base64.b64encode(raw).decode("ascii"),
             })
     return out
+
+
+def get_certificate(conn: DirectoryConnection, dn: str, fingerprint: str) -> dict[str, Any]:
+    """One certificate on the account, with its content, by fingerprint."""
+    wanted = fingerprint.lower()
+    for raw in _stored(conn, dn):
+        if _raw_fingerprint(raw) != wanted:
+            continue
+        try:
+            return describe(x509.load_der_x509_certificate(raw))
+        except ValueError:
+            # Not a certificate, but ADUC still lets it be copied to a file.
+            return {
+                "fingerprint": wanted,
+                "subject": None,
+                "issuer": None,
+                "unparseable": True,
+                "der": base64.b64encode(raw).decode("ascii"),
+            }
+    raise NotFound(
+        "No certificate with that fingerprint is on the account.",
+        context={"fingerprint": fingerprint},
+    )
 
 
 def _raw_fingerprint(raw: bytes) -> str:

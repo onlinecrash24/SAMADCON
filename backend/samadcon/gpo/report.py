@@ -353,9 +353,18 @@ def _match(entries: list[dict[str, Any]], name: str) -> str | None:
 
 
 def _walk(
-    share: sysvol.SysvolConnection, base: str, *, depth: int = MAX_DEPTH
+    share: sysvol.SysvolConnection,
+    base: str,
+    *,
+    depth: int = MAX_DEPTH,
+    skipped: list[dict[str, Any]] | None = None,
 ) -> list[str]:
-    """Every file below *base*, to a bounded depth."""
+    """Every file below *base*, to a bounded depth.
+
+    A folder the bound leaves unread goes into *skipped*, which the report
+    shows beside the files it could not read — the report used to stop there
+    without saying so.
+    """
     if depth <= 0:
         return []
 
@@ -367,10 +376,14 @@ def _walk(
         return files
 
     for entry in entries:
-        if entry["is_directory"]:
-            files.extend(_walk(share, entry["path"], depth=depth - 1))
-        else:
+        if not entry["is_directory"]:
             files.append(entry["path"])
+        elif depth > 1:
+            files.extend(_walk(share, entry["path"], depth=depth - 1, skipped=skipped))
+        elif skipped is not None:
+            skipped.append(
+                {"path": entry["path"], "reason": f"deeper than {MAX_DEPTH} levels, not read"}
+            )
     return files
 
 
@@ -401,7 +414,7 @@ def _read_half(
     name: str,
 ) -> dict[str, Any]:
     half = _empty_half()
-    files = _walk(share, base)
+    files = _walk(share, base, skipped=unreadable)
     claimed: set[str] = set()
 
     registry = _find(files, base, REGISTRY_FILE)

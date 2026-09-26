@@ -35,8 +35,14 @@ http {
     # servers inherit it.
     include ${SAMADCON_CONF_DIR}/real-ip.conf;
 
-    # ADMX bundles are the largest thing a user uploads.
-    client_max_body_size 64m;
+    # The application limits uploads to 64 MiB of *file* bytes — template
+    # packages (api/v1/admx.py) and GPO backups (gpo/transfer.py). This counts
+    # the whole request: multipart boundaries and a header per part come on
+    # top, about 150 KB for a PolicyDefinitions folder of 700 files. At 64m the
+    # two were the same figure, and a package just under the application's
+    # limit met nginx's instead, as an HTML page. The margin keeps the
+    # application's limit the one people meet, with its own message.
+    client_max_body_size 72m;
 
     gzip              on;
     gzip_vary         on;

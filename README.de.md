@@ -315,11 +315,11 @@ services:
       SAMADCON_TRUSTED_PROXIES: "${SAMADCON_TRUSTED_PROXIES}"
     ports:
       # SAMADCON_BIND ungesetzt: jede Schnittstelle. 127.0.0.1 hinter einem Proxy auf diesem Host.
-      - "${SAMADCON_BIND:+${SAMADCON_BIND}:}${SAMADCON_HTTPS_PORT}:8443"
+      - "${SAMADCON_BIND:+${SAMADCON_BIND}:}${SAMADCON_HTTPS_PORT:?the port on the host, such as 8443}:8443"
     dns:
-      - "${SAMADCON_DNS}"
+      - "${SAMADCON_DNS:?a resolver that serves the domain, usually its DC - or delete the dns lines}"
     dns_search:
-      - "${SAMADCON_DNS_SEARCH}"
+      - "${SAMADCON_DNS_SEARCH:?the domain in lower case - or delete the dns_search lines}"
     volumes:
       - samadcon-tls:/etc/samadcon/tls
       - samadcon-ca:/etc/samadcon/ca
@@ -360,13 +360,15 @@ ist eine Einstellung, von der niemand weiß, dass es sie gibt — und eine, die 
 stehen blieb, nachdem der Stack sie nicht mehr liest, ist eine Einstellung, die nichts tut. Das
 ist schlimmer, denn irgendwer wird sie setzen und daran glauben.
 
-**Keiner der Werte ist hier optional**, bis auf einen: `SAMADCON_BIND` ist zum Weglassen gedacht,
-und ungesetzt bindet er jede Schnittstelle. Für den Rest gilt: ein nicht gesetzter Name wird zur
-leeren Zeichenkette, nicht zu einer Vorgabe: ein leeres `dns:` lässt den Container ohne Namensauflösung, und ein
-leerer Port macht aus `"${SAMADCON_HTTPS_PORT}:8443"` ein `":8443"` — und das liest Docker als
-*irgendein freier Host-Port*. Das ist der Preis dafür, die Werte aus der Datei zu halten.
-Beispiel 1 oben ist die Fassung für eine Installation, die lieber eine Datei und keinen zweiten
-Schritt hat.
+**Drei Werte halten den Stack an, wenn sie fehlen.** `SAMADCON_HTTPS_PORT`, `SAMADCON_DNS` und
+`SAMADCON_DNS_SEARCH` stehen als `${NAME:?…}` in der Datei; Compose startet dann nicht und nennt
+den fehlenden Namen. Leer liefen sie früher trotzdem an — auf irgendeinem freien Host-Port und
+ohne Resolver. Die übrigen sind leer harmlos: `SAMADCON_BIND` ist zum Weglassen gedacht und bindet
+dann jede Schnittstelle; ein leerer Realm oder Controller lässt die Anmeldemaske nachfragen; ein
+leerer Log-Level ist INFO; keine vertrauenswürdigen Proxys heißt keine; ein leerer öffentlicher
+Name nennt das selbstsignierte Zertifikat `samadcon.local`. Wessen Docker-Host die Domäne schon
+auflöst, streicht stattdessen die Zeilen `dns:` und `dns_search:`. Beispiel 1 oben ist die Fassung
+für eine Installation, die lieber eine Datei und keinen zweiten Schritt hat.
 
 Das Kennwort des Domänenadministrators gehört in keine der beiden Dateien. Die Konsole nimmt
 ohnehin keines aus der Umgebung; sie fragt den, der sich anmeldet, und handelt mit dessen
@@ -1059,6 +1061,23 @@ Tests ohne DC — laufen auch ohne `python3-samba` und ohne Container:
 ```bash
 .venv/bin/pytest backend/tests/unit -q
 ```
+
+### Die Abhängigkeiten aktualisieren
+
+Das Image löst seine Python-Abhängigkeiten beim Bau nicht auf. Es installiert sie aus
+`backend/requirements.lock` mit `--require-hashes`: jede Version festgelegt, jede Datei gegen ihren
+Hash geprüft — im Image steckt also genau, was das Lock nennt und was das CI geprüft hat. Neuere
+Versionen kommen hinein, indem man das Lock neu erzeugt, und zwar für die Plattform des Images,
+Linux x86_64 mit dem Python 3.13 von Debian trixie, nicht für den Rechner, auf dem man es erzeugt:
+
+```bash
+uv pip compile backend/pyproject.toml --generate-hashes --python-version 3.13 --python-platform x86_64-unknown-linux-gnu -o backend/requirements.lock
+```
+
+`scripts/check_lock.py` hält im CI das Lock an `pyproject.toml`: jede deklarierte Abhängigkeit
+innerhalb ihrer Grenzen festgelegt, jede Zeile mit Hash. Ob das Lock die neueste mögliche Auflösung
+ist, fragt es nicht — das würde bei jedem neuen Release irgendwo rot. Eine in `pyproject.toml`
+angehobene Untergrenze ohne neues Lock macht es dagegen rot, und genau darum geht es.
 
 ### Die Version anheben
 

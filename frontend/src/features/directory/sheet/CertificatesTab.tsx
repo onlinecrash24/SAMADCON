@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useRef, useState } from 'react'
 
+import { saveBlob } from '../../../api/client'
 import { api } from '../../../api/endpoints'
 import type { Certificate } from '../../../api/types'
 import { Badge, ErrorMessage, Modal, Spinner, TextRow, useDateFormat } from '../../../components/primitives'
@@ -63,14 +64,33 @@ export function CertificatesTab() {
     reader.readAsArrayBuffer(file)
   }
 
-  const download = (cert: Certificate) => {
-    const bytes = Uint8Array.from(atob(cert.der), (c) => c.charCodeAt(0))
-    const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pkix-cert' }))
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${(cert.subject ?? 'certificate').replace(/[^\w.-]+/g, '_')}.cer`
-    a.click()
-    URL.revokeObjectURL(url)
+  // The list carries no content. One still to be added has it from the
+  // inspection; one already on the account is fetched when it is wanted.
+  const withContent = async (cert: Certificate): Promise<Certificate> =>
+    cert.der ? cert : { ...cert, ...(await api.certificate(object.dn, cert.fingerprint)) }
+
+  const view = async (cert: Certificate) => {
+    try {
+      setViewing(await withContent(cert))
+    } catch (cause) {
+      setError(cause)
+    }
+  }
+
+  // Saved through saveBlob, which releases the URL a second later: this used
+  // to revoke it straight after the click, which cancels the download in
+  // Firefox.
+  const download = async (cert: Certificate) => {
+    try {
+      const full = await withContent(cert)
+      const bytes = Uint8Array.from(atob(full.der ?? ''), (c) => c.charCodeAt(0))
+      saveBlob(
+        new Blob([bytes], { type: 'application/pkix-cert' }),
+        `${(cert.subject ?? 'certificate').replace(/[^\w.-]+/g, '_')}.cer`,
+      )
+    } catch (cause) {
+      setError(cause)
+    }
   }
 
   const removing = new Set(draft.certRemove)
@@ -119,11 +139,11 @@ export function CertificatesTab() {
                 <td>{cert.not_after ? formatDate(cert.not_after) : ''}</td>
                 <td className="table__actions">
                   {!cert.unparseable && (
-                    <button type="button" className="link" onClick={() => setViewing(cert)}>
+                    <button type="button" className="link" onClick={() => void view(cert)}>
                       {t('certs.view')}
                     </button>
                   )}{' '}
-                  <button type="button" className="link" onClick={() => download(cert)}>
+                  <button type="button" className="link" onClick={() => void download(cert)}>
                     {t('certs.copyToFile')}
                   </button>{' '}
                   {state === 'adding' ? (

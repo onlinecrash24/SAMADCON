@@ -120,39 +120,68 @@ export function dnParam(dn: string): string {
  * an ApiError rather than as a downloaded file containing JSON.
  */
 async function download(path: string, fallbackName: string): Promise<void> {
-  const response = await fetch(`${BASE}${path}`, {
+  const response = await reach(`${BASE}${path}`, {
     headers: { Accept: '*/*' },
     credentials: 'same-origin',
   })
-
-  if (!response.ok) {
-    const text = await response.text()
-    let envelope: ApiErrorBody | undefined
-    try {
-      envelope = (JSON.parse(text) as { error?: ApiErrorBody }).error
-    } catch {
-      envelope = undefined
-    }
-    throw new ApiError(
-      response.status,
-      envelope ?? { code: 'unexpected_response', message: 'The download failed.' },
-    )
-  }
+  if (!response.ok) throw await failure(response, 'The download failed.')
 
   const disposition = response.headers.get('Content-Disposition') ?? ''
   const match = /filename="?([^";]+)"?/.exec(disposition)
-  const blob = await response.blob()
+  saveBlob(await response.blob(), match?.[1] ?? fallbackName)
+}
 
+/**
+ * Hand a blob to the browser's downloader.
+ *
+ * The URL is released a second later rather than at once: revoking it
+ * straight after the click cancels the download in Firefox, and even the next
+ * tick is sometimes too early there.
+ */
+export function saveBlob(blob: Blob, name: string): void {
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
   anchor.href = url
-  anchor.download = match?.[1] ?? fallbackName
+  anchor.download = name
   document.body.append(anchor)
   anchor.click()
   anchor.remove()
-  // Released on the next tick; revoking immediately cancels the download in
-  // some browsers.
-  window.setTimeout(() => URL.revokeObjectURL(url), 0)
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+/** fetch, with a network failure turned into the ApiError request() gives. */
+async function reach(url: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, init)
+  } catch (cause) {
+    throw new ApiError(0, {
+      code: 'network_error',
+      message: 'The server could not be reached.',
+      detail: cause instanceof Error ? cause.message : String(cause),
+    })
+  }
+}
+
+/**
+ * The error a failed response stands for.
+ *
+ * The server's own envelope when there is one. Otherwise something in front
+ * of it answered — nginx, a proxy — with a page of HTML, and the status is all
+ * there is to go on. 413 is the one worth naming: nginx measures the whole
+ * request, framing included, and says so before the application ever sees it.
+ */
+async function failure(response: Response, fallback: string): Promise<ApiError> {
+  const text = await response.text()
+  let envelope: ApiErrorBody | undefined
+  try {
+    envelope = (JSON.parse(text) as { error?: ApiErrorBody }).error
+  } catch {
+    envelope = undefined
+  }
+  if (!envelope && response.status === 413) {
+    envelope = { code: 'upload_too_large', message: 'The upload is larger than the server accepts.' }
+  }
+  return new ApiError(response.status, envelope ?? { code: 'unexpected_response', message: fallback })
 }
 
 /** Post a file as multipart form data. */
@@ -184,24 +213,24 @@ async function send<T>(path: string, form: FormData): Promise<T> {
 
   // No Content-Type here on purpose: the browser has to set it, because only
   // it knows the multipart boundary.
-  const response = await fetch(`${BASE}${path}`, {
+  const response = await reach(`${BASE}${path}`, {
     method: 'POST',
     headers,
     credentials: 'same-origin',
     body: form,
   })
+  if (!response.ok) throw await failure(response, 'The upload failed.')
 
   const text = await response.text()
-  const payload = text ? JSON.parse(text) : null
-
-  if (!response.ok) {
-    const envelope = (payload as { error?: ApiErrorBody } | null)?.error
-    throw new ApiError(
-      response.status,
-      envelope ?? { code: 'unexpected_response', message: 'The upload failed.' },
-    )
+  if (!text) return null as T
+  try {
+    return JSON.parse(text) as T
+  } catch {
+    throw new ApiError(response.status, {
+      code: 'unexpected_response',
+      message: 'The server answered with something that is not JSON.',
+    })
   }
-  return payload as T
 }
 
 export const http = {

@@ -89,8 +89,34 @@ def test_the_tab_gets_what_aduc_shows():
     assert shown["purposes"] == ["Client Authentication", "Smart Card Logon"]
     assert shown["not_after"].startswith("2027-01-01")
     assert shown["fingerprint"] == cert.fingerprint(hashes.SHA256()).hex()
-    assert base64.b64decode(shown["der"]) == cert.public_bytes(Encoding.DER)
-    assert shown["pem"].startswith("-----BEGIN CERTIFICATE-----")
+    # The certificate itself is fetched when someone asks for it, not with the
+    # list: an account can carry dozens, and each came twice, DER and PEM.
+    assert "der" not in shown and "pem" not in shown
+
+
+def test_the_certificate_itself_comes_on_request():
+    cert = make_cert("anna")
+    conn = Account([cert])
+    fingerprint = cert.fingerprint(hashes.SHA256()).hex()
+    content = certificates.get_certificate(conn, USER_DN, fingerprint.upper())
+    assert base64.b64decode(content["der"]) == cert.public_bytes(Encoding.DER)
+    assert content["pem"].startswith("-----BEGIN CERTIFICATE-----")
+
+
+def test_a_fingerprint_that_is_not_there_is_not_found():
+    conn = Account([make_cert("anna")])
+    with pytest.raises(NotFound):
+        certificates.get_certificate(conn, USER_DN, "00" * 32)
+
+
+def test_a_value_that_is_no_certificate_can_still_be_saved():
+    """ADUC lets it be copied to a file; the bytes are all there is."""
+    conn = Account([])
+    conn.values = [b"not a certificate"]
+    [shown] = certificates.list_certificates(conn, USER_DN)
+    content = certificates.get_certificate(conn, USER_DN, shown["fingerprint"])
+    assert base64.b64decode(content["der"]) == b"not a certificate"
+    assert content["unparseable"] is True
 
 
 def test_a_value_that_is_not_a_certificate_is_reported_not_hidden():

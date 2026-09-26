@@ -8,7 +8,7 @@ from fastapi import APIRouter, Query
 
 from samadcon.ad import dns, dnsrecords
 from samadcon.ad.access import ad_read, ad_write
-from samadcon.api.common import Audit
+from samadcon.api.common import DN_PATTERN, Audit
 from samadcon.auth.deps import CurrentSession, VerifiedSession, VerifiedWorker, Worker
 from samadcon.schemas.requests import (
     CreateDnsRecordRequest,
@@ -19,7 +19,9 @@ from samadcon.schemas.requests import (
 
 router = APIRouter(prefix="/dns", tags=["dns"])
 
-ZoneDn = Annotated[str, Query(min_length=3, description="Distinguished name of the zone")]
+ZoneDn = Annotated[
+    str, Query(min_length=3, pattern=DN_PATTERN, description="Distinguished name of the zone")
+]
 
 
 @router.get("/zones")

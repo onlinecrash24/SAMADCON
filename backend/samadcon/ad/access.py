@@ -66,7 +66,12 @@ async def ad_read(
         conn = _connection(worker, session, resolved)
         try:
             return func(conn, *args, **kwargs)
-        except (UpstreamUnavailable, OperationTimeout):
+        except (UpstreamUnavailable, OperationTimeout) as exc:
+            # The server's own time limit is an answer, not a lost connection:
+            # the same search on a new one meets the same limit, at twice the
+            # cost to the DC.
+            if exc.code == "ldap_time_limit":
+                raise
             logger.info("connection lost, reconnecting for %s", label or func.__name__)
             conn = _reconnect(worker, session, resolved)
             return func(conn, *args, **kwargs)

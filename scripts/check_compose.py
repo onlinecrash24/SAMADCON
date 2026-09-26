@@ -45,6 +45,37 @@ CASES = (
 )
 
 
+# Written ${NAME:?...}: empty, each must stop the stack and say which it is.
+# They used to start it anyway — on any free host port, without a resolver —
+# which an outside review pointed out and nothing here had asked about.
+REQUIRED = ("SAMADCON_HTTPS_PORT", "SAMADCON_DNS", "SAMADCON_DNS_SEARCH")
+
+
+def refuses_empty(stack: Path, name: str) -> str | None:
+    """None when an empty NAME stops the stack and names itself; else why not."""
+    env = {**os.environ, name: ""}
+    result = subprocess.run(
+        [
+            "docker", "compose",
+            "--file", str(stack),
+            "--env-file", str(ENV_EXAMPLE),
+            "config", "--format", "json",
+        ],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+    if result.returncode == 0:
+        return f"{stack.relative_to(ROOT)}: an empty {name} was accepted"
+    if name not in result.stderr:
+        return (
+            f"{stack.relative_to(ROOT)}: an empty {name} was refused without naming it: "
+            f"{result.stderr.strip()[:200]}"
+        )
+    return None
+
+
 def binding(stack: Path, bind: str | None) -> tuple[str | None, str]:
     """The host address and port Compose publishes 8443 on."""
     env = {key: value for key, value in os.environ.items() if key != "SAMADCON_BIND"}
@@ -96,6 +127,12 @@ def main() -> int:
             else:
                 where = address or "every interface"
                 print(f"{stack.relative_to(ROOT)}, SAMADCON_BIND {label}: {where}:{port}")
+        for name in REQUIRED:
+            problem = refuses_empty(stack, name)
+            if problem:
+                found.append(problem)
+            else:
+                print(f"{stack.relative_to(ROOT)}, {name} empty: refused, and named")
 
     if found:
         print("\nThe stack does not bind where it says it does:\n", file=sys.stderr)

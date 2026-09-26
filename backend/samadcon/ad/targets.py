@@ -47,7 +47,9 @@ def describe_profiles(settings: Settings) -> dict[str, Any]:
     profiles = [
         {
             "id": profile.id,
-            "label": profile.label or profile.hosts[0] if profile.hosts else profile.id,
+            # Parenthesised: without them this read as (label or hosts[0]) if
+            # hosts else id, and a profile with a realm and no hosts lost its label.
+            "label": profile.label or (profile.hosts[0] if profile.hosts else profile.id),
             "hosts": profile.hosts,
             "realm": profile.realm,
             "insecure": profile.insecure,

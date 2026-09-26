@@ -252,6 +252,24 @@ def _decode_sid(raw: bytes) -> str | None:
     return "S-" + "-".join([str(revision), str(authority), *[str(s) for s in subs]])
 
 
+LDAP_PORTS = {"ldap": 389, "ldaps": 636}
+
+
+def ldap_url(transport: str, host: str) -> str:
+    """The URL Samba's LDAP client connects to, for *host* over *transport*.
+
+    An IPv6 literal goes in brackets **and with its port**. Samba's
+    ldap_parse_basic_url takes ``[addr]``, then reads the port with
+    ``sscanf(end + 1, ":%d")`` — which returns EOF on an empty rest, and EOF is
+    treated as an error. Measured on a Samba DC: ``ldap://::1`` and
+    ``ldap://[::1]`` both fail with NT_STATUS_INVALID_PARAMETER. Hosts stay bare
+    everywhere else, because that is what a socket takes.
+    """
+    if ":" in host:
+        return f"{transport}://[{host.strip('[]')}]:{LDAP_PORTS[transport]}"
+    return f"{transport}://" + host
+
+
 def rid_of(sid: str | None) -> int | None:
     """Last component of a SID — the RID."""
     if not sid:

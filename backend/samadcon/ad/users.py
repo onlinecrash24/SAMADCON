@@ -200,7 +200,10 @@ def _render_user(conn: DirectoryConnection, entry: Any) -> dict[str, Any]:
         "user_account_control": uac_value,
         "status": {
             "disabled": uac.is_disabled(uac_value),
-            "locked_out": lockout_time is not None,
+            # Present is not the same as in force: the DC keeps the stamp after
+            # the window has passed. Only read the policy when there is a stamp.
+            "locked_out": lockout_time is not None
+            and is_locked_out(entry, lockout_duration_seconds(conn)),
             "lockout_time": lockout_time,
             "last_logon": _newest_logon(entry),
             "logon_count": values.as_int(entry, "logonCount", 0),
@@ -571,30 +574,28 @@ def set_password(
 ) -> None:
     """Administrative password reset.
 
-    Uses the same LDIF form samba-tool does. It requires an encrypted
-    connection, which is guaranteed here because SAMADCON only ever connects
-    over LDAPS.
+    Written as a message, like every other change in this module. It used to be
+    a string of LDIF with the DN interpolated into it, and a DN carrying a line
+    break became further LDIF records — the audit log said one thing and the
+    directory did another. A message has one DN, whatever that DN contains.
+
+    The DC only accepts ``unicodePwd`` over an encrypted connection. Every
+    connection here is one: LDAP with the Kerberos session key and sign-and-seal
+    required, or LDAPS.
     """
-    import base64
+    import ldb
 
     if not password:
         raise InvalidRequest("The password is empty.", code="empty_password")
 
-    # unicodePwd is UTF-16LE and must be wrapped in double quotes.
-    encoded = base64.b64encode(f'"{password}"'.encode("utf-16-le")).decode("ascii")
-    ldif = (
-        f"dn: {dn}\n"
-        "changetype: modify\n"
-        "replace: unicodePwd\n"
-        f"unicodePwd:: {encoded}\n"
+    message = ldb.Message()
+    message.dn = ldb.Dn(conn.samdb, dn)
+    # unicodePwd is UTF-16LE and wrapped in double quotes; the quotes are part
+    # of the value, not LDIF syntax.
+    message["unicodePwd"] = ldb.MessageElement(
+        f'"{password}"'.encode("utf-16-le"), ldb.FLAG_MOD_REPLACE, "unicodePwd"
     )
-
-    try:
-        conn.samdb.modify_ldif(ldif)
-    except Exception as exc:
-        from samadcon.core.errors import translate
-
-        raise translate(exc) from exc
+    conn.modify(message)
 
     set_must_change_password(conn, dn, must_change)
 
@@ -724,6 +725,20 @@ def is_locked_out(entry: Any, lockout_duration_seconds: float | None) -> bool:
     return elapsed < lockout_duration_seconds
 
 
+def lockout_duration_seconds(conn: DirectoryConnection) -> float | None:
+    """How long the domain keeps an account locked; None for "until unlocked".
+
+    The domain's own policy, which is what applies unless a fine-grained
+    password policy (a PSO) sets a different duration for the account — that
+    is not read here, so under a PSO the state can be off by the difference.
+    An unreadable policy counts as "until unlocked": it errs towards showing a
+    lock, which is what the console did before it read the policy at all.
+    """
+    entry = conn.get(conn.info.base_dn, attrs=["lockoutDuration"])
+    span = values.interval_to_timedelta(values.as_int(entry, "lockoutDuration"))
+    return span.total_seconds() if span else None
+
+
 def list_locked_accounts(conn: DirectoryConnection) -> list[dict[str, Any]]:
     result = conn.search(
         conn.info.base_dn,
@@ -732,8 +747,13 @@ def list_locked_accounts(conn: DirectoryConnection) -> list[dict[str, Any]]:
         attrs=["distinguishedName", "sAMAccountName", "displayName", "name", "objectClass",
                "lockoutTime", "objectGUID"],
     )
+    # lockoutTime>=1 finds every account that was ever locked and not unlocked
+    # since; whether the lock is still in force depends on the policy.
+    duration = lockout_duration_seconds(conn)
     accounts = []
     for entry in result:
+        if not is_locked_out(entry, duration):
+            continue
         item = summarize(entry)
         item["locked_since"] = values.as_filetime(entry, "lockoutTime")
         accounts.append(item)

@@ -553,7 +553,7 @@ def connect(target: ConnectionTarget, settings: Settings, ccache: Path) -> Direc
     for host in candidates:
         for transport in settings.ldap_transports:
             protection = PROTECTION[transport]
-            url = f"{transport}://{host}"
+            url = values.ldap_url(transport, host)
             try:
                 # A fresh LoadParm per transport: the SASL wrapping and TLS
                 # settings differ, and Samba reads them at connect time.

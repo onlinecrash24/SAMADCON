@@ -241,6 +241,11 @@ export const api = {
   certificates: (dn: string) =>
     http.get<{ dn: string; certificates: Certificate[] }>(`/users/certificates?dn=${dnParam(dn)}`),
   /** Parse an upload without writing it: what the row would show. */
+  /** One published certificate, with its DER and PEM. */
+  certificate: (dn: string, fingerprint: string) =>
+    http.get<Certificate>(
+      `/users/certificate?dn=${dnParam(dn)}&fingerprint=${encodeURIComponent(fingerprint)}`,
+    ),
   inspectCertificate: (data: string) =>
     http.post<Certificate>('/users/certificates/inspect', { data }),
   addCertificate: (dn: string, data: string) =>

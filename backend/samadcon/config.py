@@ -16,7 +16,7 @@ import logging
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
@@ -37,8 +37,11 @@ class ServerProfile(BaseModel):
           }
         ]
 
-    Only ``id`` and ``hosts`` are required — the realm is discovered from the
-    server if it is not given.
+    ``id`` is required, and at least one of ``hosts`` and ``realm``. With hosts
+    the realm is discovered from the server; with a realm alone the controllers
+    are found through the domain's SRV records, which needs a resolver that
+    serves it. With neither there is nothing to sign in against, and the
+    profile is refused — logged and skipped, as any invalid profile is.
     """
 
     id: str
@@ -59,6 +62,12 @@ class ServerProfile(BaseModel):
     @classmethod
     def _upper_realm(cls, value: str | None) -> str | None:
         return value.strip().upper() if value else None
+
+    @model_validator(mode="after")
+    def _something_to_reach(self) -> ServerProfile:
+        if not self.hosts and not self.realm:
+            raise ValueError("A server profile needs hosts, a realm, or both.")
+        return self
 
 
 class Settings(BaseSettings):

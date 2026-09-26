@@ -57,6 +57,27 @@ def test_the_search_can_be_told_to_leave_advanced_objects_out():
     assert advanced["schema"]["default"] is True
 
 
+def test_every_dn_parameter_refuses_control_characters():
+    """The password reset once put a query-parameter DN into LDIF, and a line
+    break in it became further records. DnQuery refuses control characters;
+    this holds every route to using it — five DNS routes had their own type
+    and went round it until this test was written."""
+    missing = []
+    for path, operations in app.openapi()["paths"].items():
+        for method, operation in operations.items():
+            for parameter in operation.get("parameters", []):
+                name = parameter["name"]
+                if parameter.get("in") != "query" or not (name == "dn" or name.endswith("_dn")):
+                    continue
+                schema = parameter["schema"]
+                patterns = [schema.get("pattern")] + [
+                    option.get("pattern") for option in schema.get("anyOf", [])
+                ]
+                if not any(patterns):
+                    missing.append(f"{method.upper()} {path} ?{name}")
+    assert missing == []
+
+
 def test_the_template_import_says_what_to_do_with_templates_already_there():
     """Refusing the lot was the only behaviour, which made a second import of
     Microsoft's package impossible without replacing everything. The store can

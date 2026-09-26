@@ -98,10 +98,15 @@ ENV PATH="/opt/venv/bin:${PATH}"
 
 WORKDIR /opt/samadcon
 
-COPY backend/pyproject.toml ./
+# The dependencies come from a lock with a hash for every file, so the image
+# holds exactly what the lock names and what CI audited — not whatever PyPI
+# resolved to on the day of the build. The project itself follows without its
+# dependencies; they are all in already. pip is not upgraded first: that would
+# be the one download here nothing checks.
+COPY backend/pyproject.toml backend/requirements.lock ./
 COPY backend/samadcon ./samadcon
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir .
+RUN pip install --no-cache-dir --require-hashes -r requirements.lock \
+    && pip install --no-cache-dir --no-deps .
 
 COPY --from=admx /unpacked/usr/share/samba/admx /usr/share/samba/admx
 
@@ -152,6 +157,8 @@ FROM runtime AS test
 
 USER root
 COPY backend/tests /opt/samadcon/tests
-RUN pip install --no-cache-dir "pytest>=8.2" "pytest-asyncio>=0.23" "httpx>=0.27" \
+# The test extra of pyproject.toml rather than a list of its own: two copies of
+# the same pins drift, and these had — httpx>=0.27 here, >=0.28.1 there.
+RUN pip install --no-cache-dir ".[test]" \
     && chown -R samadcon:samadcon /opt/samadcon
 USER samadcon

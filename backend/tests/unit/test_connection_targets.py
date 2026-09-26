@@ -310,6 +310,29 @@ def test_default_target_from_the_configured_realm():
     assert target.hosts == ("dc1",)
 
 
+def test_a_profile_needs_hosts_or_a_realm():
+    """With neither there is nothing to sign in against; with a realm alone the
+    controllers are found through DNS, which is a use in its own right."""
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        ServerProfile(id="empty")
+    assert ServerProfile(id="by-realm", realm="example.lan").hosts == []
+    assert ServerProfile(id="by-host", hosts=["dc1"]).realm is None
+
+
+def test_a_profile_without_hosts_keeps_its_label(monkeypatch):
+    """label or hosts[0] if hosts else id read as (label or hosts[0]) if hosts
+    else id — so a profile with a realm and no hosts lost its label."""
+    from samadcon.ad import targets
+
+    profile = ServerProfile(id="kunde-b", label="Kunde B", realm="kunde-b.lan")
+    monkeypatch.setattr(targets, "list_profiles", lambda settings: [profile])
+    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+    labels = [item["label"] for item in targets.describe_profiles(settings)["profiles"]]
+    assert labels == ["Kunde B"]
+
+
 def test_profile_realm_is_uppercased(tmp_path: Path):
     profile = ServerProfile(id="a", hosts=["dc1"], realm="example.lan")
     assert profile.realm == "EXAMPLE.LAN"
@@ -465,3 +488,51 @@ def test_the_table_does_not_grow_without_bound(monkeypatch):
     limiter.check("one-more")
     # Every earlier key is now far outside the window and has been swept.
     assert len(limiter._events) < 50
+
+
+
+# ---------------------------------------------------------------------------
+# IPv6 in a URL
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("transport", "host", "expected"),
+    [
+        ("ldap", "192.168.1.10", "ldap://192.168.1.10"),
+        ("ldap", "dc1.example.lan", "ldap://dc1.example.lan"),
+        ("ldap", "2001:db8::1", "ldap://[2001:db8::1]:389"),
+        ("ldaps", "::1", "ldaps://[::1]:636"),
+        ("ldap", "[2001:db8::1]", "ldap://[2001:db8::1]:389"),
+    ],
+)
+def test_an_ipv6_literal_goes_in_brackets_and_with_its_port(transport, host, expected):
+    """Samba's URL parser takes [addr] only with a port after it; on a DC both
+    ldap://::1 and ldap://[::1] fail with NT_STATUS_INVALID_PARAMETER."""
+    from samadcon.ad import values
+
+    assert values.ldap_url(transport, host) == expected
+
+
+def test_a_pasted_ipv6_address_ends_as_a_url_samba_accepts():
+    from samadcon.ad import values
+
+    host = discovery.normalise_host("ldap://[2001:db8::1]:389/")
+    assert values.ldap_url("ldap", host) == "ldap://[2001:db8::1]:389"
+
+
+def test_no_ldap_url_is_built_from_a_bare_host():
+    """Every place that writes scheme://host goes through ldap_url. A new one
+    written the short way would reintroduce bare IPv6 literals; this finds it."""
+    import re
+    from pathlib import Path
+
+    import samadcon
+
+    root = Path(samadcon.__file__).parent
+    bare = []
+    for source in root.rglob("*.py"):
+        text = source.read_text(encoding="utf-8")
+        for match in re.finditer(r"ldaps?://\{(\w+)\}|\{transport\}://\{(\w+)\}", text):
+            bare.append(f"{source.relative_to(root)}: {match.group(0)}")
+    assert bare == []

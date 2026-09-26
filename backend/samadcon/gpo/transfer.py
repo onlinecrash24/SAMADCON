@@ -111,18 +111,37 @@ def _copy_tree(conn: DirectoryConnection, source: dict[str, Any], target: dict[s
             share.write(destination, share.read(entry["path"]))
 
 
-def _entries(
-    share: sysvol.SysvolConnection, base: str, *, depth: int = 8
-) -> list[dict[str, Any]]:
-    """Everything below *base*, directories before the files inside them."""
-    if depth <= 0:
-        return []
+#: How deep a GPO's folder is walked. Real policies stay within five levels;
+#: the bound is against a folder that is not a policy at all.
+MAX_DEPTH = 8
 
+
+def _entries(
+    share: sysvol.SysvolConnection, base: str, *, depth: int = MAX_DEPTH
+) -> list[dict[str, Any]]:
+    """Everything below *base*, directories before the files inside them.
+
+    A folder with anything in it below the bound is refused rather than left
+    out: a copy or a backup without it is incomplete, and it used to be so
+    without a word. An empty one at the bound loses nothing and passes.
+    """
     found: list[dict[str, Any]] = []
     for entry in share.listdir(base):
         found.append(entry)
-        if entry["is_directory"]:
+        if not entry["is_directory"]:
+            continue
+        if depth > 1:
             found.extend(_entries(share, entry["path"], depth=depth - 1))
+        elif share.listdir(entry["path"]):
+            raise InvalidRequest(
+                "This policy's folders nest deeper than SAMADCON copies them.",
+                code="gpo_too_deep",
+                hint=(
+                    f"Nothing is copied or backed up past {MAX_DEPTH} levels, and this "
+                    "policy has content there. Move it up, or copy the folder by hand."
+                ),
+                context={"path": entry["path"], "limit": MAX_DEPTH},
+            )
     return found
 
 

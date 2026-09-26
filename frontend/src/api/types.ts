@@ -183,8 +183,12 @@ export interface Certificate {
   not_before?: string
   not_after?: string
   purposes?: string[]
-  /** The DER, base64 — for Copy to File. */
-  der: string
+  /**
+   * The DER, base64, and the PEM. Not in the list, which would carry every
+   * certificate twice; fetched one at a time when viewed or saved. A
+   * certificate still to be added has them from the inspection.
+   */
+  der?: string
   pem?: string
   /** A value on the attribute that is not a certificate at all. */
   unparseable?: boolean

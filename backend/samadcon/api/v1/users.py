@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from samadcon.ad import certificates, users
 from samadcon.ad.access import ad_read, ad_write
@@ -246,6 +246,20 @@ async def list_certificates(
         worker, session, certificates.list_certificates, dn, label="user.certificates",
     )
     return {"dn": dn, "certificates": found}
+
+
+@router.get("/certificate")
+async def get_certificate(
+    worker: Worker,
+    session: CurrentSession,
+    dn: DnQuery,
+    fingerprint: Annotated[str, Query(pattern="^[0-9a-fA-F]{64}$", description="SHA-256")],
+) -> dict[str, Any]:
+    """One published certificate with its content, for viewing or saving it."""
+    return await ad_read(
+        worker, session, certificates.get_certificate, dn, fingerprint,
+        label="user.certificate",
+    )
 
 
 @router.post("/certificates/inspect")

@@ -140,16 +140,22 @@ jobs:
         env:
           REQUIRE_DOCKER: "1"
 
+      # The image installs from backend/requirements.lock with --require-hashes,
+      # so the lock *is* what a build gets. This holds it to pyproject.toml —
+      # every declared dependency pinned inside its bounds, every pin hashed —
+      # without re-resolving, which would fail whenever anything upstream
+      # released.
+      - name: The lock agrees with pyproject.toml
+        run: python scripts/check_lock.py
+
       # Two passes, because they answer different questions and the second
       # is the one nothing else here asks.
       #
-      # A reader found python-multipart pinned no higher than 0.0.9. Auditing
-      # installed packages would never have shown it: >= resolves to the
-      # newest release, so a fresh build was never exposed. The floor was.
-      - name: Dependencies, at the versions a build actually gets
-        run: |
-          python scripts/dependency_requirements.py > "${RUNNER_TEMP}/declared.txt"
-          pip-audit --strict -r "${RUNNER_TEMP}/declared.txt"
+      # The first audits exactly what ships: the lock, read as it is rather
+      # than resolved again. It used to audit a fresh resolution of the
+      # declared ranges, which was what a build got on that day and no other.
+      - name: Dependencies, at the versions the image installs
+        run: pip-audit --strict --disable-pip -r backend/requirements.lock
 
       # And with every floor pinned, which is what catches a constraint that
       # permits something vulnerable. This found two more than the report did.

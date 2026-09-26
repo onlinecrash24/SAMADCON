@@ -66,8 +66,18 @@ Audit = Annotated[AuditContext, Depends(audit_context)]
 
 # Distinguished names travel as query parameters; they contain commas and
 # spaces, so clients must URL-encode them.
-DnQuery = Annotated[str, Query(min_length=3, description="Distinguished name")]
-OptionalDnQuery = Annotated[str | None, Query(description="Distinguished name")]
+# No control characters: a DN from a form never carries a raw line break, NUL
+# or tab — LDAP escapes those as \0A and the like — and one that did would be
+# the start of an injection wherever a DN meets a text format. Checked here so
+# that every route has it, including the ones not written yet.
+DN_PATTERN = r"^[^\x00-\x1f\x7f]*$"
+
+DnQuery = Annotated[
+    str, Query(min_length=3, pattern=DN_PATTERN, description="Distinguished name")
+]
+OptionalDnQuery = Annotated[
+    str | None, Query(pattern=DN_PATTERN, description="Distinguished name")
+]
 
 
 def split_csv(value: str | None) -> list[str] | None:

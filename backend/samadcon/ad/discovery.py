@@ -310,9 +310,9 @@ def probe(
     # trying to diagnose.
     attempts: list[tuple[str, str]] = []
     if ldap_open:
-        attempts.append(("ldap", f"ldap://{target_host}"))
+        attempts.append(("ldap", values.ldap_url("ldap", target_host)))
     if ldaps_open:
-        attempts.append(("ldaps", f"ldaps://{target_host}"))
+        attempts.append(("ldaps", values.ldap_url("ldaps", target_host)))
 
     entry = None
     transport = ""
@@ -405,7 +405,7 @@ def _ldaps_certificate_trusted(
     """
     strict = _probe_loadparm(settings, ca_file=ca_file, insecure=False)
     try:
-        _read_rootdse(f"ldaps://{host}", strict)
+        _read_rootdse(values.ldap_url("ldaps", host), strict)
         return True
     except Exception:  # noqa: BLE001 — expected for self-signed certificates
         logger.debug("LDAPS certificate for %s does not validate", host)

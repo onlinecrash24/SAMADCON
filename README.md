@@ -308,11 +308,11 @@ services:
       SAMADCON_TRUSTED_PROXIES: "${SAMADCON_TRUSTED_PROXIES}"
     ports:
       # Unset SAMADCON_BIND: every interface. 127.0.0.1 behind a proxy on this host.
-      - "${SAMADCON_BIND:+${SAMADCON_BIND}:}${SAMADCON_HTTPS_PORT}:8443"
+      - "${SAMADCON_BIND:+${SAMADCON_BIND}:}${SAMADCON_HTTPS_PORT:?the port on the host, such as 8443}:8443"
     dns:
-      - "${SAMADCON_DNS}"
+      - "${SAMADCON_DNS:?a resolver that serves the domain, usually its DC - or delete the dns lines}"
     dns_search:
-      - "${SAMADCON_DNS_SEARCH}"
+      - "${SAMADCON_DNS_SEARCH:?the domain in lower case - or delete the dns_search lines}"
     volumes:
       - samadcon-tls:/etc/samadcon/tls
       - samadcon-ca:/etc/samadcon/ca
@@ -352,12 +352,15 @@ the two files still list the same ones — a variable added to the stack and for
 example is a setting nobody knows they can change, and one left in the example after the
 stack stopped reading it is a setting that does nothing, which is worse.
 
-**None of the values is optional here**, bar one: `SAMADCON_BIND` is meant to be left out, and
-unset it binds every interface. For the rest, a name that is not set becomes an empty string, not
-a default: an empty `dns:` leaves the container without a resolver, and an empty port turns
-`"${SAMADCON_HTTPS_PORT}:8443"` into `":8443"`, which Docker reads as *any free host port*.
-That is the trade for keeping the values out of the file. Example 1 above is the version for
-a deployment that would rather have one file and no second step.
+**Three values stop the stack when they are missing.** `SAMADCON_HTTPS_PORT`, `SAMADCON_DNS` and
+`SAMADCON_DNS_SEARCH` are written `${NAME:?…}`, so Compose refuses to start and names the one that
+is not set. Empty, they used to start the container anyway — on whichever host port was free,
+and without a resolver. The others are harmless empty: `SAMADCON_BIND` is meant to be left out
+and then binds every interface; an empty realm or controller makes the sign-in form ask; an empty
+log level is INFO; no trusted proxies means none; an empty public host names the self-signed
+certificate `samadcon.local`. A host whose own resolver already knows the domain can delete the
+`dns:` and `dns_search:` lines instead. Example 1 above is the version for a deployment that would
+rather have one file and no second step.
 
 Do not put the domain administrator's password in either file. The console never takes one
 from the environment; it asks whoever signs in, and acts with that person's own account.
@@ -1017,6 +1020,23 @@ Tests without a DC — these run without `python3-samba` and without a container
 ```bash
 .venv/bin/pytest backend/tests/unit -q
 ```
+
+### Updating the dependencies
+
+The image does not resolve its Python dependencies when it is built. It installs them from
+`backend/requirements.lock` with `--require-hashes`: every version pinned, every file checked
+against its hash, so the image holds exactly what the lock names and what CI audited. Newer
+versions come in by regenerating the lock — for the image's platform, Linux x86_64 with the
+Python 3.13 Debian trixie ships, not for the machine it is generated on:
+
+```bash
+uv pip compile backend/pyproject.toml --generate-hashes --python-version 3.13 --python-platform x86_64-unknown-linux-gnu -o backend/requirements.lock
+```
+
+`scripts/check_lock.py` holds the lock to `pyproject.toml` in CI: every declared dependency pinned
+within its bounds, every pin hashed. It does not ask whether the lock is the newest possible
+resolution — that would fail on every upstream release. Raising a floor in `pyproject.toml`
+without regenerating the lock does fail it, which is the point.
 
 ### Raising the version
 

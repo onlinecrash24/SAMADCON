@@ -6,11 +6,14 @@ low. What made it worth a check rather than a fix is that an audit of the
 newest release, which is fine, so a fresh build was never exposed. The floor
 was the problem, and nothing was looking at floors.
 
-So this prints the same dependencies two ways, and CI audits both:
+So this prints the same dependencies two ways:
 
 ``--declared`` (the default)
-    The constraints as written. Audited, this answers "is what a build gets
-    today safe?" — the question that matters to whoever pulls the image.
+    The constraints as written. Audited, this answered "is what a build gets
+    today safe?" — until the image started installing from a hashed lock,
+    backend/requirements.lock, which CI now audits directly: that is what a
+    build gets, on every day. This form stays for a look at what a fresh
+    resolution would bring.
 
 ``--floors``
     Every ``>=`` pinned to ``==``. Audited, this answers "do the constraints
