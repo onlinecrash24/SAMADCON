@@ -14,6 +14,40 @@ release.
 
 ---
 
+## 0.6.1 — 2026-09-26
+
+BitLocker recovery keys, beside LAPS.
+
+A user asked for it after trying the console: where Windows clients
+store their BitLocker recovery information in the directory, SAMADCON
+now shows it, and finds it by key ID.
+
+**On a computer.** Under the LAPS password, the recovery keys stored for
+the computer: key ID and date, never the password. Each recovery
+password is read by its own request, recorded in the audit log with the
+key ID and without the password, and shown with a button to copy it.
+
+**By key ID.** The recovery screen shows the first eight characters of a
+key ID and nothing about the computer. The domain's context menu has
+"Find BitLocker recovery password", as ADUC does, and finds the key
+domain-wide.
+
+**Who may read it is the directory's decision.** The recovery password
+is a confidential attribute. On the maintainer's Samba 4.22 DC an
+account without the right does not see the recovery object at all and
+is told no key is stored; an account that sees the key but not the
+password is told it cannot read it, rather than shown an empty key. A
+schema without the recovery class says so, instead of reading as no
+keys stored.
+
+Verified on a Samba 4.22 DC with a recovery object created for the
+test: listing, reveal, search, the audit entry, and an ordinary account
+that saw nothing.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.1, :0.6 and :latest.
+
+---
+
 ## 0.6.0 — 2026-09-26
 
 A new minor series; each release now gets a GitHub release automatically.
