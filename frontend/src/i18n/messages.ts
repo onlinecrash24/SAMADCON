@@ -535,6 +535,9 @@ export const de = {
   'error.protected_attribute': 'Dieses Attribut wird vom Verzeichnis verwaltet.',
   'error.validation_failed': 'Die Eingaben sind unvollständig oder ungültig.',
   'error.internal_error': 'Unerwarteter Fehler. Details stehen im Server-Log.',
+  'error.unexpected_response': 'Unerwartete Antwort (HTTP {status}), nicht von SAMADCON selbst.',
+  'error.unexpected_response.hint':
+    'Sie kam von nginx im Container oder von einem Proxy davor. Das Fehlerlog von nginx: docker exec samadcon tail /var/log/nginx/error.log',
   'error.kerberos_unavailable': 'Es konnte kein Kerberos-Ticket angefordert werden.',
   'error.no_ticket': 'Es wurde kein Kerberos-Ticket ausgestellt.',
   'error.dc_discovery_failed': 'Es konnte kein Domänencontroller ermittelt werden.',
@@ -2035,6 +2038,9 @@ export const en: Record<MessageKey, string> = {
   'error.protected_attribute': 'This attribute is managed by the directory.',
   'error.validation_failed': 'The input is incomplete or invalid.',
   'error.internal_error': 'Unexpected error. Details are in the server log.',
+  'error.unexpected_response': 'Unexpected answer (HTTP {status}), not from SAMADCON itself.',
+  'error.unexpected_response.hint':
+    'It came from nginx in the container or from a proxy in front of it. nginx error log: docker exec samadcon tail /var/log/nginx/error.log',
   'error.kerberos_unavailable': 'No Kerberos ticket could be requested.',
   'error.no_ticket': 'No Kerberos ticket was issued.',
   'error.dc_discovery_failed': 'No domain controller could be discovered.',

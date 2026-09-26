@@ -16,11 +16,18 @@ http {
     include             /etc/nginx/mime.types;
     default_type        application/octet-stream;
 
-    client_body_temp_path /run/samadcon/nginx-client;
-    proxy_temp_path       /run/samadcon/nginx-proxy;
-    fastcgi_temp_path     /run/samadcon/nginx-fastcgi;
-    uwsgi_temp_path       /run/samadcon/nginx-uwsgi;
-    scgi_temp_path        /run/samadcon/nginx-scgi;
+    # On disk, in a directory the image gives the samadcon user — not under
+    # /run/samadcon. That is an 8 MB tmpfs in the compose file, sized for a pid
+    # file, and nginx spools every request body above its memory buffer here
+    # before the application sees it. Microsoft's template MSI is 14 MB: it
+    # met an HTML 500 from nginx ("No space left on device") and never
+    # reached the application. The proxy spool holds large downloads, such as
+    # a GPO backup, and would have failed the same way.
+    client_body_temp_path /var/lib/nginx/client-body;
+    proxy_temp_path       /var/lib/nginx/proxy;
+    fastcgi_temp_path     /var/lib/nginx/fastcgi;
+    uwsgi_temp_path       /var/lib/nginx/uwsgi;
+    scgi_temp_path        /var/lib/nginx/scgi;
 
     access_log          /var/log/nginx/access.log;
     sendfile            on;

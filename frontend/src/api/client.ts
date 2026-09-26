@@ -181,7 +181,10 @@ async function failure(response: Response, fallback: string): Promise<ApiError> 
   if (!envelope && response.status === 413) {
     envelope = { code: 'upload_too_large', message: 'The upload is larger than the server accepts.' }
   }
-  return new ApiError(response.status, envelope ?? { code: 'unexpected_response', message: fallback })
+  return new ApiError(
+    response.status,
+    envelope ?? { code: 'unexpected_response', message: `${fallback} (HTTP ${response.status})` },
+  )
 }
 
 /** Post a file as multipart form data. */

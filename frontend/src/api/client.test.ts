@@ -42,6 +42,15 @@ describe('uploads', () => {
     expect((error as ApiError).code).toBe('upload_too_large')
   })
 
+  it('names the status when something other than the application answered', async () => {
+    // nginx's own 500, for a request body its spool had no room for.
+    answer(500, '<html><body><h1>500 Internal Server Error</h1></body></html>')
+    const error = await caught(http.upload('/admx/store', 'files', file()))
+    expect((error as ApiError).code).toBe('unexpected_response')
+    expect((error as ApiError).status).toBe(500)
+    expect((error as ApiError).message).toContain('HTTP 500')
+  })
+
   it('keeps the server\'s own envelope when there is one', async () => {
     answer(409, JSON.stringify({ error: { code: 'template_exists', message: 'x' } }), 'application/json')
     const error = await caught(http.upload('/admx/store', 'files', file()))
