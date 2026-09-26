@@ -1113,6 +1113,11 @@ Nach dem Setzen des Tags ausführen und das Ergebnis mitcommitten. Das Skript
 schreibt die Datei jedes Mal komplett neu, von Hand Eingetragenes geht also
 verloren — genau so ist es gemeint. Eine Quelle, und das ist der Tag.
 
+Das GitHub-Release entsteht aus demselben Tag, durch den Workflow, sobald die Images veröffentlicht
+sind: Titel `SAMADCON x.y.z`, der Text des Tags als Notizen. Früher war das ein Handgriff, und
+fünf Versionen gingen als Tag und Image hinaus, während das Repository noch eine ältere als
+neuestes Release nannte.
+
 Der Changelog ist englisch, weil die Tag-Notizen es sind. Eine zweite, gepflegte
 Übersetzung wäre in kurzer Zeit veraltet, und eine veraltete Release-Notiz ist
 schlechter als eine fremdsprachige, die stimmt.

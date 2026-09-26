@@ -1073,6 +1073,10 @@ Run it once the tag exists and commit the result. It rewrites the file from the
 tags every time, so anything typed straight into the changelog is lost — which
 is the point. One source, and it is the tag.
 
+The GitHub release is made from the same tag, by the workflow, once its images are published:
+title `SAMADCON x.y.z`, the tag's text as notes. It used to be a manual step, and five versions
+went out as tags and images while the repository still named an older one its latest release.
+
 ## Licence
 
 AGPL-3.0-or-later.
