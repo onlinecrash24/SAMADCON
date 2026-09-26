@@ -14,6 +14,36 @@ release.
 
 ---
 
+## 0.6.3 — 2026-09-26
+
+Choose where a copied account goes.
+
+A follow-up to 0.6.2's onboarding. The copy dialog put the new account in
+the template's OU and only said so; the server already accepted another.
+"Change..." beside the target now opens a container browser - up one
+level, and the containers below - and OK takes the one on screen. The
+template's OU stays the default, since that is where a template is kept.
+
+The browser is the one Move uses, taken out of the Move dialog so the
+two walk the directory the same way. On the way, Move's "up one level"
+now finds the parent with the same escape-aware parsing as the rest of
+the interface, instead of cutting at the first comma - a container
+whose name holds an escaped comma no longer sends it somewhere wrong.
+
+The rows in the copy dialog that hold buttons are no longer labels: a
+click on a label's caption presses the first button inside it, which
+would have opened the picker or copied the password.
+
+Verified on a Samba 4.22 DC: a template in one OU, the copy created in
+another, with groups, primary group, paths and a generated password
+that answered NT_STATUS_PASSWORD_MUST_CHANGE; the audit entry named the
+new OU and held no password. Move, which now shares the browser, was
+not separately exercised against the DC for this release.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.3, :0.6 and :latest.
+
+---
+
 ## 0.6.2 — 2026-09-26
 
 Onboarding: copy a user from a template account.
