@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 
 import { api } from '../../../api/endpoints'
 import type {
@@ -13,6 +13,8 @@ import { ErrorMessage, Icon, useTypeLabel } from '../../../components/primitives
 import { useI18n } from '../../../i18n'
 import type { MessageKey } from '../../../i18n/messages'
 import { AttributeEditor } from '../AttributeEditor'
+import { adminRefusal, type AdminRefusal } from '../adminDisable'
+import { ConfirmAdminDisable } from '../ConfirmAdminDisable'
 import { ObjectCommands } from '../ObjectCommands'
 import { SecurityTab } from '../SecurityTab'
 import { AccountTab } from './AccountTab'
@@ -140,6 +142,13 @@ export function PropertiesSheet({
   const [tab, setTab] = useState<TabId>(tabs[0]!)
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT)
   const [error, setError] = useState<{ step: Step; cause: unknown } | null>(null)
+  // Ticking "account is disabled" on an administrator: the server refuses the
+  // attributes step, which runs first, so nothing has been written when it
+  // asks — the same changes go again, confirmed. `closeAfter` remembers
+  // whether it was OK rather than Apply that was pressed.
+  const [adminAsk, setAdminAsk] = useState<AdminRefusal | null>(null)
+  const confirmAdmin = useRef(false)
+  const closeAfter = useRef(false)
 
   const base = useMemo(() => baseOf(object, detail, deleteProtected), [object, detail, deleteProtected])
   const changes = useMemo(() => changesOf(draft, base), [draft, base])
@@ -181,7 +190,10 @@ export function PropertiesSheet({
           switch (object.type) {
             case 'user':
             case 'managed_service_account':
-              return api.updateUser(object.dn, payload)
+              return api.updateUser(object.dn, {
+                ...payload,
+                ...(confirmAdmin.current ? { confirm_admin: true } : {}),
+              })
             case 'group':
               return api.updateGroup(object.dn, { attributes: what.attributes })
             case 'computer':
@@ -253,6 +265,13 @@ export function PropertiesSheet({
     },
     onError: (failure: unknown) => {
       const { step, cause, applied } = failure as { step: Step; cause: unknown; applied: Step[] }
+      const refusal = step === 'attributes' ? adminRefusal(cause) : null
+      if (refusal) {
+        // A question, not a failure: nothing was written, the draft stands.
+        setError(null)
+        setAdminAsk(refusal)
+        return
+      }
       setDraft((current) => withoutApplied(current, applied))
       if (applied.length) invalidate()
       setError({ step, cause })
@@ -285,11 +304,26 @@ export function PropertiesSheet({
     lockedOut: user ? user.status.locked_out : false,
   }
 
+  const confirmAdminDisable = async () => {
+    confirmAdmin.current = true
+    try {
+      await apply.mutateAsync(changes)
+      setAdminAsk(null)
+      if (closeAfter.current) onClose()
+    } catch {
+      // Any other failure is on screen through onError, as always.
+      setAdminAsk(null)
+    } finally {
+      confirmAdmin.current = false
+    }
+  }
+
   const ok = async () => {
     if (pending === 0) {
       onClose()
       return
     }
+    closeAfter.current = true
     try {
       await apply.mutateAsync(changes)
       onClose()
@@ -384,12 +418,24 @@ export function PropertiesSheet({
             type="button"
             className="button"
             disabled={pending === 0 || apply.isPending}
-            onClick={() => apply.mutate(changes)}
+            onClick={() => {
+              closeAfter.current = false
+              apply.mutate(changes)
+            }}
           >
             {t('action.apply')}
           </button>
         </div>
       </div>
+      {adminAsk && (
+        <ConfirmAdminDisable
+          name={object.name}
+          refusal={adminAsk}
+          pending={apply.isPending}
+          onCancel={() => setAdminAsk(null)}
+          onConfirm={() => void confirmAdminDisable()}
+        />
+      )}
     </SheetProvider>
   )
 }

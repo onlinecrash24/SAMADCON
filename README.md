@@ -75,6 +75,16 @@ operation with that account's rights:
 - The password is used to obtain the ticket and for nothing else — **never stored, never logged**.
 - Every write also lands in the local audit log: who, what, DN, attribute diff.
 
+**Accounts the domain is administered with are not taken away by one click.** Disabling or
+deleting the built-in Administrator — recognised by RID 500, so renaming it changes nothing — or
+any member of Domain Admins, Schema Admins, Enterprise Admins or the built-in Administrators,
+nested groups included, asks
+first, with a box that has to be ticked before the button works. The server enforces it, not the
+page: without the confirmation it refuses, whichever of the three ways the request came —
+context menu, the detail pane's commands, or the property sheet — and the audit log records that
+it was confirmed. The built-in Administrator itself cannot be deleted at all: Samba provisions it
+as a critical system object, as it does Guest and krbtgt.
+
 ## Multiple domains
 
 The domain is chosen **at sign-in**, not when the container starts. The sign-in form offers:

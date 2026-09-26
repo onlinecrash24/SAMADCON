@@ -403,6 +403,16 @@ export const de = {
   'action.properties': 'Eigenschaften',
   'action.enable': 'Aktivieren',
   'action.disable': 'Deaktivieren',
+  'admin.disableTitle': 'Administratorkonto deaktivieren',
+  'admin.disableBuiltin':
+    '{name} ist das eingebaute Administratorkonto der Domäne (RID 500) — auch wenn es umbenannt wurde.',
+  'admin.disableMember': '{name} ist Mitglied von {role} und verwaltet damit die Domäne.',
+  'admin.disableConsequence':
+    'Ein deaktiviertes Konto kann sich nicht mehr anmelden, auch nicht an dieser Konsole. Ist es das letzte Konto mit diesen Rechten, lässt sich die Domäne danach nur noch auf einem Domänencontroller wieder verwalten:',
+  'admin.disableConfirm': 'Ich habe das verstanden und will dieses Konto trotzdem deaktivieren.',
+  'admin.deleteConsequence':
+    'Mit dem Konto verschwindet seine SID. Ein neues Konto gleichen Namens bekommt eine andere und erbt keines seiner Rechte. Ist es das letzte Konto mit diesen Rechten, lässt sich die Domäne danach nur noch auf einem Domänencontroller wieder verwalten.',
+  'admin.deleteConfirm': 'Ich habe das verstanden und will dieses Konto trotzdem löschen.',
   'action.unlock': 'Entsperren',
   'action.resetPassword': 'Kennwort zurücksetzen',
   'action.resetAccount': 'Konto zurücksetzen',
@@ -1860,6 +1870,16 @@ export const en: Record<MessageKey, string> = {
   'action.properties': 'Properties',
   'action.enable': 'Enable',
   'action.disable': 'Disable',
+  'admin.disableTitle': 'Disable an administrator account',
+  'admin.disableBuiltin':
+    '{name} is the domain’s built-in Administrator account (RID 500) — renamed or not.',
+  'admin.disableMember': '{name} is a member of {role}, and so administers the domain.',
+  'admin.disableConsequence':
+    'A disabled account cannot sign in, not even to this console. If it is the last account with these rights, the domain can then only be managed again on a domain controller:',
+  'admin.disableConfirm': 'I understand, and want to disable this account anyway.',
+  'admin.deleteConsequence':
+    'Its SID goes with the account. A new account of the same name gets a different one and inherits none of its rights. If it is the last account with these rights, the domain can then only be managed again on a domain controller.',
+  'admin.deleteConfirm': 'I understand, and want to delete this account anyway.',
   'action.unlock': 'Unlock',
   'action.resetPassword': 'Reset password',
   'action.resetAccount': 'Reset account',

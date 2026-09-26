@@ -6,6 +6,7 @@ import { useState, type FormEvent } from 'react'
 import { ApiError } from '../api/client'
 import { api } from '../api/endpoints'
 import { UpnField } from '../features/directory/UpnField'
+import { adminRefusal, isBuiltinAdministrator } from '../features/directory/adminDisable'
 import { splitUpn } from '../features/directory/upn'
 import { useSession } from '../state/session'
 import type { TreeNode } from '../api/types'
@@ -618,9 +619,19 @@ export function DeleteDialog({
   // reads as a dead end.
   const isProtected = error instanceof ApiError && error.code === 'delete_protected'
 
+  // The same pattern for an account that administers the domain: the server
+  // refuses the plain delete and says who it is, and the dialog turns into
+  // the question with a box that has to be ticked before the button works.
+  // Remembered once it has come: run() clears the error before the confirmed
+  // attempt, and the question should not vanish while that attempt runs.
+  const admin = adminRefusal(error)
+  const [adminDelete, setAdminDelete] = useState<ReturnType<typeof adminRefusal>>(null)
+  if (admin?.action === 'delete' && adminDelete === null) setAdminDelete(admin)
+  const [understood, setUnderstood] = useState(false)
+
   const remove = async () => {
     if (isOu) await api.deleteOu(dn, recursive)
-    else await api.remove(dn, recursive)
+    else await api.remove(dn, recursive, Boolean(adminDelete))
     return t('status.deleted', { name })
   }
 
@@ -662,7 +673,7 @@ export function DeleteDialog({
               type="button"
               className="button button--danger"
               onClick={submit}
-              disabled={pending}
+              disabled={pending || (adminDelete !== null && !understood)}
             >
               {t('action.delete')}
             </button>
@@ -671,13 +682,33 @@ export function DeleteDialog({
       }
     >
       <div className="form">
-        <ErrorMessage error={error} onDismiss={() => setError(null)} />
+        {/* The admin refusal is the question below, not an error above it. */}
+        {!adminDelete && <ErrorMessage error={error} onDismiss={() => setError(null)} />}
         {isProtected ? (
           <p>{t('dialog.deleteProtectedBody')}</p>
+        ) : adminDelete ? (
+          <>
+            <p>
+              {isBuiltinAdministrator(adminDelete)
+                ? t('admin.disableBuiltin', { name })
+                : t('admin.disableMember', { name, role: adminDelete.role })}
+            </p>
+            <p className="muted">{t('admin.deleteConsequence')}</p>
+          </>
         ) : (
           <p>{t('dialog.deleteBody')}</p>
         )}
         <p className="mono muted">{dn}</p>
+        {adminDelete && (
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={understood}
+              onChange={(e) => setUnderstood(e.target.checked)}
+            />
+            <span>{t('admin.deleteConfirm')}</span>
+          </label>
+        )}
         {isContainer && (
           <label className="checkbox">
             <input

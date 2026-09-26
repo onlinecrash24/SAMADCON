@@ -95,6 +95,8 @@ class CreateUserRequest(StrictModel):
 class UpdateUserRequest(StrictModel):
     attributes: dict[str, Any] | None = None
     flags: dict[str, bool] | None = None
+    #: Required to disable an account that administers the domain.
+    confirm_admin: bool = False
 
 
 class SetPasswordRequest(StrictModel):
@@ -128,6 +130,8 @@ class AccountExpiryRequest(StrictModel):
 
 class EnabledRequest(StrictModel):
     enabled: bool
+    #: Required to disable an account that administers the domain.
+    confirm_admin: bool = False
 
 
 # ---------------------------------------------------------------------------

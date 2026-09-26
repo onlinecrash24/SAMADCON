@@ -220,16 +220,22 @@ async def delete(
     audit: Audit,
     dn: DnQuery,
     recursive: Annotated[bool, Query(description="Delete child objects as well")] = False,
+    confirm_admin: Annotated[
+        bool, Query(description="Required to delete an account that administers the domain")
+    ] = False,
 ) -> dict[str, Any]:
-    with audit.operation("directory.delete", target=dn, recursive=recursive):
+    with audit.operation("directory.delete", target=dn, recursive=recursive) as record:
         await ad_write(
             worker,
             session,
             directory.delete_object,
             dn,
             recursive=recursive,
+            confirm_admin=confirm_admin,
             label="directory.delete",
         )
+        if confirm_admin:
+            record["confirmed"] = "deleting an administrator"
     return {"dn": dn, "deleted": True}
 
 

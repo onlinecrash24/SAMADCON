@@ -7,6 +7,7 @@ import { DeleteDialog, MoveDialog, PasswordDialog, RenameDialog } from '../../co
 import { ErrorMessage } from '../../components/primitives'
 import { useI18n } from '../../i18n'
 import { detailRowActions, type AccountFacts, type ActionId } from './objectActions'
+import { useDisableAccount } from './useDisableAccount'
 
 /**
  * The row of commands above an object — enable, reset password, rename,
@@ -57,6 +58,15 @@ export function ObjectCommands({
     onChanged(message)
   }
 
+  // One click for most accounts, as in ADUC; a question first for an administrator.
+  const accountDisable = useDisableAccount({
+    onDone: () => {
+      setError(null)
+      done(t('status.saved'))
+    },
+    onError: setError,
+  })
+
   const run = (id: ActionId) => {
     switch (id) {
       case 'enable':
@@ -66,10 +76,8 @@ export function ObjectCommands({
         })
         return
       case 'disable':
-        action.mutate(async () => {
-          await api.setEnabled(object.dn, false)
-          return t('status.saved')
-        })
+        setError(null)
+        void accountDisable.disable({ dn: object.dn, name: object.name })
         return
       case 'unlock':
         action.mutate(async () => {
@@ -99,6 +107,7 @@ export function ObjectCommands({
   return (
     <>
       <ErrorMessage error={error} onDismiss={() => setError(null)} />
+      {accountDisable.dialog}
       {/* The same list the right-click menu is built from. Two hand-written
           descriptions of "what applies to a computer" drift apart the week
           after they are written: someone adds an action to one of them. */}

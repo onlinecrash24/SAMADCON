@@ -16,7 +16,7 @@ from samadcon.ad.connection import (
     SCOPE_SUBTREE,
     DirectoryConnection,
 )
-from samadcon.core.errors import InvalidRequest, NotFound
+from samadcon.core.errors import Conflict, InvalidRequest, NotFound
 
 # Attributes every list view needs. Kept small — a container with 2000 objects
 # should not drag half the schema across the network.
@@ -622,7 +622,13 @@ def rename_object(conn: DirectoryConnection, dn: str, new_name: str) -> str:
     return new_dn
 
 
-def delete_object(conn: DirectoryConnection, dn: str, *, recursive: bool = False) -> None:
+def delete_object(
+    conn: DirectoryConnection,
+    dn: str,
+    *,
+    recursive: bool = False,
+    confirm_admin: bool = False,
+) -> None:
     entry = conn.get(dn, attrs=["objectClass", "isCriticalSystemObject", "systemFlags"])
     if entry is None:
         raise NotFound("The directory object does not exist.", context={"dn": dn})
@@ -643,6 +649,25 @@ def delete_object(conn: DirectoryConnection, dn: str, *, recursive: bool = False
             code="delete_protected",
             context={"dn": dn},
         )
+
+    # An account that administers the domain can be deleted — the built-in
+    # Administrator cannot, being a critical system object — but not by the
+    # same click as anything else: with it goes its SID, and a new account of
+    # the same name inherits none of its rights. Asked only of accounts, so an
+    # OU or a group is never held up by reading tokenGroups where it means
+    # nothing.
+    classes = {name.lower() for name in values.as_list(entry, "objectClass")}
+    if "user" in classes and not confirm_admin:
+        from samadcon.ad.users import administrative_role
+
+        role = administrative_role(conn, dn)
+        if role is not None:
+            raise Conflict(
+                "Deleting this account takes an administrator away from the domain.",
+                code="confirm_delete_admin",
+                hint="Confirm it explicitly. A deleted account's SID does not come back.",
+                context={"dn": dn, "role": role},
+            )
 
     conn.delete(dn, recursive=recursive)
 

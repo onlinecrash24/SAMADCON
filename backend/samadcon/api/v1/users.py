@@ -82,9 +82,12 @@ async def update_user(
             dn,
             attributes=payload.attributes,
             flags=payload.flags,
+            confirm_admin=payload.confirm_admin,
             label="user.update",
         )
         record["changes"] = applied
+        if payload.confirm_admin:
+            record["confirmed"] = "disabling an administrator"
     return {"dn": dn, "applied": applied}
 
 
@@ -157,9 +160,17 @@ async def set_enabled(
     action = "user.enable" if payload.enabled else "user.disable"
     with audit.operation(action, target=dn) as record:
         applied = await ad_write(
-            worker, session, users.set_enabled, dn, payload.enabled, label=action
+            worker,
+            session,
+            users.set_enabled,
+            dn,
+            payload.enabled,
+            confirm_admin=payload.confirm_admin,
+            label=action,
         )
         record["changes"] = applied
+        if payload.confirm_admin:
+            record["confirmed"] = "disabling an administrator"
     return {"dn": dn, "enabled": payload.enabled}
 
 

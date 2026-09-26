@@ -75,6 +75,16 @@ SMB-Operationen mit den Rechten dieses Kontos aus:
 - Das Passwort wird nur zur Ticket-Beschaffung verwendet, **nie gespeichert und nie geloggt**.
 - Jede schreibende Operation landet zusätzlich im lokalen Audit-Log (wer, was, DN, Attribut-Diff).
 
+**Konten, mit denen die Domäne verwaltet wird, verschwinden nicht mit einem Klick.** Den
+eingebauten Administrator zu deaktivieren oder zu löschen — erkannt an RID 500, ein Umbenennen
+ändert also nichts —, oder ein Mitglied von Domain Admins, Schema Admins, Enterprise Admins oder der eingebauten
+Administrators, verschachtelte Gruppen eingeschlossen, fragt vorher nach, mit einem Haken, ohne den der Knopf
+nichts tut. Durchgesetzt wird das vom Server, nicht von der Seite: ohne Bestätigung lehnt er ab,
+egal auf welchem der drei Wege die Anfrage kam — Kontextmenü, Befehle im Detailbereich oder
+Eigenschaftenblatt —, und das Audit-Log vermerkt, dass bestätigt wurde. Den eingebauten
+Administrator selbst kann man gar nicht löschen: Samba legt ihn als kritisches Systemobjekt an,
+wie auch Gast und krbtgt.
+
 ## Mehrere Domänen
 
 Die Domäne wird **bei der Anmeldung** gewählt, nicht beim Start des Containers. In der

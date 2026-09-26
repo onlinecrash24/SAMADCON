@@ -40,6 +40,7 @@ import { TemplateStore } from './features/gpo/admx/TemplateStore'
 import { ObjectPropertiesWindow } from './features/directory/ObjectPropertiesWindow'
 import { GpoWindow } from './features/gpo/GpoWindow'
 import { SitesView } from './features/sites/SitesView'
+import { useDisableAccount } from './features/directory/useDisableAccount'
 import { useI18n } from './i18n'
 import { TEMPLATES_NODE, readConsoleLocation, writeConsoleLocation } from './state/consoleLocation'
 import { readPaneWidths, writePaneWidths, type Boundary } from './state/paneWidths'
@@ -154,6 +155,11 @@ function Console() {
   const [objectDialog, setObjectDialog] = useState<
     { kind: 'rename' | 'move' | 'delete' | 'password'; object: DirectoryObject } | null
   >(null)
+  // Disabling from a row's menu; asks first when the account is an administrator.
+  const accountDisable = useDisableAccount({
+    onDone: () => onChanged(t('status.saved')),
+    onError: setShellError,
+  })
   // Which container a "Neu" command creates into. A menu on a row means that
   // row, which is not necessarily where the tree is pointing.
   const [newObjectParent, setNewObjectParent] = useState<string | null>(null)
@@ -311,7 +317,8 @@ function Console() {
         write(api.setEnabled(object.dn, true), t('status.saved'))
         return
       case 'disable':
-        write(api.setEnabled(object.dn, false), t('status.saved'))
+        setShellError(null)
+        void accountDisable.disable({ dn: object.dn, name: object.name })
         return
       case 'unlock':
         write(api.unlock(object.dn), t('status.unlocked'))
@@ -648,6 +655,7 @@ function Console() {
           onDone={onChanged}
         />
       )}
+      {accountDisable.dialog}
       {objectDialog?.kind === 'delete' && (
         <DeleteDialog
           dn={objectDialog.object.dn}

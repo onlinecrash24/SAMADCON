@@ -190,9 +190,11 @@ export const api = {
     http.post<{ dn: string; previous_dn: string }>(`/directory/object/rename?dn=${dnParam(dn)}`, {
       name,
     }),
-  remove: (dn: string, recursive = false) =>
+  /** `confirmAdmin` is what deleting an account that administers the domain needs. */
+  remove: (dn: string, recursive = false, confirmAdmin = false) =>
     http.delete<{ dn: string; deleted: boolean }>(
-      `/directory/object?dn=${dnParam(dn)}&recursive=${recursive}`,
+      `/directory/object?dn=${dnParam(dn)}&recursive=${recursive}` +
+        (confirmAdmin ? '&confirm_admin=true' : ''),
     ),
 
   // -- users -------------------------------------------------------------
@@ -206,15 +208,27 @@ export const api = {
     enabled?: boolean
     attributes?: Record<string, string>
   }) => http.post<UserDetail>('/users', payload),
-  updateUser: (dn: string, payload: { attributes?: Record<string, string | string[] | null>; flags?: Record<string, boolean> }) =>
+  updateUser: (
+    dn: string,
+    payload: {
+      attributes?: Record<string, string | string[] | null>
+      flags?: Record<string, boolean>
+      /** Required to disable an account that administers the domain. */
+      confirm_admin?: boolean
+    },
+  ) =>
     http.patch<{ dn: string; applied: Record<string, unknown> }>(`/users?dn=${dnParam(dn)}`, payload),
   setPassword: (dn: string, password: string, mustChange: boolean) =>
     http.post<{ dn: string }>(`/users/password?dn=${dnParam(dn)}`, {
       password,
       must_change: mustChange,
     }),
-  setEnabled: (dn: string, enabled: boolean) =>
-    http.post<{ dn: string; enabled: boolean }>(`/users/enabled?dn=${dnParam(dn)}`, { enabled }),
+  /** `confirmAdmin` is what disabling an account that administers the domain needs. */
+  setEnabled: (dn: string, enabled: boolean, confirmAdmin = false) =>
+    http.post<{ dn: string; enabled: boolean }>(`/users/enabled?dn=${dnParam(dn)}`, {
+      enabled,
+      ...(confirmAdmin ? { confirm_admin: true } : {}),
+    }),
   unlock: (dn: string) => http.post<{ dn: string }>(`/users/unlock?dn=${dnParam(dn)}`),
   /** null clears the expiry date, i.e. the account never expires. */
   setExpiry: (dn: string, expiresAt: string | null) =>

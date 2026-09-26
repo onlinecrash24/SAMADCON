@@ -365,8 +365,18 @@ def update_user(
     *,
     attributes: dict[str, Any] | None = None,
     flags: dict[str, bool] | None = None,
+    confirm_admin: bool = False,
 ) -> dict[str, Any]:
-    """Apply attribute and account-option changes. Returns the applied diff."""
+    """Apply attribute and account-option changes. Returns the applied diff.
+
+    Disabling an account that administers the domain needs ``confirm_admin``;
+    see :func:`administrative_role`. The check comes before anything is
+    written, so a refusal does not leave the other fields of the same request
+    already saved.
+    """
+    if flags and flags.get("account_disabled") and not confirm_admin:
+        _refuse_to_disable_an_administrator(conn, dn)
+
     applied: dict[str, Any] = {}
 
     if attributes:
@@ -424,8 +434,113 @@ def _set_uac(conn: DirectoryConnection, dn: str, value: int) -> None:
     conn.modify(message)
 
 
-def set_enabled(conn: DirectoryConnection, dn: str, enabled: bool) -> dict[str, Any]:
-    return update_user(conn, dn, flags={"account_disabled": not enabled})
+def set_enabled(
+    conn: DirectoryConnection, dn: str, enabled: bool, *, confirm_admin: bool = False
+) -> dict[str, Any]:
+    return update_user(
+        conn, dn, flags={"account_disabled": not enabled}, confirm_admin=confirm_admin
+    )
+
+
+# ---------------------------------------------------------------------------
+# Accounts the domain is administered with
+# ---------------------------------------------------------------------------
+
+#: The built-in Administrator, recognised by its RID and not its name: the
+#: account can be renamed, and hardening guides tell people to.
+BUILTIN_ADMINISTRATOR_RID = 500
+
+#: Groups whose members administer the domain or the forest. RIDs below 1000
+#: are reserved for well-known accounts, so a match is one of these — in this
+#: domain or, for 518 and 519, in the forest root.
+ADMIN_GROUP_RIDS: dict[int, str] = {
+    512: "Domain Admins",
+    518: "Schema Admins",
+    519: "Enterprise Admins",
+}
+
+#: The built-in Administrators group. Not domain-relative, so matched by its
+#: whole SID: its members hold the domain's administrative rights on every DC
+#: without being in Domain Admins, which is exactly the case nothing else here
+#: would catch.
+BUILTIN_ADMINISTRATORS_SID = "S-1-5-32-544"
+
+#: Which name the question uses when an account is in several — the one an
+#: administrator recognises first. Members of Domain Admins are in
+#: Administrators too, through nesting; "Domain Admins" is the useful answer.
+_ROLE_ORDER = ("Domain Admins", "Enterprise Admins", "Schema Admins", "Administrators")
+
+
+def administrative_role(conn: DirectoryConnection, dn: str) -> str | None:
+    """Why disabling this account would take an administrator from the domain.
+
+    ``"Administrator"`` for the built-in account, the name of an admin group
+    the account belongs to — Domain, Enterprise or Schema Admins, or the
+    built-in Administrators — or None. Membership is read from ``tokenGroups``,
+    which the DC computes with nesting resolved: an account in a group that
+    is itself in Domain Admins counts here exactly as it does at sign-in.
+
+    Disabling one is allowed — it is sometimes what hardening asks for — but
+    not by a single click. The one account left that could sign in may be
+    this one, and SAMADCON signs in with the administrator's own account.
+    """
+    entry = conn.get(dn, attrs=["objectSid", "tokenGroups"])
+    if entry is None:
+        return None
+    sid = values.sid_to_str(values.as_bytes(entry, "objectSid"))
+    if values.rid_of(sid) == BUILTIN_ADMINISTRATOR_RID:
+        return "Administrator"
+    roles = set()
+    for raw in _binary_values(entry, "tokenGroups"):
+        group = values.sid_to_str(raw)
+        if group == BUILTIN_ADMINISTRATORS_SID:
+            roles.add("Administrators")
+        elif group and group.startswith("S-1-5-21-"):
+            # Domain-relative only: a builtin SID such as S-1-5-32-545 ends in a
+            # number too, and must not be read as a domain RID.
+            role = ADMIN_GROUP_RIDS.get(values.rid_of(group) or 0)
+            if role:
+                roles.add(role)
+    return next((role for role in _ROLE_ORDER if role in roles), None)
+
+
+def _binary_values(message: Any, attr: str) -> list[bytes]:
+    """Every value of a binary attribute, by index as :func:`values.first` reads one."""
+    try:
+        element = message.get(attr)
+    except (KeyError, TypeError):
+        return []
+    if element is None:
+        return []
+    found = []
+    for index in range(len(element)):
+        value = element[index]
+        found.append(value if isinstance(value, bytes) else bytes(value))
+    return found
+
+
+def _refuse_to_disable_an_administrator(conn: DirectoryConnection, dn: str) -> None:
+    entry = conn.get(dn, attrs=["userAccountControl", "sAMAccountName"])
+    if entry is None:
+        # update_user reports that itself, with the message it always had.
+        return
+    if uac.is_disabled(values.as_int(entry, "userAccountControl", 0) or 0):
+        # Already disabled: nothing is being taken away.
+        return
+    role = administrative_role(conn, dn)
+    if role is None:
+        return
+    raise Conflict(
+        "Disabling this account takes an administrator away from the domain.",
+        code="confirm_disable_admin",
+        hint=(
+            "Confirm it explicitly. If it was the last account that could sign in, "
+            "`samba-tool user enable` on a domain controller undoes it."
+        ),
+        # The logon name, because that is what samba-tool takes; the CN the
+        # console shows can differ from it.
+        context={"dn": dn, "role": role, "account": values.as_str(entry, "sAMAccountName")},
+    )
 
 
 # ---------------------------------------------------------------------------
