@@ -15,7 +15,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { ApiError } from '../../api/client'
 import { api } from '../../api/endpoints'
 import type { CopyUserResult } from '../../api/types'
-import { UserIdentityFields, useUserIdentity } from '../../components/dialogs'
+import { ContainerBrowser, UserIdentityFields, useUserIdentity } from '../../components/dialogs'
 import {
   CopyButton,
   ErrorMessage,
@@ -54,6 +54,12 @@ export function CopyUserDialog({
   const [leftOut, setLeftOut] = useState<Set<string>>(new Set())
   const [error, setError] = useState<unknown>(null)
   const [result, setResult] = useState<CopyUserResult | null>(null)
+  // Where the account goes: the template's own container unless another is
+  // chosen, because that is where a template is kept.
+  const [target, setTarget] = useState(() => parentDn(template.dn))
+  // The container being browsed while the picker is open; applied on OK.
+  const [browsing, setBrowsing] = useState<string | null>(null)
+  const baseDn = template.dn.slice(template.dn.search(/DC=/i))
 
   // The UPN suffix comes from the template, as in ADUC, until one is chosen.
   const templateUpn = source.data?.attributes.upn
@@ -66,13 +72,13 @@ export function CopyUserDialog({
 
   const templateGroups = offered.data?.groups ?? []
   const groups = templateGroups.map((group) => group.dn)
-  const target = parentDn(template.dn)
 
   const create = useMutation({
     mutationFn: () =>
       api.copyUser(template.dn, {
         sam_account_name: identity.form.sam.trim(),
         common_name: identity.commonName,
+        parent_dn: target,
         attributes: identity.attributes,
         ...(generate ? { generate_password: true } : { password: password || undefined }),
         must_change_password: mustChange,
@@ -120,14 +126,14 @@ export function CopyUserDialog({
         <div className="form">
           <p>{t('status.created', { name: result.user.name })}</p>
           {result.generated_password && (
-            <>
-              <Field label={t('copy.generatedPassword')} hint={t('copy.generatedPasswordHint')}>
-                <div className="bitlocker__secret">
-                  <span className="mono selectable">{result.generated_password}</span>
-                  <CopyButton value={result.generated_password} />
-                </div>
-              </Field>
-            </>
+            <div className="field">
+              <span className="field__label">{t('copy.generatedPassword')}</span>
+              <div className="bitlocker__secret">
+                <span className="mono selectable">{result.generated_password}</span>
+                <CopyButton value={result.generated_password} />
+              </div>
+              <span className="field__hint">{t('copy.generatedPasswordHint')}</span>
+            </div>
           )}
           {result.groups_added.length > 0 && (
             <TextRow
@@ -176,7 +182,19 @@ export function CopyUserDialog({
     >
       <form id="copy-user" onSubmit={submit} className="form">
         <ErrorMessage error={error ?? source.error ?? offered.error} onDismiss={() => setError(null)} />
-        <TextRow label={t('copy.target')} value={<span title={target}>{nameFromDn(target)}</span>} />
+        {/* A div, not Field: Field is a <label>, and a click on its text
+            would press the first button inside it. */}
+        <div className="field">
+          <span className="field__label">{t('copy.target')}</span>
+          <div className="dn-field">
+            <span className="dn-field__name" title={target}>
+              {nameFromDn(target)}
+            </span>
+            <button type="button" className="button" onClick={() => setBrowsing(target)}>
+              {t('dnField.change')}
+            </button>
+          </div>
+        </div>
         <UserIdentityFields identity={identity} />
 
         <fieldset className="radio-group radio-group--block">
@@ -231,6 +249,37 @@ export function CopyUserDialog({
         </fieldset>
         <p className="muted small">{t('copy.carriesOver')}</p>
       </form>
+
+      {browsing !== null && (
+        <Modal
+          title={t('copy.pickTarget')}
+          onClose={() => setBrowsing(null)}
+          footer={
+            <>
+              <button type="button" className="button" onClick={() => setBrowsing(null)}>
+                {t('action.cancel')}
+              </button>
+              <button
+                type="button"
+                className="button button--primary"
+                onClick={() => {
+                  setTarget(browsing)
+                  setBrowsing(null)
+                }}
+              >
+                {t('action.ok')}
+              </button>
+            </>
+          }
+        >
+          <div className="form">
+            <Field label={t('dialog.moveTarget')}>
+              <code className="mono small">{browsing}</code>
+            </Field>
+            <ContainerBrowser baseDn={baseDn} target={browsing} onTarget={setBrowsing} />
+          </div>
+        </Modal>
+      )}
     </Modal>
   )
 }

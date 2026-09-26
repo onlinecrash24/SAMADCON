@@ -10,7 +10,7 @@ import { adminRefusal, isBuiltinAdministrator } from '../features/directory/admi
 import { splitUpn } from '../features/directory/upn'
 import { useSession } from '../state/session'
 import type { TreeNode } from '../api/types'
-import { isAtOrBelow } from '../dn'
+import { isAtOrBelow, parentDn } from '../dn'
 import { useI18n } from '../i18n'
 import { ErrorMessage, Field, Modal, Spinner } from './primitives'
 
@@ -407,20 +407,12 @@ export function MoveDialog({
   // the one that decides where an object lands should be the one on screen.
   const [target, setTarget] = useState(baseDn)
 
-  const listing = useQuery({
-    queryKey: ['move-target', target],
-    queryFn: () => api.tree(target),
-  })
-
   // A container cannot be moved into itself or into anything below it. The
   // server would let rename fail with a bare LDAP error; saying it here means
   // the button is simply not available for a move that cannot work.
   const inside = (candidate: string) => isAtOrBelow(candidate, dn)
 
-  const parentOf = (child: string) => child.slice(child.indexOf(',') + 1)
-  const canAscend = target.toLowerCase() !== baseDn.toLowerCase()
-
-  const unchanged = parentOf(dn).toLowerCase() === target.toLowerCase()
+  const unchanged = parentDn(dn).toLowerCase() === target.toLowerCase()
   const refused = inside(target)
 
   const submit = () => {
@@ -466,42 +458,77 @@ export function MoveDialog({
         {refused && <div className="alert alert--warning">{t('dialog.moveIntoItself')}</div>}
         {unchanged && !refused && <p className="muted small">{t('dialog.moveUnchanged')}</p>}
 
-        <div className="pane__actions">
-          <button
-            type="button"
-            className="button"
-            disabled={!canAscend}
-            onClick={() => setTarget(parentOf(target))}
-          >
-            {t('dialog.moveUp')}
-          </button>
-        </div>
-
-        {listing.isLoading && <Spinner label={t('status.loading')} />}
-        {listing.error && <ErrorMessage error={listing.error} />}
-
-        <ul className="plain-list">
-          {(listing.data?.nodes ?? []).map((node: TreeNode) => (
-            <li key={node.dn}>
-              <button
-                type="button"
-                className="button"
-                // Descending into the object being moved is pointless: every
-                // container under it is refused anyway.
-                disabled={inside(node.dn)}
-                onClick={() => setTarget(node.dn)}
-              >
-                {node.name}
-              </button>
-            </li>
-          ))}
-        </ul>
-
-        {(listing.data?.nodes ?? []).length === 0 && !listing.isLoading && (
-          <p className="muted small">{t('dialog.moveNoChildren')}</p>
-        )}
+        {/* Descending into the object being moved is pointless: every
+            container under it is refused anyway. */}
+        <ContainerBrowser baseDn={baseDn} target={target} onTarget={setTarget} isDisabled={inside} />
       </div>
     </Modal>
+  )
+}
+
+/**
+ * Walk the containers of one partition and point at one of them.
+ *
+ * Where the browser is looking is also what is chosen: no separate
+ * "selected" state, so the target on screen is the one that is used. Shared
+ * by Move and by Copy's target, so the two walk the directory the same way.
+ */
+export function ContainerBrowser({
+  baseDn,
+  target,
+  onTarget,
+  isDisabled,
+}: {
+  /** The partition root; the browser does not go above it. */
+  baseDn: string
+  target: string
+  onTarget: (dn: string) => void
+  /** Containers that cannot be chosen or entered. */
+  isDisabled?: (dn: string) => boolean
+}) {
+  const { t } = useI18n()
+  const listing = useQuery({
+    queryKey: ['move-target', target],
+    queryFn: () => api.tree(target),
+  })
+  const canAscend = target.toLowerCase() !== baseDn.toLowerCase()
+  const nodes = listing.data?.nodes ?? []
+
+  return (
+    <>
+      <div className="pane__actions">
+        <button
+          type="button"
+          className="button"
+          disabled={!canAscend}
+          onClick={() => onTarget(parentDn(target))}
+        >
+          {t('dialog.moveUp')}
+        </button>
+      </div>
+
+      {listing.isLoading && <Spinner label={t('status.loading')} />}
+      {listing.error && <ErrorMessage error={listing.error} />}
+
+      <ul className="plain-list">
+        {nodes.map((node: TreeNode) => (
+          <li key={node.dn}>
+            <button
+              type="button"
+              className="button"
+              disabled={isDisabled?.(node.dn)}
+              onClick={() => onTarget(node.dn)}
+            >
+              {node.name}
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      {nodes.length === 0 && !listing.isLoading && (
+        <p className="muted small">{t('dialog.moveNoChildren')}</p>
+      )}
+    </>
   )
 }
 

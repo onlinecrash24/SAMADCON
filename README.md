@@ -722,7 +722,8 @@ without the right sees that a key exists and is told it cannot read it.
 
 Onboarding works as in ADUC, from a template account: an ordinary, disabled user — by
 convention named something like `_Template_Sales` — kept in the OU new colleagues belong in, and
-a member of the groups they need. **Copy…** on any user creates a new account from it. The copy
+a member of the groups they need. **Copy…** on any user creates a new account from it, in the
+template's OU unless another is chosen in the dialog. The copy
 takes the groups (each one can be left out, and a primary group other than Domain Users comes
 too), department, company, manager, the address without the street, profile and home folder,
 logon script, logon hours, workstations, expiry date and account options; a path that ends in

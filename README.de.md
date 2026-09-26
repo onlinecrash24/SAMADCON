@@ -741,7 +741,7 @@ Recht sieht, dass ein Schlüssel existiert, und erfährt, dass es ihn nicht lese
 Onboarding geht wie in ADUC über ein Vorlagenkonto: ein gewöhnliches, deaktiviertes Konto — per
 Konvention etwa `_Vorlage_Vertrieb` — in der OU, in die neue Kolleginnen und Kollegen gehören, und
 Mitglied der Gruppen, die sie brauchen. **Kopieren…** an einem Benutzer legt daraus ein neues
-Konto an. Übernommen werden die Gruppen (jede lässt sich abwählen; eine primäre Gruppe außer
+Konto an, in der OU der Vorlage, sofern im Dialog keine andere gewählt wird. Übernommen werden die Gruppen (jede lässt sich abwählen; eine primäre Gruppe außer
 Domänen-Benutzer kommt mit), Abteilung, Firma, Vorgesetzter, die Adresse ohne Straße, Profil- und
 Basisordner, Anmeldeskript, Anmeldezeiten, Arbeitsstationen, Ablaufdatum und Kontooptionen; ein
 Pfad, der auf den Anmeldenamen der Vorlage endet, endet auf den neuen. Nicht übernommen werden
