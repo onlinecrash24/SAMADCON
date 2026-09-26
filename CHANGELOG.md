@@ -14,6 +14,71 @@ release.
 
 ---
 
+## 0.5.19 — 2026-09-26
+
+An outside code review, acted on and checked against a live DC.
+
+Ten findings and five suggested optimisations. Every finding was read
+against the code before anything changed, and each fix has a test that
+fails without it. Where a live domain or Docker was needed, the check
+was made there.
+
+**Security.**
+
+The password reset built LDIF as a string, with the DN from a query
+parameter checked for nothing but its length; a line break in the DN
+became further LDIF records, so the directory could do more than the
+audit log said. It writes a message now, like every other change, and
+every DN parameter refuses control characters — a test walks every
+route, and found five DNS routes that went round the check. Verified
+on the maintainer's DC: a reset through the console, then a sign-in
+with the new password.
+
+**Wrong states shown.**
+
+A lockout that had run out was shown as current, with Unlock offered —
+in the detail pane and in the locked-accounts list; the function that
+knew better was never called. Both now apply the domain's lockout
+duration. Verified on the DC with a one-minute lockout: locked, then
+active after the minute, without unlocking. A fine-grained password
+policy's own duration is not read.
+
+An upload rejected by nginx surfaced as a JavaScript SyntaxError rather
+than "too large", and a network failure during an upload or download
+was not reported as one. nginx now allows the multipart framing on top
+of the application's 64 MiB, so the application's limit is the one
+people meet.
+
+**Deployment.**
+
+An empty SAMADCON_DNS, _DNS_SEARCH or _HTTPS_PORT started the stack
+anyway — without a resolver, or on whichever port was free. Compose now
+stops and names the missing one; CI proves it for both copies of the
+stack.
+
+The image installs its Python dependencies from a hashed lock,
+backend/requirements.lock: 25 pins resolved for Linux x86_64 and Python
+3.13, every file checked. CI audits the lock itself and holds it to
+pyproject.toml.
+
+**Smaller.**
+
+IPv6 DC addresses: Samba's URL parser takes [addr] only with a port
+after it, which the review had not seen — on the DC, ldap://[::1] and
+ldap://::1 both failed with INVALID_PARAMETER, ldap://[::1]:389 got as
+far as the connection. SAMADCON writes the port now. A connection over
+IPv6 itself could not be tested; that DC has none.
+
+A search the server abandoned at its own time limit is no longer run a
+second time. Copying or backing up a GPO refuses folders nested past
+eight levels instead of leaving them out silently, and the report lists
+what it did not read. A realm-only server profile keeps its label, and
+a profile needs hosts or a realm. Published certificates are listed
+without their content, which is fetched when one is viewed or saved,
+and downloads no longer release their URL before the browser has it.
+
+---
+
 ## 0.5.18 — 2026-09-26
 
 Several domains: a resolver that knows all of them.
