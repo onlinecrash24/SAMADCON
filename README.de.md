@@ -889,7 +889,8 @@ weil das Lease auch das Löschen verweigert. Sichtbar mit `smbstatus --locks` au
 Lease löst sich von selbst, `smbcontrol smbd close-share sysvol` oder ein Neustart von
 `samba-ad-dc` beendet es sofort. Dass vorher geprüft wird, kann nicht verhindern, dass ein
 Lease einen Import mittendrin abbricht; die Fehlermeldung nennt dann, was schon geschrieben
-war.
+war. `close-share` trennt auch die Verbindung von SAMADCON zur Freigabe; sie wird bei der
+nächsten Anfrage neu aufgebaut, neu anmelden muss man sich dafür nicht.
 
 **Sicherheitseinstellungen** (4b) liegen in `GptTmpl.inf`, einer INI in UTF-16LE mit BOM:
 Kennwort- und Kontosperrrichtlinie, Kerberos-Richtlinie, die Überwachungskategorien, das

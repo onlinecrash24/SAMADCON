@@ -858,7 +858,8 @@ usual workaround of deleting instead of overwriting does not help, because the l
 deletion too. Visible with `smbstatus --locks` on the DC; the lease clears by itself, and
 `smbcontrol smbd close-share sysvol` or a restart of `samba-ad-dc` ends it at once. Checking
 first cannot stop a lease from cutting an import short half way; the error then lists what had
-already been written.
+already been written. `close-share` ends SAMADCON's own connection to the share as well; it is
+opened again on the next request, so signing in anew is not needed.
 
 **Security settings** (4b) live in `GptTmpl.inf`, an INI in UTF-16LE with a BOM: password and
 lockout policy, Kerberos policy, the audit categories, user rights assignment and restricted

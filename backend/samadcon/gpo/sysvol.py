@@ -46,6 +46,46 @@ SHARE_READ_WRITE = 0x1 | 0x2
 WRITE_ACCESS = 0x2 | 0x4 | 0x00100000  # write data, append data, synchronize
 FILE_ATTRIBUTE_NORMAL = 0x80
 
+# NT status values, by number and by name: the SMB bindings raise
+# NTSTATUSError with the number and a sentence, other layers put the name in
+# the text. Wire constants again, for the same reason as above.
+#
+# What "this path is not there" looks like. Anything else — a refusal, a
+# dropped connection — is not an answer to "is there a directory here".
+_NOT_THERE = {
+    0xC000000F: "NT_STATUS_NO_SUCH_FILE",
+    0xC0000033: "NT_STATUS_OBJECT_NAME_INVALID",
+    0xC0000034: "NT_STATUS_OBJECT_NAME_NOT_FOUND",
+    0xC000003A: "NT_STATUS_OBJECT_PATH_NOT_FOUND",
+    0xC0000103: "NT_STATUS_NOT_A_DIRECTORY",
+}
+# What a server says to a connection it has dropped. `smbcontrol smbd
+# close-share sysvol` — the documented way to break a client's lease on the
+# central store — ends every tree connect to the share, this session's
+# included; the next request on it gets NETWORK_NAME_DELETED. The connection
+# was cached for the session and never reopened, so every SYSVOL read failed
+# until the administrator signed out: the central store read as absent, and
+# the policy editor offered to create one.
+_CONNECTION_GONE = {
+    0xC00000C9: "NT_STATUS_NETWORK_NAME_DELETED",
+    0xC000014B: "NT_STATUS_PIPE_BROKEN",
+    0xC0000203: "NT_STATUS_USER_SESSION_DELETED",
+    0xC000020C: "NT_STATUS_CONNECTION_DISCONNECTED",
+    0xC000020D: "NT_STATUS_CONNECTION_RESET",
+    0xC0000241: "NT_STATUS_CONNECTION_ABORTED",
+    0xC000035C: "NT_STATUS_NETWORK_SESSION_EXPIRED",
+}
+
+
+def _is_status(exc: BaseException, statuses: dict[int, str]) -> bool:
+    """Whether *exc* carries one of *statuses*, as a number or by name."""
+    for arg in getattr(exc, "args", ()):
+        if isinstance(arg, int) and (arg & 0xFFFFFFFF) in statuses:
+            return True
+    text = str(exc)
+    return any(name in text for name in statuses.values())
+
+
 # A UNC path as AD stores it in gPCFileSysPath.
 _UNC_RE = re.compile(r"^\\\\(?P<host>[^\\]+)\\(?P<share>[^\\]+)\\(?P<path>.*)$")
 
@@ -92,6 +132,42 @@ def join(*parts: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+class _Reopening:
+    """The SMB client, opened again once when the server has dropped it.
+
+    Only calls that carry no file handle are repeated: a handle belongs to
+    the connection that opened it, so a write on a new connection with an old
+    handle would be wrong, not merely failed. Those calls fail as before, and
+    the next handle-free call opens the connection again.
+    """
+
+    REPEATABLE = frozenset(
+        {"chkpath", "list", "loadfile", "savefile", "mkdir", "rmdir", "unlink",
+         "deltree", "rename", "create", "get_acl", "set_acl"}
+    )
+
+    def __init__(self, client: Any, reopen: Any) -> None:
+        self._client = client
+        self._reopen = reopen
+
+    def __getattr__(self, name: str) -> Any:
+        attribute = getattr(self._client, name)
+        if name not in self.REPEATABLE or not callable(attribute):
+            return attribute
+
+        def call(*args: Any, **kwargs: Any) -> Any:
+            try:
+                return getattr(self._client, name)(*args, **kwargs)
+            except Exception as exc:
+                if not _is_status(exc, _CONNECTION_GONE):
+                    raise
+                logger.info("SYSVOL connection dropped by the server (%s); reopening", exc)
+                self._client = self._reopen()
+                return getattr(self._client, name)(*args, **kwargs)
+
+        return call
+
+
 class SysvolConnection:
     """An open SMB session to the ``sysvol`` share of one DC."""
 
@@ -103,18 +179,46 @@ class SysvolConnection:
     # -- reading -----------------------------------------------------------
 
     def is_directory(self, path: str) -> bool:
-        """Whether *path* is a directory.
+        """Whether *path* is a directory — and an error when that is unknown.
 
-        ``chkpath`` answers exactly that and nothing else: on a file it fails
-        with NT_STATUS_NOT_A_DIRECTORY. It therefore cannot stand in for an
-        existence check — which is why :meth:`exists` does not use it alone.
+        ``chkpath`` answers yes quickly. Its no is not an answer: the binding
+        returns False for every failure, so a refused path and a dropped
+        connection looked exactly like a missing one — and the central store
+        read as absent, with the editor offering to create it. A no is
+        therefore confirmed from the parent's listing, which raises what it
+        meets. Only "not there" and "not a directory" are a no; anything else
+        is reported.
         """
         try:
-            return bool(self.conn.chkpath(path))
-        except Exception:  # noqa: BLE001
-            # A missing path, a file, or one we may not look at — none of them
-            # is a directory we can use.
+            if self.conn.chkpath(path):
+                return True
+        except Exception as exc:
+            if not _is_status(exc, _NOT_THERE):
+                raise _translate_smb(exc, path) from exc
             return False
+
+        parent, _, name = path.rpartition("\\")
+        if not name:
+            return False
+        try:
+            try:
+                entries = self.conn.list(parent, attribs=LISTING_ATTRIBUTES)
+            except TypeError:
+                # An older binding without the keyword, as in listdir.
+                entries = self.conn.list(parent)
+        except Exception as exc:
+            if _is_status(exc, _NOT_THERE):
+                return False
+            raise _translate_smb(exc, path) from exc
+
+        wanted = name.lower()
+        for entry in entries:
+            found = entry["name"] if isinstance(entry, dict) else getattr(entry, "name", "")
+            if str(found).lower() != wanted:
+                continue
+            attrib = entry.get("attrib", 0) if isinstance(entry, dict) else 0
+            return bool(int(attrib or 0) & 0x10)  # FILE_ATTRIBUTE_DIRECTORY
+        return False
 
     def exists(self, path: str) -> bool:
         """Whether *path* exists, as a file or as a directory."""
@@ -560,7 +664,12 @@ def connect(conn: DirectoryConnection) -> SysvolConnection:
             continue
 
         logger.info("opened SYSVOL on %s (%s)", host, label)
-        return SysvolConnection(client, host, conn.info.dns_domain)
+
+        def reopen(build: Any = build) -> Any:
+            lp, creds = build()
+            return libsmb.Conn(host, SHARE, lp=lp, creds=creds)
+
+        return SysvolConnection(_Reopening(client, reopen), host, conn.info.dns_domain)
 
     raise SamadconError(
         "The SYSVOL share could not be opened.",
