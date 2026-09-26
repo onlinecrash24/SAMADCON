@@ -14,6 +14,43 @@ release.
 
 ---
 
+## 0.5.18 — 2026-09-26
+
+Several domains: a resolver that knows all of them.
+
+A documentation release. Nothing behaves differently; what the console
+and the README tell an administrator about name resolution does.
+
+An operator runs one instance for three domains, since August: no dns:
+in the container, which inherits the Docker host's resolver — an AdGuard
+that forwards each zone to its domain controller. The shipped stack
+points dns: at the DC of one domain. That DC says NXDOMAIN for every
+other zone, and a second dns: entry does not help, because a resolver
+only moves on when the first server does not answer, not when it says a
+name does not exist.
+
+The README said the opposite of the code. It claimed signing in by
+address works "even without matching DNS records", and that naming the
+controllers in SAMADCON_DC_HOSTS skips discovery altogether. The code
+has always said otherwise: with only an address, sign-in ends in
+dc_name_unknown, because the Kerberos ticket is for ldap/<the DC's
+name>; SYSVOL, and with it the policy editor, connects by that name;
+and Samba locates a controller with a netlogon ping over the domain's
+SRV records. Naming the controllers spares the search, not the
+resolving.
+
+The operator's sentence — several domains need a resolver that knows
+all of them, not the DC of one — now stands in both READMEs, the comment
+above dns: in both compose files, .env.example, the sign-in form's hint
+when a domain does not resolve, and the no_logon_servers error hint.
+One instance serves several domains with that and nothing more.
+
+Checked with the unit tests (1186 backend, 120 frontend), the compose
+check in CI, and the README examples parsed against the shipped stack.
+The operator's three-domain setup is theirs; it was not reproduced here.
+
+---
+
 ## 0.5.17 — 2026-09-26
 
 Administrative templates imported as Windows ships them, and administrators kept.
