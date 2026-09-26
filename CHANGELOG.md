@@ -14,6 +14,74 @@ release.
 
 ---
 
+## 0.5.17 — 2026-09-26
+
+Administrative templates imported as Windows ships them, and administrators kept.
+
+**Importing administrative templates.**
+
+The central store has a node of its own in the Group Policy tree,
+Administrative Templates, beside All policies: it belongs to the domain,
+not to one policy. Its page lists what is installed, in which languages,
+and where on SYSVOL. Import templates… there, and in any GPO editor's
+bar, takes Microsoft's MSI as downloaded, a ZIP of the PolicyDefinitions
+folder, or the folder itself. All three are reshaped by one rule — the
+folder holding the .admx files becomes the store's root, de-de becomes
+de-DE — while the store's own gate stays exactly as strict as it was.
+The MSI is opened with msiextract from msitools, now in the image and
+checked at build time. Languages are chosen, de-DE and en-US by default;
+templates already there are skipped or replaced.
+
+Before this, the upload form only appeared while a domain had no store,
+took a ZIP only in a shape nobody makes, and refused the lot when one
+template was already present.
+
+It needed a parser fix that reaches beyond importing. Search.admx is
+UTF-16 and declares encoding='unicode'; Windows reads that, Python does
+not. Every import of Microsoft's package failed with a server error, and
+a store copied from a Windows DC silently lacked the file's 50 policies.
+
+Measured on the Windows 11 25H2 package (v2.0), extracted with msiextract
+on Debian trixie: 5,284 files, 22 languages, 97 MB; with two languages
+233 templates and 465 texts in 11.6 MB, every file accepted, 3,628
+policies.
+
+**Administrators are not taken away by one click.**
+
+Disabling or deleting the built-in Administrator (RID 500, whatever its
+name) or any member of Domain, Schema or Enterprise Admins or the
+built-in Administrators, nested groups included, asks first, with a box
+to tick. The server enforces it on every path — context menu, detail
+pane, property sheet — before anything is written, and the audit log
+records the confirmation. Membership is read from tokenGroups, which
+Samba computes only for a BASE search, which is how SAMADCON asks.
+
+**SAMADCON_BIND is back.**
+
+It narrowed the published port to one address since 0.5.2 and dropped
+out of the stack in 0.5.15 unannounced; a value in an old .env did
+nothing. It works again. Unset still means every interface, IPv4 and
+IPv6. A CI step runs `docker compose config` over both copies of the
+stack to prove the line binds where it says. The stack also carries,
+commented out, the two lines a multi-domain instance needs for a
+servers.json.
+
+**Smaller.**
+
+After enabling, disabling, unlocking or resetting an account from the
+context menu, the detail pane beside the list now shows the new state.
+
+**What was verified where.** Against the maintainer's Samba DC: the
+administrator confirmation for disabling and deleting, a member of
+Administrators alone, nesting through a group, the confirmation in the
+audit log, and the refreshed detail pane — two defects found there were
+fixed before this release. In CI: the image builds with msiextract, and
+the port binding in all four cases. The template import was proven
+against the real MSI outside the console; importing through the console
+into a live domain's store has not been done yet.
+
+---
+
 ## 0.5.16 — 2026-09-25
 
 The sign-in form, for an instance that serves one domain.
