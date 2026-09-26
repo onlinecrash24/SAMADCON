@@ -177,6 +177,13 @@ jobs:
       - name: The lock agrees with pyproject.toml
         run: python scripts/check_lock.py
 
+      # The interface translates an error by its code and falls back to the
+      # server's English. 117 of 236 codes once had no German entry, and an
+      # administrator working in German met them in English. This lists every
+      # code the backend can raise and fails on one the catalogue lacks.
+      - name: Every error code has German words
+        run: python scripts/check_translations.py
+
       # Two passes, because they answer different questions and the second
       # is the one nothing else here asks.
       #

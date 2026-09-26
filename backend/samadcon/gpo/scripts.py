@@ -90,7 +90,7 @@ def directory_for(half: str, event: str) -> str:
             "This event does not belong to this half of the policy.",
             code="unknown_script_event",
             hint=f"{half} scripts run at: {', '.join(EVENTS[half])}.",
-            context={"half": half, "event": event},
+            context={"half": half, "event": event, "allowed": list(EVENTS.get(half, ()))},
         )
     return f"{half}\\Scripts\\{event}"
 
@@ -107,7 +107,7 @@ def _check(half: str, engine: str | None = None) -> None:
             "Unknown script engine.",
             code="unknown_script_engine",
             hint=f"Expected one of: {', '.join(FILES)}.",
-            context={"given": engine},
+            context={"given": engine, "allowed": list(FILES)},
         )
 
 

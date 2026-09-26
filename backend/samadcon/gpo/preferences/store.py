@@ -185,7 +185,7 @@ def _prepare(
                 "Unknown preference action.",
                 code="unknown_preference_action",
                 hint=f"Expected one of: {', '.join(catalogue.ACTIONS)}.",
-                context={"given": item.get("action")},
+                context={"given": item.get("action"), "allowed": list(catalogue.ACTIONS)},
             )
 
     incoming = {str(name): value for name, value in (item.get("properties") or {}).items()}
@@ -279,7 +279,7 @@ def _member(entry: dict[str, Any]) -> dict[str, str]:
             "A group member is either added or removed.",
             code="unknown_member_action",
             hint=f"Expected one of: {', '.join(xmlfile.MEMBER_ACTIONS)}.",
-            context={"given": entry.get("action")},
+            context={"given": entry.get("action"), "allowed": list(xmlfile.MEMBER_ACTIONS)},
         )
     return {
         "name": str(entry.get("name") or ""),
@@ -317,7 +317,7 @@ def _preference(type_id: str, half: str) -> PreferenceType:
             "This preference type does not exist in that half.",
             code="preference_wrong_half",
             hint=f"{preference.id} exists in: {', '.join(preference.halves)}.",
-            context={"type": preference.id, "half": half},
+            context={"type": preference.id, "half": half, "allowed": list(preference.halves)},
         )
     return preference
 
@@ -336,7 +336,12 @@ def _kind(preference: PreferenceType, half: str, kind_id: str | None) -> ItemKin
             "This kind of item does not exist in that half.",
             code="preference_wrong_half",
             hint=f"{kind.id} exists in: {', '.join(kind.halves)}.",
-            context={"type": preference.id, "kind": kind.id, "half": half},
+            context={
+                "type": preference.id,
+                "kind": kind.id,
+                "half": half,
+                "allowed": list(kind.halves),
+            },
         )
     return kind
 

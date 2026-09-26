@@ -171,7 +171,7 @@ def kind_for(policy: str) -> VgpKind:
             "Unknown Samba policy.",
             code="unknown_vgp_policy",
             hint=f"Expected one of: {', '.join(sorted(KINDS))}.",
-            context={"given": policy},
+            context={"given": policy, "allowed": sorted(KINDS)},
         ) from None
 
 

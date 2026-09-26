@@ -206,7 +206,11 @@ class PreferenceType:
             "Unknown kind of preference item.",
             code="unknown_preference_kind",
             hint=f"Expected one of: {', '.join(kind.id for kind in self.kinds)}.",
-            context={"type": self.id, "given": kind_id},
+            context={
+                "type": self.id,
+                "given": kind_id,
+                "allowed": [kind.id for kind in self.kinds],
+            },
         )
 
     def kind_for_tag(self, tag: str) -> ItemKind | None:
@@ -631,7 +635,7 @@ def type_for(type_id: str) -> PreferenceType:
             "Unknown preference type.",
             code="unknown_preference_type",
             hint=f"Expected one of: {', '.join(sorted(TYPES))}.",
-            context={"given": type_id},
+            context={"given": type_id, "allowed": sorted(TYPES)},
         ) from None
 
 

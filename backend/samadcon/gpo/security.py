@@ -156,7 +156,7 @@ def check_safe(text: str, what: str) -> str:
             f"This {what} contains characters that would change the file's structure.",
             code="unsafe_security_name",
             hint="Line breaks, brackets and equals signs are not allowed here.",
-            context={what: text},
+            context={what: text, "reason": what, "value": text},
         )
     return text
 

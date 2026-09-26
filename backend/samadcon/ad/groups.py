@@ -67,7 +67,7 @@ def group_type_value(scope: str, security: bool) -> int:
         raise InvalidRequest(
             f"Unknown group scope '{scope}'.",
             code="unknown_group_scope",
-            context={"allowed": list(_SCOPE_BITS)},
+            context={"given": scope, "allowed": list(_SCOPE_BITS)},
         )
     if not security:
         return bits
@@ -120,6 +120,7 @@ def create_group(
         raise InvalidRequest(
             "The group's logon name must not exceed 64 characters.",
             code="sam_account_name_too_long",
+            context={"limit": 64},
         )
 
     if not conn.exists(parent_dn):

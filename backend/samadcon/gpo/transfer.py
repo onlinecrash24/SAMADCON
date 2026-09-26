@@ -247,6 +247,7 @@ def restore_gpo(
             "The backup does not say what the policy was called.",
             code="missing_name",
             hint="Give a name for the restored policy.",
+            context={"reason": "backup"},
         )
 
     for existing in container.list_gpos(conn):

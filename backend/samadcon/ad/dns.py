@@ -500,7 +500,7 @@ def create_zone(
         raise InvalidRequest(
             f"Unknown DNS partition '{partition}'.",
             code="unknown_dns_partition",
-            context={"supported": list(containers)},
+            context={"given": partition, "supported": list(containers)},
         )
 
     zone_dn = f"DC={values.escape_rdn_value(zone_name)},{container}"

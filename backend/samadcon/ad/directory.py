@@ -283,7 +283,9 @@ def sort_control(sort: str, descending: bool) -> str:
     """
     if sort not in SORT_ATTRIBUTES:
         raise InvalidRequest(
-            f"Unknown sort column: {sort}", code="unknown_sort_column",
+            f"Unknown sort column: {sort}",
+            code="unknown_sort_column",
+            context={"column": sort},
         )
     return f"server_sort:0:{1 if descending else 0}:{SORT_ATTRIBUTES[sort]}"
 
@@ -730,6 +732,6 @@ def base_scope(name: str) -> int:
         raise InvalidRequest(
             f"Unknown search scope '{name}'.",
             code="unknown_scope",
-            context={"allowed": list(mapping)},
+            context={"given": name, "allowed": list(mapping)},
         )
     return mapping[name]

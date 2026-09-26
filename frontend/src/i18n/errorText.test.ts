@@ -64,3 +64,24 @@ describe('an error with a reason', () => {
     expect(errorText(de, bare)).toBe('x')
   })
 })
+
+describe('a value the server sentence named', () => {
+  it('reaches the German sentence through the context', () => {
+    // The context the backend sends for a DNS port of 0 (test_error_context.py).
+    const error = new ApiError(400, {
+      code: 'number_out_of_range',
+      message: 'Port must be between 1 and 65535.',
+      context: { value: 0, reason: 'port', minimum: 1, maximum: 65535 },
+    })
+    expect(errorText(de, error)).toBe('Der Port muss zwischen 1 und 65535 liegen.')
+  })
+
+  it('names the limit that was exceeded', () => {
+    const error = new ApiError(400, {
+      code: 'sam_account_name_too_long',
+      message: 'The logon name must not exceed 20 characters.',
+      context: { limit: 20 },
+    })
+    expect(errorText(de, error)).toBe('Der Anmeldename darf höchstens 20 Zeichen lang sein.')
+  })
+})

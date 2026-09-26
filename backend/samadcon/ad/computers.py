@@ -228,7 +228,9 @@ def reset_computer_account(conn: DirectoryConnection, dn: str) -> None:
     initial_password = sam.rstrip("$").lower()
     if not initial_password:
         raise InvalidRequest(
-            "The computer account has no logon name.", code="missing_sam_account_name"
+            "The computer account has no logon name.",
+            code="missing_sam_account_name",
+            context={"reason": "computer_account"},
         )
 
     set_password(conn, dn, initial_password, must_change=False)

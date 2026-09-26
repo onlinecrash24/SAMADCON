@@ -283,6 +283,7 @@ def create_user(
         raise InvalidRequest(
             "The logon name must not exceed 20 characters.",
             code="sam_account_name_too_long",
+            context={"limit": 20},
         )
     if enabled and not password:
         raise InvalidRequest(

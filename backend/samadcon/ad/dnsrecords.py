@@ -75,7 +75,7 @@ def type_value(name: str) -> int:
         raise InvalidRequest(
             f"Unsupported record type '{name}'.",
             code="unsupported_record_type",
-            context={"supported": list(EDITABLE_TYPES)},
+            context={"type": name, "supported": list(EDITABLE_TYPES)},
         )
     return TYPE_VALUES[key]
 
@@ -85,16 +85,33 @@ def type_value(name: str) -> int:
 # ---------------------------------------------------------------------------
 
 
+def _field(what: str) -> str:
+    """The field a message is about, as a stable key: "Mail server" -> "mail_server".
+
+    Goes into the context as ``reason``, so the interface can name the field
+    in its own language; the English label only reaches the server's sentence.
+    """
+    return what.strip().lower().replace(" ", "_")
+
+
 def normalise_name(name: str, *, what: str = "Name") -> str:
     """Normalise a DNS name: no trailing dot, lower case, non-empty."""
     text = (name or "").strip().rstrip(".").lower()
     if not text:
-        raise InvalidRequest(f"{what} is missing.", code="missing_dns_name")
+        raise InvalidRequest(
+            f"{what} is missing.", code="missing_dns_name", context={"reason": _field(what)}
+        )
     if len(text) > 253:
-        raise InvalidRequest(f"{what} is too long.", code="dns_name_too_long")
+        raise InvalidRequest(
+            f"{what} is too long.",
+            code="dns_name_too_long",
+            context={"reason": _field(what), "limit": 253},
+        )
     if any(char.isspace() for char in text):
         raise InvalidRequest(
-            f"{what} must not contain spaces.", code="invalid_dns_name", context={"name": name}
+            f"{what} must not contain spaces.",
+            code="invalid_dns_name",
+            context={"name": name, "reason": _field(what)},
         )
     return text
 
@@ -143,7 +160,7 @@ def validate_data(record_type: str, data: dict[str, Any]) -> dict[str, Any]:
     raise InvalidRequest(
         f"Records of type '{record_type}' cannot be edited.",
         code="unsupported_record_type",
-        context={"supported": list(EDITABLE_TYPES)},
+        context={"type": record_type, "supported": list(EDITABLE_TYPES)},
     )
 
 
@@ -170,13 +187,15 @@ def _validate_uint16(value: Any, what: str, *, minimum: int = 0) -> int:
         number = int(value)
     except (TypeError, ValueError) as exc:
         raise InvalidRequest(
-            f"{what} must be a number.", code="invalid_number", context={"value": value}
+            f"{what} must be a number.",
+            code="invalid_number",
+            context={"value": value, "reason": _field(what)},
         ) from exc
     if number < minimum or number > 65535:
         raise InvalidRequest(
             f"{what} must be between {minimum} and 65535.",
             code="number_out_of_range",
-            context={"value": number},
+            context={"value": number, "reason": _field(what), "minimum": minimum, "maximum": 65535},
         )
     return number
 
@@ -215,6 +234,7 @@ def _validate_txt(value: Any) -> list[str]:
             raise InvalidRequest(
                 f"A single text string may not exceed {MAX_TXT_STRING} bytes.",
                 code="txt_too_long",
+                context={"limit": MAX_TXT_STRING},
             )
         cleaned.append(text)
     return cleaned
@@ -378,7 +398,7 @@ def encode(record_type: str, data: dict[str, Any], *, ttl: int, serial: int = 1)
         raise InvalidRequest(
             f"Records of type '{record_type}' cannot be written.",
             code="unsupported_record_type",
-            context={"supported": list(EDITABLE_TYPES)},
+            context={"type": record_type, "supported": list(EDITABLE_TYPES)},
         )
 
     return ndr_pack(record)
