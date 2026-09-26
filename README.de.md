@@ -113,15 +113,28 @@ Bei Eingabe einer IP ermittelt SAMADCON die Domäne selbst: Ein anonymer rootDSE
 Realm, den FQDN des Domänencontrollers und die Naming Contexts. Das ist nötig, weil Kerberos
 Tickets auf `ldap/dc1.example.lan@EXAMPLE.LAN` ausstellt — aus einer nackten IP lässt sich weder
 der SPN noch der Realm ableiten. Anschließend wird eine Kerberos-Konfiguration erzeugt, die genau
-diese Adresse als KDC einträgt; damit funktioniert die Anmeldung auch ohne passende DNS-Einträge.
-Mehrere Realms werden parallel unterstützt.
+diese Adresse als KDC einträgt. Mehrere Realms werden parallel unterstützt.
 
-Das gilt für den Weg über eine **Adresse**. Wer sich mit einem **Domänennamen** anmeldet, für den
-muss SAMADCON erst einen Controller finden, und das geschieht über SRV-Records — die brauchen
-einen Resolver, der die Domäne bedient. Ein Container, dessen Resolver sie nicht kennt, scheitert
-mit `NT_STATUS_NO_LOGON_SERVERS`, ohne je bei einem DC angekommen zu sein, der ihn hätte abweisen
-können. Entweder `dns:` auf den Resolver der Domäne zeigen lassen, oder die Controller in
-`SAMADCON_DC_HOSTS` benennen und die Suche ganz überspringen.
+**Damit gibt es das Ticket, aber noch keine Sitzung: der Container muss die Domäne trotzdem
+auflösen.** Das Ticket lautet auf `ldap/<Name des DC>`, LDAP authentifiziert also gegen diesen
+Namen; SYSVOL und damit der Richtlinien-Editor verbinden über diesen Namen; und Samba findet einen
+Controller per Netlogon über die SRV-Einträge der Domäne. Mit nur einer Adresse endet die
+Anmeldung in `dc_name_unknown`, mit dem Namen, aber ohne SRV-Einträge, in
+`NT_STATUS_NO_LOGON_SERVERS`. Die Controller in `SAMADCON_DC_HOSTS` oder einem Profil zu benennen,
+erspart die *Suche* nach einem DC, nicht das *Auflösen*. Eine frühere Fassung dieses Abschnitts
+behauptete anderes; der Code hat das nie getan.
+
+Der Resolver muss also die Zone der Domäne kennen:
+
+- **Eine Domäne:** `dns:` auf ihren Domänencontroller.
+- **Mehrere Domänen: ein Resolver, der alle kennt, nicht der DC einer davon.** Ein DC antwortet
+  für seine eigene Zone und sagt für jede andere NXDOMAIN — und ein zweiter `dns:`-Eintrag hilft
+  nicht, denn ein Resolver fragt den nächsten Server nur, wenn der erste nicht antwortet, nicht,
+  wenn er sagt, dass es den Namen nicht gibt. Also dnsmasq, Unbound, AdGuard o. ä. mit einer
+  Weiterleitung je Zone an den DC dieser Domäne, und `dns:` zeigt darauf; oder die `dns:`-Zeilen
+  ganz streichen, wenn der Resolver des Docker-Hosts das schon kann. Mehr braucht eine Instanz
+  nicht, um mehrere Domänen zu bedienen: ein Betreiber fährt drei so, als Profile aus einer
+  `servers.json`, bei ausgeschalteter freier Eingabe.
 
 ### Transport
 

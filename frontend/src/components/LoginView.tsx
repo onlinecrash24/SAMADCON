@@ -250,6 +250,7 @@ export function LoginView() {
             <div className="alert__body">
               <p>{t('login.dnsHint')}</p>
               <pre className="payload mono small">{`dns:\n  - ${probe.host}`}</pre>
+              <p className="small">{t('login.dnsHintSeveral')}</p>
             </div>
           </div>
         )}

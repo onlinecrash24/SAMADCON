@@ -637,9 +637,10 @@ def connect(target: ConnectionTarget, settings: Settings, ccache: Path) -> Direc
             hint=(
                 "Samba looks one up through the domain's DNS SRV records. Give "
                 "the container a resolver that serves the domain — in docker "
-                "compose that is `dns:` with the DC's address. An `extra_hosts` "
-                "entry resolves the name but carries no SRV records, which is "
-                "not enough."
+                "compose that is `dns:` with the DC's address. Several domains "
+                "need a resolver that knows all of them, not the DC of one. An "
+                "`extra_hosts` entry resolves the name but carries no SRV "
+                "records, which is not enough."
             ),
             context={"realm": target.realm, "hosts": list(target.hosts)},
         )

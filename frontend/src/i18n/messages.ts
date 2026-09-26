@@ -105,7 +105,9 @@ export const de = {
   'login.certificateUntrusted': 'Zertifikat nicht überprüfbar',
   'login.ldapsUnreachable': 'Port 636 nicht erreichbar',
   'login.dnsHint':
-    'Der Container kann die Domäne nicht über DNS auflösen. In der docker-compose.yml beim Dienst ergänzen:',
+    'Der Container kann die Domäne nicht über DNS auflösen. Für eine einzelne Domäne in der docker-compose.yml beim Dienst ergänzen:',
+  'login.dnsHintSeveral':
+    'Mehrere Domänen brauchen einen Resolver, der alle kennt, nicht den DC einer davon — etwa dnsmasq, Unbound oder AdGuard mit einer Weiterleitung je Zone.',
   'login.srvRecords': 'SRV-Einträge',
   'login.srvFound': 'auflösbar',
   'login.srvMissing': 'nicht auflösbar',
@@ -1574,7 +1576,9 @@ export const en: Record<MessageKey, string> = {
   'login.certificateUntrusted': 'Certificate cannot be verified',
   'login.ldapsUnreachable': 'Port 636 unreachable',
   'login.dnsHint':
-    'The container cannot resolve this domain through DNS. Add to the service in docker-compose.yml:',
+    'The container cannot resolve this domain through DNS. For a single domain, add to the service in docker-compose.yml:',
+  'login.dnsHintSeveral':
+    'Several domains need a resolver that knows all of them, not the DC of one — dnsmasq, Unbound or AdGuard with a forward per zone, say.',
   'login.srvRecords': 'SRV records',
   'login.srvFound': 'resolvable',
   'login.srvMissing': 'not resolvable',

@@ -109,15 +109,27 @@ type any address; everything below describes that case.
 Given an IP address, SAMADCON works the domain out for itself: an anonymous rootDSE read returns
 the realm, the domain controller's FQDN and the naming contexts. That step is necessary because
 Kerberos issues tickets for `ldap/dc1.example.lan@EXAMPLE.LAN` — a bare address yields neither an
-SPN nor a realm. A Kerberos configuration naming exactly that address as the KDC is then written,
-so signing in works even without matching DNS records. Several realms are supported side by side.
+SPN nor a realm. A Kerberos configuration naming exactly that address as the KDC is then written.
+Several realms are supported side by side.
 
-That holds for the path where an **address** is given. Sign in with a **domain name** and SAMADCON
-has to find a controller first, which it does through SRV records — and those need a resolver that
-serves the domain. A container whose resolver does not know it fails with
-`NT_STATUS_NO_LOGON_SERVERS`, having never reached a DC to be refused by. Point `dns:` at the
-domain's own resolver, or name the controllers in `SAMADCON_DC_HOSTS` and skip discovery
-altogether.
+**That gets the ticket, not the session: the container still has to resolve the domain.** The
+ticket is for `ldap/<the DC's name>`, so LDAP authenticates to that name; SYSVOL, and with it the
+policy editor, connects by that name; and Samba locates a controller with a netlogon ping over the
+domain's SRV records. With only an address, sign-in ends in `dc_name_unknown`; with the name but
+no SRV records, in `NT_STATUS_NO_LOGON_SERVERS`. Naming the controllers in `SAMADCON_DC_HOSTS` or a
+profile spares the *search* for a DC, not the *resolving*. An earlier version of this section said
+otherwise; the code never did.
+
+So the resolver has to know the domain's zone:
+
+- **One domain:** point `dns:` at its domain controller.
+- **Several domains: a resolver that knows all of them, not the DC of one.** A DC answers for its
+  own zone and says NXDOMAIN for every other — and a second `dns:` entry does not help, because a
+  resolver only moves on to the next server when the first one does not answer, not when it says
+  the name does not exist. Use dnsmasq, Unbound, AdGuard or the like with a forward per zone to
+  that domain's DC, and point `dns:` at it; or remove the `dns:` lines altogether when the Docker
+  host's own resolver already does that. That is all one instance needs to serve several domains:
+  an operator runs three that way, as profiles from a `servers.json` with free entry off.
 
 ### Transport
 

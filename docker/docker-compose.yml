@@ -55,6 +55,12 @@ services:
     # The container asks the domain controller for names. That is what lets
     # Kerberos find its KDC and the console find the other controllers, both of
     # which are SRV lookups in the domain's own zone.
+    #
+    # Several domains: a resolver that knows all of them, not the DC of one.
+    # A DC says NXDOMAIN for every zone but its own, and a second entry here
+    # is only asked when the first does not answer. Point this at dnsmasq,
+    # Unbound, AdGuard or the like with a forward per zone — or delete these
+    # four lines when the Docker host's own resolver already does that.
     dns:
       - "${SAMADCON_DNS}"
     dns_search:
