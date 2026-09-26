@@ -38,7 +38,8 @@ Verified on a Samba 4.22 DC: a template in one OU, the copy created in
 another, with groups, primary group, paths and a generated password
 that answered NT_STATUS_PASSWORD_MUST_CHANGE; the audit entry named the
 new OU and held no password. Move, which now shares the browser, was
-not separately exercised against the DC for this release.
+checked on the same DC once the release was out: a user moved into an
+OU, back to CN=Users by way of "up one level", and into the OU again.
 
 Images: ghcr.io/onlinecrash24/samadcon:0.6.3, :0.6 and :latest.
 
