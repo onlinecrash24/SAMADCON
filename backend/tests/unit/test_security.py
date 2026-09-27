@@ -290,7 +290,7 @@ def test_a_registry_path_is_still_a_valid_key():
         "4,1",
     )
 
-    assert "EnableLUA = 4,1" in raw.decode("utf-16")
+    assert "EnableLUA=4,1" in raw.decode("utf-16")
 
 
 def test_a_trustee_that_would_split_into_two_is_refused():
@@ -310,3 +310,41 @@ def test_the_editor_view_splits_the_lists_and_drops_the_header():
         DOMAIN_ADMINS,
         ADMINISTRATORS,
     ]
+
+
+# ---------------------------------------------------------------------------
+# The audit reference: event logs and a registry value
+# ---------------------------------------------------------------------------
+
+# Written by GPMC for "SAMADCON-Referenz-Audit": the security log's size, the
+# application log's retention, and "force audit policy subcategory settings".
+AUDIT_REFERENCE = reference("GptTmpl-audit.inf")
+
+
+def test_our_output_matches_the_audit_reference():
+    """Byte for byte, including the one line that has no spaces."""
+    parsed = security.parse(AUDIT_REFERENCE.decode("utf-16"))
+
+    assert security.render(parsed) == AUDIT_REFERENCE
+
+
+def test_a_registry_value_is_written_without_spaces():
+    r"""Measured: MACHINE\...\SCENoApplyLegacyAuditPolicy=4,1. SAMADCON wrote
+    ' = ' here until the second reference file showed otherwise."""
+    key = "MACHINE\\System\\CurrentControlSet\\Control\\Lsa\\SCENoApplyLegacyAuditPolicy"
+    text = security.render({"Registry Values": {key: "4,1"}}).decode("utf-16")
+
+    assert f"{key}=4,1\r\n" in text
+
+
+def test_the_event_logs_come_before_the_registry_values():
+    text = security.render(
+        {
+            "Registry Values": {"MACHINE\\Software\\X": "4,1"},
+            "Application Log": {"AuditLogRetentionPeriod": "0"},
+            "Security Log": {"MaximumLogSize": "81920"},
+        }
+    ).decode("utf-16")
+
+    assert text.index("[Security Log]") < text.index("[Application Log]")
+    assert text.index("[Application Log]") < text.index("[Registry Values]")

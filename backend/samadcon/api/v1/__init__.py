@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from samadcon.api.v1 import (
     admx,
+    audit_policy,
     auth,
     computers,
     diagnostics,
@@ -42,6 +43,7 @@ router.include_router(admx.router)
 router.include_router(scripts.router)
 router.include_router(folders.router)
 router.include_router(security_settings.router)
+router.include_router(audit_policy.router)
 router.include_router(vgp.router)
 router.include_router(preferences.router)
 

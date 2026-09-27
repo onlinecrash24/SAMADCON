@@ -854,6 +854,8 @@ export interface GpoHalfReport {
   registry_count: number
   /** Section name -> name/value pairs, straight out of GptTmpl.inf. */
   security: Record<string, { name: string; value: string }[]>
+  /** audit.csv: configured advanced audit subcategories. Computer half only. */
+  audit?: { guid: string; de: string; en: string; value: number }[]
   /** Section name -> scripts, each with cmdline and parameters. */
   scripts: Record<string, Record<string, string>[]>
   /**
@@ -1178,9 +1180,19 @@ export interface GpoPreferences {
 // Security settings
 // ---------------------------------------------------------------------------
 
-export type SecurityKind = 'number' | 'switch' | 'audit' | 'trustees'
+export type SecurityKind =
+  | 'number'
+  | 'switch'
+  | 'audit'
+  | 'trustees'
+  // An event log's retention method: 0 as needed, 1 by days, 2 never.
+  | 'retention'
+  // A REG_DWORD in [Registry Values], written "4,0" / "4,1".
+  | 'registry_switch'
 
 export interface SecuritySetting {
+  /** Unique; the key is not — the three event logs share theirs. */
+  id: string
   group: string
   section: string
   key: string
@@ -1198,6 +1210,26 @@ export interface SecurityCatalogue {
     members_suffix: string
     memberof_suffix: string
   }
+}
+
+/** The advanced audit subcategories, as auditpol lists them. */
+export interface AuditCatalogue {
+  categories: {
+    guid: string
+    de: string
+    en: string
+    subcategories: { guid: string; de: string; en: string }[]
+  }[]
+  values: number[]
+}
+
+/** audit.csv of one GPO: configured subcategories by GUID. */
+export interface GpoAudit {
+  dn: string
+  present: boolean
+  version_number: number
+  registered: boolean
+  settings: Record<string, number>
 }
 
 /** A resolved account, the same shape the ACL editor uses. */

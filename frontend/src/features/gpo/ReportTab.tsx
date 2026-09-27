@@ -13,6 +13,7 @@ import { api } from '../../api/endpoints'
 import type { Gpo, GpoHalfReport } from '../../api/types'
 import { ErrorMessage, Spinner } from '../../components/primitives'
 import { useI18n } from '../../i18n'
+import type { MessageKey } from '../../i18n/messages'
 
 export function ReportTab({ gpo }: { gpo: Gpo }) {
   // The language goes to the server for the attachable file: it is written
@@ -66,11 +67,13 @@ export function ReportTab({ gpo }: { gpo: Gpo }) {
 }
 
 function HalfReport({ title, half }: { title: string; half: GpoHalfReport }) {
-  const { t } = useI18n()
+  const { t, language } = useI18n()
+  const audit = half.audit ?? []
 
   const hasContent =
     half.registry.length > 0 ||
     Object.keys(half.security).length > 0 ||
+    audit.length > 0 ||
     Object.keys(half.scripts).length > 0 ||
     (half.redirection?.folders?.length ?? 0) > 0 ||
     half.preferences.length > 0 ||
@@ -130,6 +133,24 @@ function HalfReport({ title, half }: { title: string; half: GpoHalfReport }) {
           </div>
         </div>
       ))}
+
+      {audit.length > 0 && (
+        <div>
+          <h4>{t('security.group.audit_advanced')}</h4>
+          <div className="table-wrap">
+            <table className="table table--pairs">
+              <tbody>
+                {audit.map((item) => (
+                  <tr key={item.guid}>
+                    <td>{language === 'de' ? item.de : item.en}</td>
+                    <td>{t(`security.audit.${item.value}` as MessageKey)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {Object.entries(half.scripts).map(([section, scripts]) => (
         <div key={section}>

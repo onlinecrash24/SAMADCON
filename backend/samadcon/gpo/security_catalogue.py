@@ -23,12 +23,30 @@ KERBEROS = "Kerberos Policy"
 EVENT_AUDIT = "Event Audit"
 PRIVILEGE_RIGHTS = "Privilege Rights"
 GROUP_MEMBERSHIP = "Group Membership"
+REGISTRY_VALUES = "Registry Values"
+SYSTEM_LOG = "System Log"
+SECURITY_LOG = "Security Log"
+APPLICATION_LOG = "Application Log"
 
 # How the editor draws a setting.
 NUMBER = "number"
 SWITCH = "switch"  # 0 or 1
 AUDIT = "audit"  # 0 none, 1 success, 2 failure, 3 both
 TRUSTEES = "trustees"
+# An event log's retention method: 0 overwrite as needed, 1 by days (with
+# RetentionDays), 2 do not overwrite. Measured: GPMC wrote 0 for "overwrite
+# events as needed"; 1 and 2 follow the same key's documented values.
+RETENTION = "retention"
+# A REG_DWORD in [Registry Values], written as "4,<value>" — type 4 is
+# REG_DWORD. Measured: "force audit policy subcategory settings" enabled is
+# SCENoApplyLegacyAuditPolicy=4,1.
+REGISTRY_SWITCH = "registry_switch"
+
+#: Measured in the audit reference GPO: this switch makes Windows apply the
+#: advanced audit policy and ignore the nine categories of [Event Audit].
+FORCE_SUBCATEGORIES = (
+    "MACHINE\\System\\CurrentControlSet\\Control\\Lsa\\SCENoApplyLegacyAuditPolicy"
+)
 
 # Groups as the Windows editor arranges them, which is not the same as the
 # file's sections: password and lockout policy share [System Access].
@@ -38,7 +56,11 @@ GROUPS: list[dict[str, Any]] = [
     {"id": "kerberos", "section": KERBEROS},
     {"id": "audit", "section": EVENT_AUDIT},
     {"id": "rights", "section": PRIVILEGE_RIGHTS},
+    {"id": "event_log", "section": SECURITY_LOG},
     {"id": "restricted_groups", "section": GROUP_MEMBERSHIP},
+    # Its subcategories live in audit.csv, not here; the one setting of this
+    # group that GptTmpl.inf carries is the switch that makes them count.
+    {"id": "audit_advanced", "section": REGISTRY_VALUES},
 ]
 
 
@@ -51,8 +73,12 @@ def _setting(
     minimum: int | None = None,
     maximum: int | None = None,
     unit: str | None = None,
+    setting_id: str | None = None,
 ) -> dict[str, Any]:
     return {
+        # Unique across the catalogue. The key alone is not: the three event
+        # logs share theirs, one section each.
+        "id": setting_id or key,
         "group": group,
         "section": section,
         "key": key,
@@ -104,6 +130,28 @@ SETTINGS: list[dict[str, Any]] = [
             "AuditSystemEvents",
         )
     ),
+    # -- event logs ---------------------------------------------------------
+    *(
+        setting
+        for prefix, section in (
+            ("SystemLog", SYSTEM_LOG),
+            ("SecurityLog", SECURITY_LOG),
+            ("ApplicationLog", APPLICATION_LOG),
+        )
+        for setting in (
+            _setting("event_log", section, "MaximumLogSize", NUMBER, minimum=64,
+                     maximum=4194240, unit="kilobytes", setting_id=f"{prefix}.MaximumLogSize"),
+            _setting("event_log", section, "AuditLogRetentionPeriod", RETENTION,
+                     setting_id=f"{prefix}.AuditLogRetentionPeriod"),
+            _setting("event_log", section, "RetentionDays", NUMBER, minimum=1, maximum=365,
+                     unit="days", setting_id=f"{prefix}.RetentionDays"),
+            _setting("event_log", section, "RestrictGuestAccess", SWITCH,
+                     setting_id=f"{prefix}.RestrictGuestAccess"),
+        )
+    ),
+    # -- advanced audit policy ------------------------------------------------
+    _setting("audit_advanced", REGISTRY_VALUES, FORCE_SUBCATEGORIES, REGISTRY_SWITCH,
+             setting_id="SCENoApplyLegacyAuditPolicy"),
     # -- user rights --------------------------------------------------------
     # The ones an administrator reaches for. Any other Se… name can still be
     # written; this list is what the editor offers, not what it accepts.

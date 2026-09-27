@@ -61,6 +61,14 @@ REDIRECTION_TOOL = "88E729D6-BDC1-11D1-BD2A-00C04FB9603F"
 SECURITY_CSE = "827D319E-6EAC-11D2-A4EA-00C04F79F83A"
 SECURITY_TOOL = "803E14A0-B4FB-11D0-A0D0-00A0C90F574B"
 
+# Advanced audit policy (audit.csv) — measured on the reference GPO
+# "SAMADCON-Referenz-Audit", written by the German GPMC in September 2026
+# with two subcategories set. Registered beside the security pair, which that
+# GPO also carried for its event log and a security option. Computer
+# configuration only.
+AUDIT_CSE = "F3CCC681-B74C-4060-9F26-CD84525DCA2A"
+AUDIT_TOOL = "0F3F3735-573D-9804-99E4-AB2A69BA5FD4"
+
 # Group policy preferences — from three throwaway GPOs, each carrying exactly
 # one preference type so no pair could be mistaken for another's. Two things
 # here contradict what the extensions above would have suggested, and both
@@ -236,6 +244,7 @@ KEEPS_REGISTRATION = frozenset({braced(SECURITY_CSE)})
 NAMES = {
     braced(REGISTRY_CSE): 'registry',
     braced(SECURITY_CSE): 'security',
+    braced(AUDIT_CSE): 'audit',
     braced(SCRIPTS_CSE): 'scripts',
     braced(REDIRECTION_CSE): 'redirection',
     braced(PREFERENCES_NULL_CSE): 'preferences',
@@ -255,6 +264,11 @@ NAMES = {
 def name_for(guid: str) -> str:
     """A readable name for an extension, or its GUID when we have none."""
     return NAMES.get(braced(guid), braced(guid))
+
+
+def is_registered(conn: DirectoryConnection, dn: str, half: str, cse: str) -> bool:
+    """Whether *cse* is listed for *half* of the GPO."""
+    return braced(cse) in registered_extensions(_current(conn, dn, HALF_ATTRIBUTE[half]))
 
 
 def registered_extensions(value: str | None) -> set[str]:

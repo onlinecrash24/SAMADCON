@@ -27,8 +27,20 @@ import { ErrorMessage, Spinner } from '../../../components/primitives'
 import { ObjectPicker } from '../../directory/ObjectPicker'
 import { useI18n } from '../../../i18n'
 import type { MessageKey } from '../../../i18n/messages'
+import { AdvancedAudit } from './AdvancedAudit'
 
-const GROUP_ORDER = ['password', 'lockout', 'kerberos', 'audit', 'rights', 'restricted_groups']
+// The Windows editor's order: account policies, local policies, event log,
+// restricted groups — and the advanced audit policy last, as its own node.
+const GROUP_ORDER = [
+  'password',
+  'lockout',
+  'kerberos',
+  'audit',
+  'rights',
+  'event_log',
+  'restricted_groups',
+  'audit_advanced',
+]
 
 /** Not configured is an absent key, not a zero. */
 const UNSET = ''
@@ -54,6 +66,16 @@ export function SecurityTab({
     queryKey: ['gpo-security', gpo.dn],
     queryFn: () => api.gpoSecurity(gpo.dn),
   })
+  // audit.csv, for the count beside its node. The same query the advanced
+  // audit pane reads, so this costs nothing twice.
+  const audit = useQuery({ queryKey: ['gpo-audit', gpo.dn], queryFn: () => api.gpoAudit(gpo.dn) })
+
+  // Both files carry the policy version. After a save to one, the other's copy
+  // is stale, and its next save would be refused as someone else's change.
+  const reload = () => {
+    void queryClient.invalidateQueries({ queryKey: ['gpo-security', gpo.dn] })
+    void queryClient.invalidateQueries({ queryKey: ['gpo-audit', gpo.dn] })
+  }
 
   // Its own mutation: a restricted group is two keys, and the server clears
   // both in one write. Routing it through `save`, which sends one key, would
@@ -66,7 +88,7 @@ export function SecurityTab({
         expected_version: current.data?.version_number,
       }),
     onSuccess: (result) => {
-      void queryClient.invalidateQueries({ queryKey: ['gpo-security', gpo.dn] })
+      reload()
       onChanged(result.changed ? t('security.saved') : t('security.unchanged'))
     },
     onError: setError,
@@ -79,7 +101,7 @@ export function SecurityTab({
         expected_version: current.data?.version_number,
       }),
     onSuccess: (result) => {
-      void queryClient.invalidateQueries({ queryKey: ['gpo-security', gpo.dn] })
+      reload()
       onChanged(result.changed ? t('security.saved') : t('security.unchanged'))
     },
     onError: setError,
@@ -125,7 +147,10 @@ export function SecurityTab({
                 >
                   <span className="cats__name">{t(`security.group.${id}` as MessageKey)}</span>
                   <Configured
-                    count={countConfigured(id, settings, sections, catalogue.data?.restricted_groups)}
+                    count={
+                      countConfigured(id, settings, sections, catalogue.data?.restricted_groups) +
+                      (id === 'audit_advanced' ? Object.keys(audit.data?.settings ?? {}).length : 0)
+                    }
                   />
                 </button>
               </li>
@@ -145,6 +170,17 @@ export function SecurityTab({
               busy={save.isPending}
               onSave={(section, key, value) => save.mutate({ section, key, value })}
             />
+          ) : group === 'audit_advanced' ? (
+            <div className="stack-tight">
+              <p className="muted small">{t('security.auditAdvancedHint')}</p>
+              <PlainSettings
+                settings={settings.filter((item) => item.group === group)}
+                valueOf={valueOf}
+                busy={save.isPending}
+                onSave={(section, key, value) => save.mutate({ section, key, value })}
+              />
+              <AdvancedAudit gpo={gpo} onChanged={onChanged} />
+            </div>
           ) : group === 'rights' ? (
             <UserRights
               settings={settings.filter((item) => item.group === 'rights')}
@@ -202,7 +238,8 @@ function PlainSettings({
   const { t } = useI18n()
   const [draft, setDraft] = useState<Record<string, string>>({})
 
-  const shown = (setting: SecuritySetting) => draft[setting.key] ?? valueOf(setting)
+  // By id: the three event logs share their keys, one section each.
+  const shown = (setting: SecuritySetting) => draft[setting.id] ?? valueOf(setting)
 
   return (
     <div className="table-wrap">
@@ -218,16 +255,16 @@ function PlainSettings({
         </thead>
         <tbody>
           {settings.map((setting) => (
-            <tr key={setting.key}>
+            <tr key={setting.id}>
               <td>
-                <strong>{t(`security.key.${setting.key}` as MessageKey)}</strong>
+                <strong>{t(`security.key.${setting.id}` as MessageKey)}</strong>
                 <div className="muted small mono">{setting.key}</div>
               </td>
               <td>
                 <SettingInput
                   setting={setting}
                   value={shown(setting)}
-                  onChange={(value) => setDraft({ ...draft, [setting.key]: value })}
+                  onChange={(value) => setDraft({ ...draft, [setting.id]: value })}
                 />
               </td>
               <td>
@@ -263,11 +300,24 @@ function SettingInput({
 }) {
   const { t } = useI18n()
 
-  if (setting.kind === 'switch' || setting.kind === 'audit') {
+  if (setting.kind === 'registry_switch') {
+    // A REG_DWORD in [Registry Values]: "4,0" and "4,1", type first.
+    return (
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value={UNSET}>{t('security.notDefined')}</option>
+        <option value="4,0">{t('security.switch.0')}</option>
+        <option value="4,1">{t('security.switch.1')}</option>
+      </select>
+    )
+  }
+
+  if (setting.kind === 'switch' || setting.kind === 'audit' || setting.kind === 'retention') {
     const options =
       setting.kind === 'switch'
         ? ['0', '1']
-        : ['0', '1', '2', '3'] // none, success, failure, both
+        : setting.kind === 'retention'
+          ? ['0', '1', '2'] // as needed, by days, never
+          : ['0', '1', '2', '3'] // none, success, failure, both
     return (
       <select value={value} onChange={(event) => onChange(event.target.value)}>
         <option value={UNSET}>{t('security.notDefined')}</option>

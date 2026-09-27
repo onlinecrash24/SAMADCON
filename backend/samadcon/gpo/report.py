@@ -41,6 +41,7 @@ HALVES = ("Machine", "User")
 
 REGISTRY_FILE = "Registry.pol"
 SECEDIT_PATH = "Microsoft\\Windows NT\\SecEdit\\GptTmpl.inf"
+AUDIT_PATH = "Microsoft\\Windows NT\\Audit\\audit.csv"
 SCRIPTS_PATH = "Scripts\\scripts.ini"
 FDEPLOY_FILE = "Documents & Settings\\fdeploy1.ini"
 PREFERENCES_DIR = "Preferences"
@@ -108,6 +109,8 @@ def _empty_half() -> dict[str, Any]:
         "registry": [],
         "registry_count": 0,
         "security": {},
+        # The advanced audit policy, computer configuration only.
+        "audit": [],
         "scripts": {},
         # User configuration only; there is no computer half for this one.
         "redirection": {},
@@ -122,6 +125,7 @@ def _has_content(half: dict[str, Any]) -> bool:
     return bool(
         half["registry"]
         or half["security"]
+        or half.get("audit")
         or half["scripts"]
         or half["redirection"]
         or half["preferences"]
@@ -142,6 +146,7 @@ def _understood_content(half: dict[str, Any]) -> bool:
     return bool(
         half["registry"]
         or half["security"]
+        or half.get("audit")
         or half["scripts"]
         or half["redirection"]
         or half["preferences"]
@@ -167,6 +172,10 @@ REGISTRATION_ATTRIBUTE = {"Machine": "machine_extensions", "User": "user_extensi
 _CONTENT_PAIRS = {
     "registry": (cse.REGISTRY_CSE, cse.REGISTRY_TOOL),
     "security": (cse.SECURITY_CSE, cse.SECURITY_TOOL),
+    # audit.csv used to land in other_files, so the pair GPMC registers for it
+    # read as surplus — and reconciling offered to remove it, which would have
+    # left every client ignoring the advanced audit policy.
+    "audit": (cse.AUDIT_CSE, cse.AUDIT_TOOL),
     "scripts": (cse.SCRIPTS_CSE, cse.SCRIPTS_TOOL),
     "redirection": (cse.REDIRECTION_CSE, cse.REDIRECTION_TOOL),
 }
@@ -188,7 +197,8 @@ def required_pairs(half: dict[str, Any]) -> list[tuple[str, str]]:
     pairs: list[tuple[str, str]] = []
 
     for bucket, pair in _CONTENT_PAIRS.items():
-        if half[bucket]:
+        # .get: a half built before a bucket existed has none of it.
+        if half.get(bucket):
             pairs.append(pair)
 
     for group in half["preferences"]:
@@ -428,6 +438,12 @@ def _read_half(
         claimed.add(secedit.lower())
         half["security"] = _read_ini_sections(share, secedit, unreadable)
 
+    if name == "Machine":
+        audit = _find(files, base, AUDIT_PATH)
+        if audit:
+            claimed.add(audit.lower())
+            half["audit"] = _read_audit(share, audit, unreadable)
+
     scripts = _find(files, base, SCRIPTS_PATH)
     if scripts:
         claimed.add(scripts.lower())
@@ -479,6 +495,31 @@ def _read_registry(
     except Exception as exc:  # noqa: BLE001
         _note(unreadable, path, exc)
         return []
+
+
+def _read_audit(
+    share: sysvol.SysvolConnection, path: str, unreadable: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """``audit.csv`` — the configured subcategories, named in both languages.
+
+    A subcategory the catalogue does not know keeps its GUID as its name:
+    shown, not dropped, like anything else this report does not recognise.
+    """
+    from samadcon.gpo import audit_csv
+
+    try:
+        parsed = audit_csv.parse(share.read(path))
+    except Exception as exc:  # noqa: BLE001
+        _note(unreadable, path, exc)
+        return []
+
+    order = list(audit_csv.SUBCATEGORIES)
+    found = []
+    for guid, value in parsed.settings().items():
+        german, english = audit_csv.SUBCATEGORIES.get(guid, (guid, guid))
+        found.append({"guid": guid, "de": german, "en": english, "value": value})
+    found.sort(key=lambda item: order.index(item["guid"]) if item["guid"] in order else len(order))
+    return found
 
 
 def _read_ini_sections(
@@ -731,6 +772,12 @@ _REPORT_TEXT: dict[str, dict[str, str]] = {
         "configuration": "{half} configuration",
         "templates": "Administrative templates",
         "security": "Security settings",
+        "audit": "Advanced audit policy",
+        "lang": "en",
+        "audit_0": "No auditing",
+        "audit_1": "Success",
+        "audit_2": "Failure",
+        "audit_3": "Success and failure",
         "scripts": "Scripts",
         "redirection": "Folder redirection",
         "preferences": "Preferences",
@@ -761,6 +808,12 @@ _REPORT_TEXT: dict[str, dict[str, str]] = {
         "configuration": "{half}konfiguration",
         "templates": "Administrative Vorlagen",
         "security": "Sicherheitseinstellungen",
+        "audit": "Erweiterte Überwachungsrichtlinie",
+        "lang": "de",
+        "audit_0": "Keine Überwachung",
+        "audit_1": "Erfolg",
+        "audit_2": "Fehler",
+        "audit_3": "Erfolg und Fehler",
         "scripts": "Skripte",
         "redirection": "Ordnerumleitung",
         "preferences": "Preferences",
@@ -881,6 +934,15 @@ def _half_html(name: str, half: dict[str, Any], text: dict[str, str]) -> list[st
                     f"<tr><td>{_esc(value['name'])}</td><td>{_esc(value['value'])}</td></tr>"
                 )
             parts.append("</table>")
+
+    if half.get("audit"):
+        parts.append(f"<h3>{text['audit']}</h3><table>")
+        for item in half["audit"]:
+            parts.append(
+                f"<tr><td>{_esc(item[text['lang']])}</td>"
+                f"<td>{_esc(text['audit_' + str(item['value'])])}</td></tr>"
+            )
+        parts.append("</table>")
 
     if half["scripts"]:
         parts.append(f"<h3>{text['scripts']}</h3>")

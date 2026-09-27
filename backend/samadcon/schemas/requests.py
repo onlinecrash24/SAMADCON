@@ -481,6 +481,19 @@ class SetSecurityValueRequest(StrictModel):
     )
 
 
+class SetAuditRequest(StrictModel):
+    """Advanced audit subcategories, by GUID: 0 no auditing, 1 success, 2 failure,
+    3 both, null not configured. Several at once, because the editor saves a
+    category's worth in one write — each write raises the policy version."""
+
+    changes: dict[str, int | None] = Field(min_length=1, max_length=100)
+    expected_version: int | None = Field(
+        default=None,
+        ge=0,
+        description="The versionNumber the form was filled in from; a mismatch is refused",
+    )
+
+
 class RedirectFolderRequest(StrictModel):
     """One folder, one group. Null *path* stops redirecting that pairing."""
 

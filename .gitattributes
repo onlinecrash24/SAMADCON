@@ -18,6 +18,7 @@ Dockerfile      text eol=lf
 # because normalising one would break it silently and completely.
 backend/tests/data/*.ini    binary
 backend/tests/data/*.inf    binary
+backend/tests/data/*.csv    binary
 
 # Never touch these.
 *.png           binary

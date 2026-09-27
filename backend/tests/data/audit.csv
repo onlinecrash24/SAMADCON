@@ -1,0 +1,3 @@
+Computername,Richtlinienziel,Unterkategorie,Unterkategorie-GUID,Aufnahmeeinstellung,Ausschlusseinstellung,Einstellungswert
+,System,Benutzerkontenverwaltung überwachen,{0cce9235-69ae-11d9-bed3-505054503030},Erfolgreich,,1
+,System,Anmelden überwachen,{0cce9215-69ae-11d9-bed3-505054503030},Erfolg und Fehler,,3

@@ -18,6 +18,8 @@ builds it from the loaded bytes.
 | `scripts.ini` | A machine startup script — PowerShell with an execution-policy argument | GPMC, GPO "Deploy Tactical RMM Agent" |
 | `GptTmpl.inf` | Security settings: minimum password length, lockout threshold, logon auditing, one user right | GPMC, GPO "Wegwerf-GPO" |
 | `fdeploy1-cleared.ini` | The same file after the last redirected folder was set back to *Not configured* | GPMC, GPO "Wegwerf-GPO" |
+| `GptTmpl-audit.inf` | Security log size 81920 KB, application log retention "as needed", "force audit policy subcategory settings" enabled | GPMC (German), GPO "SAMADCON-Referenz-Audit" |
+| `audit.csv` | Advanced audit policy: "Audit Logon" success and failure, "Audit User Account Management" success | GPMC (German), GPO "SAMADCON-Referenz-Audit" |
 
 All four are UTF-16LE with a `FF FE` byte-order mark and CRLF line endings.
 That is not incidental — a client ignores the file if the encoding is wrong,
@@ -82,3 +84,29 @@ domain-joined Windows 11 through `gpresult /h`, and on a Linux member through
 `gpresult` report is a good deal harder than sanitising an INI file, since it
 carries the whole applied policy set of a real machine. What they showed is
 described in the README, section "The policy editor".
+
+## The two audit references (September 2026)
+
+`GptTmpl-audit.inf` and `audit.csv` come from the reference GPO
+"SAMADCON-Referenz-Audit", made in a German GPMC on Windows 11 for the advanced
+audit policy work. They carry no domain names, host names or SIDs, so nothing
+was substituted.
+
+Unlike the files above they were **not** copied off the share byte for byte.
+They were rebuilt from what the domain controller printed: `iconv -f UTF-16
+-t UTF-8` for `GptTmpl.inf`, `cat -A` for `audit.csv`, which shows every line
+ending and would have shown a UTF-8 byte-order mark had there been one. What
+the rebuild assumes is only what the older references already established for
+`GptTmpl.inf` — UTF-16LE with `FF FE` and CRLF. It held: `sha256sum` on the
+domain controller gave the same digests as the rebuilt files,
+
+    391d6e1e19856db2f7054b9730f5d71821697741f191a81d70e0dbdf9e3690c9  GptTmpl.inf
+    e901a3c4b73b901b2c7cb1d6dfd6cb648280d93593eacc691a5459d8fe491a88  audit.csv
+
+so these are the bytes on the share, not a transcription of them.
+
+`audit.csv` settles its format: UTF-8 without a byte-order mark, CRLF, seven
+columns, and a header and texts in the language of the console that wrote it.
+`GptTmpl-audit.inf` settles that `[Registry Values]` is written without spaces
+around the equals sign — which the first reference could not show, having had
+that section empty.

@@ -13,6 +13,7 @@ import type {
   AdmxStore,
   AdmxTree,
   AttributeListing,
+  AuditCatalogue,
   BitlockerListing,
   BitlockerSearch,
   Certificate,
@@ -35,6 +36,7 @@ import type {
   ScriptFile,
   DirectoryObject,
   Gpo,
+  GpoAudit,
   GpoFiltering,
   GpoPreferences,
   GpoInheritance,
@@ -708,6 +710,15 @@ export const api = {
       expected_version?: number
     },
   ) => http.post<AdmxApplyResult>(`/gpos/security?dn=${dnParam(dn)}`, payload),
+
+  // -- advanced audit policy (audit.csv) ----------------------------------
+  auditCatalogue: () => http.get<AuditCatalogue>('/gpos/audit/catalogue'),
+  gpoAudit: (dn: string) => http.get<GpoAudit>(`/gpos/audit?dn=${dnParam(dn)}`),
+  // GUID -> 0 none, 1 success, 2 failure, 3 both; null is "not configured".
+  setGpoAudit: (
+    dn: string,
+    payload: { changes: Record<string, number | null>; expected_version?: number },
+  ) => http.post<AdmxApplyResult>(`/gpos/audit?dn=${dnParam(dn)}`, payload),
 
   // -- folder redirection -------------------------------------------------
   knownFolders: () =>

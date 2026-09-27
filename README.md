@@ -874,7 +874,17 @@ groups. Three details are copied from a file GPMC wrote rather than reasoned out
 contradicts one of the *other* policy formats this project writes — which is the whole argument
 for reading a real file first. There is no preamble, where `scripts.ini` opens with a blank line.
 Empty sections are written out, where `scripts.ini` omits them. And spaces surround the equals
-sign everywhere except in `[Unicode]` and `[Version]`.
+sign everywhere except in `[Unicode]`, `[Version]` and `[Registry Values]` — the last found only
+when a second reference file had a value in that section.
+
+The **event logs** (size, retention method, days, guest access for the system, security and
+application log) live in the same file. The **advanced audit policy** — sixty subcategories in nine
+categories, read off `auditpol /list /subcategory:* /v` — lives in `audit.csv` beside it and has
+its own client-side extension. That file is UTF-8 without a byte-order mark, and its header and
+texts are in the language of the console that wrote it, so it is read by column and GUID, never by
+header name. "Not configured" leaves a subcategory out of the file; "no auditing" writes it with
+the value 0 — they are not the same. The switch that makes Windows apply the subcategories instead
+of the nine categories is a security option in `GptTmpl.inf`, and the editor shows it beside them.
 
 **Samba's own policies** (4c) are the ones `samba-gpupdate` applies on Linux domain members: sudo
 rights, symbolic links, motd and issue, OpenSSH settings and host access control. Windows clients

@@ -22,9 +22,13 @@ already writes — which is the whole argument for reading a real file first:
   straight at ``[Unicode]``.
 * **Empty sections are written.** GPMC leaves ``[Registry Values]`` behind as a
   bare header, where in ``scripts.ini`` an unused event gets no section at all.
-* **Spaces around the equals sign — but not everywhere.** ``[Unicode]`` and
-  ``[Version]`` use ``Key=Value``; every other section uses ``Key = Value``.
-  Not a rule anyone would guess, and one that shows up in every diff.
+* **Spaces around the equals sign — but not everywhere.** ``[Unicode]``,
+  ``[Version]`` and ``[Registry Values]`` use ``Key=Value``; every other
+  section uses ``Key = Value``. Not a rule anyone would guess, and one that
+  shows up in every diff. ``[Registry Values]`` joined the list in September
+  2026: the file this rule was first read from had that section empty, and a
+  second one, written for the advanced audit policy, had a value in it —
+  without the spaces.
 """
 
 from __future__ import annotations
@@ -46,10 +50,11 @@ SECEDIT_PATH = "Machine\\Microsoft\\Windows NT\\SecEdit\\GptTmpl.inf"
 BOM = b"\xff\xfe"
 NEWLINE = "\r\n"
 
-# The two header sections, written without spaces around the equals sign.
+# The sections GPMC writes without spaces around the equals sign.
 UNICODE = "Unicode"
 VERSION = "Version"
-TIGHT_SECTIONS = frozenset({UNICODE.lower(), VERSION.lower()})
+REGISTRY_VALUES = "Registry Values"
+TIGHT_SECTIONS = frozenset({UNICODE.lower(), VERSION.lower(), REGISTRY_VALUES.lower()})
 
 # What every such file opens with. Windows writes both regardless of content.
 HEADER: dict[str, dict[str, str]] = {
@@ -65,8 +70,15 @@ SECTION_ORDER = (
     VERSION,
     "System Access",
     "Kerberos Policy",
+    # The event logs. Measured: [Security Log] before [Application Log], both
+    # after the header and before [Registry Values]. [System Log] is placed
+    # where the Windows editor lists it, first of the three — a guess about
+    # placement only.
+    "System Log",
+    "Security Log",
+    "Application Log",
     "Event Audit",
-    "Registry Values",
+    REGISTRY_VALUES,
     "Privilege Rights",
     "Group Membership",
     "Service General Setting",

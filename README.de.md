@@ -906,7 +906,19 @@ geschriebenen Datei statt aus einer Überlegung, und jedes widerspricht einem de
 Richtlinienformate dieses Projekts — was das ganze Argument dafür ist, erst eine echte Datei zu
 lesen. Es gibt keine Präambel, wo `scripts.ini` mit einer Leerzeile beginnt. Leere Abschnitte
 werden ausgeschrieben, wo `scripts.ini` sie weglässt. Und um das Gleichheitszeichen stehen
-Leerzeichen — überall außer in `[Unicode]` und `[Version]`.
+Leerzeichen — überall außer in `[Unicode]`, `[Version]` und `[Registry Values]`; Letzteres fiel
+erst auf, als eine zweite Referenzdatei in diesem Abschnitt einen Wert hatte.
+
+Die **Ereignisprotokolle** (Größe, Aufbewahrungsmethode, Tage und Gastzugriff für System-,
+Sicherheits- und Anwendungsprotokoll) stehen in derselben Datei. Die **erweiterte
+Überwachungsrichtlinie** — sechzig Unterkategorien in neun Kategorien, abgelesen an
+`auditpol /list /subcategory:* /v` — steht daneben in `audit.csv` und hat eine eigene
+Client-Erweiterung. Die Datei ist UTF-8 ohne BOM, und Kopfzeile und Texte sind in der Sprache der
+Konsole geschrieben, die sie angelegt hat; gelesen wird sie deshalb über Spalte und GUID, nie über
+den Namen in der Kopfzeile. „Nicht konfiguriert“ lässt eine Unterkategorie aus der Datei weg,
+„Keine Überwachung“ schreibt sie mit dem Wert 0 — das ist nicht dasselbe. Der Schalter, mit dem
+Windows die Unterkategorien statt der neun Kategorien anwendet, ist eine Sicherheitsoption in
+`GptTmpl.inf`, und der Editor zeigt ihn gleich daneben.
 
 **Sambas eigene Richtlinien** (4c) sind die, die `samba-gpupdate` auf Linux-Domänenmitgliedern
 anwendet: sudo-Rechte, symbolische Links, motd und issue, OpenSSH-Einstellungen und
