@@ -14,6 +14,53 @@ release.
 
 ---
 
+## 0.6.5 — 2026-09-27
+
+The event logs and the advanced audit policy, in the policy editor.
+
+A tester asked where parts of GPMC's "Windows Settings" had gone. This is
+the first of four gaps to be closed, one release each, and like every part
+of the editor it was measured before it was built: a reference GPO made in
+the German GPMC gave the files and the extension registration, and
+`auditpol /list /subcategory:* /v` on Windows 11 gave the sixty
+subcategories with their GUIDs. Both files are in the tests, and sha256sum
+on the domain controller matched them byte for byte.
+
+**Advanced audit policy.** A new node under Security Settings: nine
+categories, sixty subcategories, each not configured, no auditing,
+success, failure or both, saved a category at a time. It lives in
+audit.csv - UTF-8 without a byte-order mark, CRLF, seven columns, header
+and texts in the language of the console that wrote it - so SAMADCON reads
+it by column and GUID, never by header name, and keeps rows it does not
+edit. "Not configured" and "no auditing" are different: the first leaves
+the subcategory out, the second writes it with 0. The file has its own
+client-side extension, which is registered on save. The switch that makes
+Windows apply the subcategories instead of the nine categories is shown
+on its own card above them.
+
+**Event logs.** Size, retention method, days and guest access for the
+system, security and application log, in GptTmpl.inf with the other
+security settings.
+
+**Two fixes found by the measurement.**
+[Registry Values] is now written without spaces around the equals sign,
+as GPMC writes it; the rule had come from a file whose section was empty.
+And the report did not know audit.csv, so the extension GPMC registers
+for it read as surplus, and reconciling offered to remove it - leaving
+every client ignoring the policy. The report now names the subcategories.
+
+Verified against the DC and a Windows 11 client: a GPO made in SAMADCON
+and linked to a test OU, then gpupdate. auditpol showed the two
+subcategories as set; the registry held the new security log size
+(MaxSize 0x4000000) while wevtutil still showed the old one, which is
+why the editor points at the registry value. GPMC opened the GPO without
+error and showed the same values. Unlinking it took both back on the
+client.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.5, :0.6 and :latest.
+
+---
+
 ## 0.6.4 — 2026-09-26
 
 Template uploads above 8 MB, a SYSVOL connection that recovers, and every error in German.
