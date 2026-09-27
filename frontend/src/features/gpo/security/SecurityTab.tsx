@@ -172,13 +172,17 @@ export function SecurityTab({
             />
           ) : group === 'audit_advanced' ? (
             <div className="stack-tight">
-              <p className="muted small">{t('security.auditAdvancedHint')}</p>
-              <PlainSettings
-                settings={settings.filter((item) => item.group === group)}
-                valueOf={valueOf}
-                busy={save.isPending}
-                onSave={(section, key, value) => save.mutate({ section, key, value })}
-              />
+              {settings
+                .filter((item) => item.group === group)
+                .map((setting) => (
+                  <SwitchCard
+                    key={setting.id}
+                    setting={setting}
+                    value={valueOf(setting)}
+                    busy={save.isPending}
+                    onSave={(value) => save.mutate({ section: setting.section, key: setting.key, value })}
+                  />
+                ))}
               <AdvancedAudit gpo={gpo} onChanged={onChanged} />
             </div>
           ) : group === 'rights' ? (
@@ -189,12 +193,17 @@ export function SecurityTab({
               onSave={(section, key, value) => save.mutate({ section, key, value })}
             />
           ) : (
-            <PlainSettings
-              settings={settings.filter((item) => item.group === group)}
-              valueOf={valueOf}
-              busy={save.isPending}
-              onSave={(section, key, value) => save.mutate({ section, key, value })}
-            />
+            <>
+              {group === 'event_log' && (
+                <p className="muted small">{t('security.eventLogHint')}</p>
+              )}
+              <PlainSettings
+                settings={settings.filter((item) => item.group === group)}
+                valueOf={valueOf}
+                busy={save.isPending}
+                onSave={(section, key, value) => save.mutate({ section, key, value })}
+              />
+            </>
           )}
         </section>
       </div>
@@ -219,6 +228,51 @@ function countConfigured(
   return settings.filter(
     (item) => item.group === group && sections[item.section]?.[item.key] !== undefined,
   ).length
+}
+
+// ---------------------------------------------------------------------------
+
+/**
+ * One switch on its own, with what it does beside it. The advanced audit
+ * policy's "force subcategory settings" sat in a table of one row, and its
+ * registry path — shown under the name the way every other key is — made the
+ * table wider than the pane and pushed Save out of sight.
+ */
+function SwitchCard({
+  setting,
+  value,
+  busy,
+  onSave,
+}: {
+  setting: SecuritySetting
+  value: string
+  busy: boolean
+  onSave: (value: string | null) => void
+}) {
+  const { t } = useI18n()
+  const [draft, setDraft] = useState<string | null>(null)
+  const shown = draft ?? value
+
+  return (
+    <div className="card">
+      <h4>{t(`security.key.${setting.id}` as MessageKey)}</h4>
+      <p className="muted small">{t('security.auditAdvancedHint')}</p>
+      <div className="field-inline">
+        <SettingInput setting={setting} value={shown} onChange={setDraft} />
+        <button
+          type="button"
+          className="button"
+          disabled={busy || shown === value}
+          onClick={() => {
+            onSave(shown || null)
+            setDraft(null)
+          }}
+        >
+          {t('action.save')}
+        </button>
+      </div>
+    </div>
+  )
 }
 
 // ---------------------------------------------------------------------------

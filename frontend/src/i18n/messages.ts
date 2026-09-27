@@ -1503,6 +1503,8 @@ export const de = {
   'security.unit.hours': 'Stunden',
   'security.unit.minutes': 'Minuten',
   'security.group.event_log': 'Ereignisprotokoll',
+  'security.eventLogHint':
+    'Ein Client übernimmt die Werte bei der nächsten Richtlinienaktualisierung in die Registry (HKLM\\SYSTEM\\CurrentControlSet\\Services\\EventLog). wevtutil kann danach noch die alte Größe zeigen, bis der Ereignisprotokolldienst sie neu einliest; maßgeblich ist der Wert MaxSize in der Registry.',
   'security.group.audit_advanced': 'Erweiterte Überwachungsrichtlinie',
   'security.unit.kilobytes': 'KB',
   'security.retention.0': 'Ereignisse nach Bedarf überschreiben',
@@ -3217,6 +3219,8 @@ export const en: Record<MessageKey, string> = {
   'security.unit.hours': 'hours',
   'security.unit.minutes': 'minutes',
   'security.group.event_log': 'Event log',
+  'security.eventLogHint':
+    'A client writes these values to its registry at the next policy refresh (HKLM\\SYSTEM\\CurrentControlSet\\Services\\EventLog). wevtutil may still show the old size until the event log service reads it again; the MaxSize value in the registry is what counts.',
   'security.group.audit_advanced': 'Advanced audit policy',
   'security.unit.kilobytes': 'KB',
   'security.retention.0': 'Overwrite events as needed',
