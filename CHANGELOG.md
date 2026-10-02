@@ -14,6 +14,44 @@ release.
 
 ---
 
+## 0.6.6 — 2026-10-02
+
+Administrative templates on a policy whose GPT.INI is hidden.
+
+A tester set an administrative template and was told his account lacked
+the permission; saving again went through and the value was there. It
+looked like a hiccup. It was worse: the policy's version never moved, so
+every client that already had the policy kept the old setting, and no
+console said why.
+
+**What happened.** Templates were written through Samba's own
+RegistryGroupPolicies. It writes Registry.pol, then the version in
+GPT.INI, each with a plain savefile - and SMB refuses that with
+ACCESS_DENIED on a file marked hidden or read-only. Registry.pol was
+written, GPT.INI was refused. Saving again "worked" only because the
+value was already in the file, so there was nothing left to write, the
+version included.
+
+**The fix.** Templates now go through the same paths as every other
+editor in SAMADCON: Registry.pol merged in SAMADCON (key and value name
+compared without case, a value replaced where it stands, new ones
+appended, everything else kept), written by SAMADCON's SYSVOL writer -
+which has opened hidden files in place since GPMC's hidden scripts.ini -
+and the version advanced once, in AD and GPT.INI together.
+
+**If you met this:** after updating, change one setting of the affected
+policy and save it. That advances the version, and clients pick up the
+earlier changes with it.
+
+Reproduced on a Samba 4.22 DC before the fix: GPT.INI set hidden, the
+first save refused, the second accepted, versionNumber and GPT.INI at 0
+both times. After the fix: the first save accepted, both at 1, GPT.INI
+still hidden.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.6, :0.6 and :latest.
+
+---
+
 ## 0.6.5 — 2026-09-27
 
 The event logs and the advanced audit policy, in the policy editor.
