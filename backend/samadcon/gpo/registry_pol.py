@@ -216,6 +216,41 @@ def build(entries: list[dict[str, Any]]) -> bytes:
     return ndr_pack(pol)
 
 
+def merge(
+    current: list[dict[str, Any]],
+    set_entries: list[dict[str, Any]],
+    remove: list[tuple[str, str]],
+) -> list[dict[str, Any]]:
+    """*current* with *set_entries* written into it and *remove* taken out.
+
+    An entry is its key and value name, compared without regard to case as
+    the registry compares them. A value already there is replaced where it
+    stands; a new one is appended. Everything else - entries this code did
+    not write, ``**del.`` markers, values of other policies - is kept as it
+    is, in its order.
+    """
+
+    def ident(entry: dict[str, Any]) -> tuple[str, str]:
+        return (str(entry.get("key", "")).lower(), str(entry.get("value", "")).lower())
+
+    gone = {(key.lower(), value.lower()) for key, value in remove}
+    wanted = {ident(entry): entry for entry in set_entries}
+
+    merged: list[dict[str, Any]] = []
+    placed: set[tuple[str, str]] = set()
+    for entry in current:
+        name = ident(entry)
+        if name in gone and name not in wanted:
+            continue
+        if name in wanted:
+            merged.append(wanted[name])
+            placed.add(name)
+            continue
+        merged.append(entry)
+    merged.extend(entry for name, entry in wanted.items() if name not in placed)
+    return merged
+
+
 def _encode_data(kind: int, data: Any) -> Any:
     if kind in (REG_DWORD, REG_DWORD_BIG_ENDIAN, REG_QWORD):
         try:

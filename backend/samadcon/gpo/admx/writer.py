@@ -1,12 +1,22 @@
 """Writing an administrative-template setting into a GPO.
 
-The values themselves go through ``samba.policies.RegistryGroupPolicies``,
-which owns the ``Registry.pol`` file, the ``GPT.INI`` version and the
-``versionNumber`` attribute and keeps the three in step. Reimplementing that
-would be reimplementing the part of group policy that is hardest to get right
-and easiest to get subtly wrong.
+``Registry.pol`` is read, merged and written through SAMADCON's own SYSVOL
+connection, and the version through :func:`samadcon.gpo.container.bump_version`
+— the same two paths every other editor here uses.
 
-Two things it does not do, and this module does:
+This used to go through ``samba.policies.RegistryGroupPolicies``, on the
+argument that it owned the file and both versions and kept them in step. It
+did not keep them in step. It writes with a plain ``savefile``, and SMB
+refuses that with ACCESS_DENIED on a file marked hidden or read-only — which
+SAMADCON's own writer has handled since GPMC's hidden scripts.ini first broke
+it. A tester met it in October 2026: ``merge_s`` wrote ``Registry.pol``, then
+failed on ``GPT.INI``, so the version never moved. Saving again "worked",
+because the value was already in the file and there was nothing left to
+write — and every client that had the policy kept the old setting, with no
+console showing why. ``registry_pol.parse`` and ``build`` already did the
+packing through ``samba.dcerpc.preg``; the merge is a few lines.
+
+Two things belong to this module either way:
 
 * **Registering the client-side extension.** A policy whose values are written
   but whose CSE is not listed in ``gPCMachineExtensionNames`` is read by no
@@ -17,10 +27,10 @@ Two things it does not do, and this module does:
   case-insensitive order. Samba's own helper appends, which is right until
   something was registered before.
 
-Note that ``merge_s`` advances the version itself. Calling
-``increment_gpt_ini`` afterwards would advance it twice — harmless for
-correctness, but it makes every client re-read the policy for no reason and
-makes the version useless as a record of how often a policy changed.
+The version advances once per save that changed something, in the half that
+changed — not again for the registration, which would make every client
+re-read the policy for no reason and the version useless as a record of how
+often a policy changed.
 """
 
 from __future__ import annotations
@@ -30,7 +40,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from samadcon.ad.connection import DirectoryConnection
-from samadcon.core.errors import Conflict, InvalidRequest, SamadconError
+from samadcon.core.errors import Conflict, InvalidRequest
 from samadcon.gpo import container, cse, registry_pol, sysvol
 from samadcon.gpo.admx import resolver
 from samadcon.gpo.admx.model import Policy
@@ -159,33 +169,8 @@ def apply_state(
         register_extension(conn, dn, half, present=bool(current))
         return {"dn": dn, "changed": False, "version": gpo["version"]}
 
-    policies = _registry_group_policies(conn, gpo)
-
-    if plan.set:
-        policies.merge_s(
-            [
-                {
-                    "keyname": entry.key,
-                    "valuename": entry.value_name,
-                    "class": half.upper(),
-                    "type": registry_pol.type_name(entry.type),
-                    "data": entry.data,
-                }
-                for entry in plan.set
-            ]
-        )
-    if plan.remove:
-        policies.remove_s(
-            [
-                {"keyname": entry.key, "valuename": entry.value_name, "class": half.upper()}
-                for entry in plan.remove
-            ]
-        )
-
-    # Re-read rather than subtract the plan from what was there: the file has
-    # just been rewritten by Samba's own writer, and it is the authority on
-    # what is left. One extra read on save, for an answer that cannot drift.
-    register_extension(conn, dn, half, present=bool(registry_entries(conn, gpo, half)))
+    remaining = write_entries(conn, dn, gpo, half, current, plan)
+    register_extension(conn, dn, half, present=bool(remaining))
 
     updated = container.get_gpo(conn, dn)
     logger.info(
@@ -200,25 +185,46 @@ def apply_state(
     }
 
 
-def _registry_group_policies(conn: DirectoryConnection, gpo: dict[str, Any]) -> Any:
-    """Samba's own writer for ``Registry.pol``.
+def write_entries(
+    conn: DirectoryConnection,
+    dn: str,
+    gpo: dict[str, Any],
+    half: str,
+    current: list[dict[str, Any]],
+    plan: resolver.Plan,
+) -> list[dict[str, Any]]:
+    """Write *plan* into this half's ``Registry.pol`` and advance its version.
 
-    It opens its own SMB connection, so it gets credentials built from the
-    session's ticket rather than the ones the LDAP bind has already used.
+    *current* is the file as it was read for the plan. Both writes go through
+    the hidden-aware SYSVOL writer. Returns what the file holds afterwards,
+    which decides whether the extension stays registered.
     """
-    try:
-        from samba.policies import RegistryGroupPolicies
-    except ImportError as exc:  # pragma: no cover - the image always has it
-        raise SamadconError(
-            "The Samba group policy bindings are not available.",
-            code="samba_missing",
-            hint="The container image must provide a recent python3-samba.",
-        ) from exc
+    if not gpo["path"]:
+        raise InvalidRequest(
+            "This policy has no SYSVOL path.", code="gpo_without_path", context={"dn": dn}
+        )
 
-    creds = sysvol.smb_credentials(conn, conn.lp)
-    return RegistryGroupPolicies(
-        gpo["name"], conn.lp, creds, conn.samdb, conn.info.dc_hostname or conn.host
+    merged = registry_pol.merge(
+        current,
+        [
+            {"key": entry.key, "value": entry.value_name, "type": entry.type, "data": entry.data}
+            for entry in plan.set
+        ],
+        [(entry.key, entry.value_name) for entry in plan.remove],
     )
+
+    share = sysvol.sysvol_for(conn)
+    _, _, base = sysvol.parse_unc(gpo["path"])
+    target = share.resolve(base, f"{half}\\Registry.pol") or sysvol.join(
+        base, half, "Registry.pol"
+    )
+    share.makedirs(target.rsplit("\\", 1)[0])
+    share.write(target, registry_pol.build(merged))
+
+    container.bump_version(
+        conn, dn, machine_changed=half == "Machine", user_changed=half == "User"
+    )
+    return merged
 
 
 # ---------------------------------------------------------------------------
