@@ -14,6 +14,48 @@ release.
 
 ---
 
+## 0.6.8 — 2026-10-03
+
+New policies get their SYSVOL permissions the way samba-tool sets them.
+
+A tester could not create any policy: "Access denied" on every attempt,
+while `samba-tool gpo create` with the same account worked. Comparing the
+two on a Samba 4.22 DC turned up two differences, and the first one
+affected every installation.
+
+**Permissions below the policy's folder.** SAMADCON set the policy's
+permissions on its folder after Machine, User and GPT.INI were already in
+it - and over SMB, setting a folder's permissions does not reach what it
+already holds. So every policy created, copied or restored with SAMADCON
+kept the share's general permissions below its top folder:
+
+- security filtering did not apply to the policy's files;
+- someone delegated to edit the policy could not write its content;
+- `samba-tool ntacl sysvolcheck` stopped at the first such file.
+
+Now the empty folder gets the permissions first, and everything put in it
+inherits them. Measured: folder, Machine and GPT.INI carry exactly the
+permissions samba-tool gives them.
+
+**A SACL flag without a SACL.** The permissions are derived from the
+policy object's own, which SAMADCON read whole, SACL included. Samba's
+dsacl2fsacl copies the descriptor's header flags but not the SACL, so the
+folder's descriptor claimed one that was not there (type 0x9814 against
+samba-tool's 0x9004). Samba passes over that. A Synology Directory Server,
+which keeps permissions in its own ACL system, refused it - most likely
+the tester's "Access denied". SAMADCON now asks for owner, group and DACL
+only, as samba-tool does. Confirmation on Synology is still outstanding.
+
+**If you created, copied or restored policies with SAMADCON before:**
+their permissions below the top folder are still the share's. On the DC,
+`samba-tool ntacl sysvolreset` sets all SYSVOL permissions anew from the
+directory; `samba-tool ntacl sysvolcheck` should then pass. Not on a
+Synology Directory Server - its sysvolcheck cannot read the permissions.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.8, :0.6 and :latest.
+
+---
+
 ## 0.6.7 — 2026-10-03
 
 Multi-line administrative template values no longer take the backend down.
