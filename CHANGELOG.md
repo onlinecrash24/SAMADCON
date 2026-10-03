@@ -14,6 +14,43 @@ release.
 
 ---
 
+## 0.6.7 — 2026-10-03
+
+Multi-line administrative template values no longer take the backend down.
+
+A tester saved "Remove Default Microsoft Store packages from the system"
+with a list of package names and got an HTTP 502 - and was signed out,
+as was everyone else signed in to that console.
+
+**What happened.** Since 0.6.6 SAMADCON packs Registry.pol itself, and it
+handed Samba's preg binding a list for a multi-string (REG_MULTI_SZ). The
+binding does not raise on that: it trips a C assertion (PyBytes_Check)
+and aborts the process. nginx answered 502, and since sessions live in
+the backend's memory, they went with it. Nothing was written - the abort
+came before the file was saved - so affected policies are unchanged.
+
+Only values of type REG_MULTI_SZ were affected: the template elements
+shown as a multi-line text box. Check boxes, numbers, single-line text
+and lists of values were not.
+
+**The fix.** Measured in the image: preg takes and returns a multi-string
+as one block of bytes - each string UTF-16LE with its terminator, then one
+more. SAMADCON now builds that block when writing and splits it back into
+its strings when reading, which it also got wrong.
+
+**Why it got through.** The binding was only exercised by the integration
+tests, which CI does not run. A new test now packs and reads back every
+value type through Samba's own binding in the CI image. Pushed before the
+fix, it aborted CI at the tester's package names; with the fix, it passes.
+
+Checked on a Samba 4.22 DC: a policy with two multi-line fields saved,
+edited and saved again - the lines in Registry.pol as entered, the
+removed line gone, the version advanced once per save.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.7, :0.6 and :latest.
+
+---
+
 ## 0.6.6 — 2026-10-02
 
 Administrative templates on a policy whose GPT.INI is hidden.
