@@ -88,10 +88,12 @@ def data_size(type_: int, data: Any) -> int:
     kind = int(type_)
 
     if kind in (REG_SZ, REG_EXPAND_SZ, REG_LINK):
-        return (len(str(data or "")) + 1) * 2
+        return _utf16_size(data or "") + 2
     if kind == REG_MULTI_SZ:
+        if isinstance(data, (bytes, bytearray)):
+            return len(data)
         strings = list(data or [])
-        return sum((len(str(item)) + 1) * 2 for item in strings) + 2
+        return sum(_utf16_size(item) + 2 for item in strings) + 2
     if kind in (REG_DWORD, REG_DWORD_BIG_ENDIAN):
         return 4
     if kind == REG_QWORD:
@@ -106,6 +108,36 @@ def data_size(type_: int, data: Any) -> int:
 # ---------------------------------------------------------------------------
 # Reading
 # ---------------------------------------------------------------------------
+
+
+def _utf16_size(text: Any) -> int:
+    """Bytes *text* takes in UTF-16, whether it arrives as text or as the UTF-8
+    bytes the binding is handed — a character outside the BMP is four."""
+    if isinstance(text, (bytes, bytearray)):
+        text = bytes(text).decode("utf-8")
+    return len(str(text).encode("utf-16-le"))
+
+
+def _text(item: Any) -> str:
+    """A string the binding handed back, as text."""
+    if isinstance(item, (bytes, bytearray)):
+        return bytes(item).decode("utf-8", "replace")
+    return str(item)
+
+
+def multi_string_to_bytes(strings: list[str]) -> bytes:
+    """REG_MULTI_SZ as it is stored: each string UTF-16LE with its terminator,
+    then one more terminator."""
+    return "".join(f"{item}\0" for item in strings).encode("utf-16-le") + b"\0\0"
+
+
+def multi_string_from_bytes(raw: bytes) -> list[str]:
+    """The strings of a stored REG_MULTI_SZ, without the terminators."""
+    text = raw[: len(raw) - len(raw) % 2].decode("utf-16-le", "replace")
+    parts = text.split("\0")
+    while parts and parts[-1] == "":
+        parts.pop()
+    return parts
 
 
 def parse(raw: bytes) -> list[dict[str, Any]]:
@@ -152,9 +184,11 @@ def _decode_data(data: Any, kind: int) -> Any:
         except (TypeError, ValueError):
             return 0
     if kind == REG_MULTI_SZ:
-        return [str(item) for item in (data or [])]
+        if isinstance(data, (bytes, bytearray)):
+            return multi_string_from_bytes(bytes(data))
+        return [_text(item) for item in (data or [])]
     if kind in (REG_SZ, REG_EXPAND_SZ, REG_LINK):
-        return str(data or "")
+        return _text(data or "")
     if data is None:
         return ""
     if isinstance(data, (bytes, bytearray)):
@@ -262,9 +296,14 @@ def _encode_data(kind: int, data: Any) -> Any:
                 context={"value": data},
             ) from exc
     if kind == REG_MULTI_SZ:
-        if isinstance(data, str):
-            return [data]
-        return [str(item) for item in (data or [])]
+        # One block of bytes, not a list. Measured in the image: preg hands a
+        # multi-string back as the raw UTF-16 block, and handed a list it does
+        # not raise — it trips a C assertion (PyBytes_Check) and aborts the
+        # process. That took the backend down, and every signed-in session
+        # with it, the first time SAMADCON packed a multi-line template value
+        # itself (0.6.6). A list of bytes aborts the same way.
+        items = [data] if isinstance(data, str) else list(data or [])
+        return multi_string_to_bytes([_text(item) for item in items])
     if kind in (REG_SZ, REG_EXPAND_SZ, REG_LINK):
         return str(data or "")
     if kind == REG_NONE:

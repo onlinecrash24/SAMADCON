@@ -117,7 +117,7 @@ def test_something_that_is_not_a_number_is_refused():
 
 
 def test_a_single_string_becomes_a_one_element_multi_string():
-    assert pol._encode_data(pol.REG_MULTI_SZ, "only") == ["only"]
+    assert pol._encode_data(pol.REG_MULTI_SZ, "only") == "only\0\0".encode("utf-16-le")
 
 
 def test_binary_data_comes_in_as_base64():
@@ -154,3 +154,32 @@ def test_entries_are_grouped_under_their_key():
 
 def test_grouping_an_empty_policy_gives_nothing():
     assert pol.by_key([]) == []
+
+
+# ---------------------------------------------------------------------------
+# Multi-strings: one block of bytes, both ways
+# ---------------------------------------------------------------------------
+
+PACKAGES = ["Microsoft.Edge.GameAssist_8wekyb3d8bbwe", "Microsoft.People_8wekyb3d8bbwe"]
+
+
+def test_a_multi_string_goes_to_the_binding_as_one_block():
+    """Measured in the image: preg aborts the process when handed a list —
+    of str or of bytes. It takes the stored block: UTF-16LE strings, each
+    terminated, then one more terminator."""
+    block = pol._encode_data(pol.REG_MULTI_SZ, ["a", "bb"])
+    assert block == "a\0bb\0\0".encode("utf-16-le")
+    assert pol.data_size(pol.REG_MULTI_SZ, block) == pol.data_size(pol.REG_MULTI_SZ, ["a", "bb"])
+
+
+def test_a_multi_string_read_back_as_bytes_becomes_its_strings():
+    """Measured: preg returns the 68 bytes of "Microsoft.People_8wekyb3d8bbwe",
+    "b" as one block. Iterating it gave numbers, not strings."""
+    block = "Microsoft.People_8wekyb3d8bbwe\0b\0\0".encode("utf-16-le")
+    assert len(block) == 68
+    assert pol._decode_data(block, pol.REG_MULTI_SZ) == ["Microsoft.People_8wekyb3d8bbwe", "b"]
+
+
+def test_the_block_round_trips():
+    assert pol.multi_string_from_bytes(pol.multi_string_to_bytes(PACKAGES)) == PACKAGES
+    assert pol.multi_string_from_bytes(pol.multi_string_to_bytes([])) == []
