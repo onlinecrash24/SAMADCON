@@ -2,10 +2,10 @@
 
 A GPO is created in two places that can each fail on their own. The order here
 is the one ``samba-tool gpo create`` uses and the one that fails safest: the
-directory object first, then the files, then the SYSVOL permissions derived
-from the object. If a later step fails, the earlier ones are rolled back —
-a GPO that exists in only one half is worse than no GPO, because it shows up
-in every console and does nothing.
+directory object first, then the policy's folder with the SYSVOL permissions
+derived from the object, then the files in it. If a later step fails, the
+earlier ones are rolled back — a GPO that exists in only one half is worse
+than no GPO, because it shows up in every console and does nothing.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ import uuid
 from typing import Any
 
 from samadcon.ad import values
-from samadcon.ad.connection import SCOPE_ONELEVEL, DirectoryConnection
+from samadcon.ad.connection import SCOPE_BASE, SCOPE_ONELEVEL, DirectoryConnection
 from samadcon.core.errors import Conflict, InvalidRequest, NotFound
 from samadcon.gpo import sysvol
 
@@ -243,12 +243,17 @@ def create_gpo(conn: DirectoryConnection, display_name: str) -> dict[str, Any]:
     Order matters and is the same one ``samba-tool gpo create`` uses:
 
     1. the directory object and its two child containers,
-    2. the SYSVOL directories and ``GPT.INI``,
-    3. the SYSVOL permissions, derived from the object's own ACL.
+    2. the policy's SYSVOL folder, empty,
+    3. its permissions, derived from the object's own ACL,
+    4. ``Machine``, ``User`` and ``GPT.INI``, which inherit them.
 
     Step 3 is the one that is easy to skip and impossible to notice: without
     it the files inherit the share's permissions, and the security filtering
-    set on the object has no effect on who can read the policy.
+    set on the object has no effect on who can read the policy. It came after
+    step 4 until 0.6.7, and that was as good as skipping it: over SMB, setting
+    a folder's permissions does not reach what is already in it, so every
+    policy created, copied or restored here kept the share's permissions
+    below its top folder — ``samba-tool ntacl sysvolcheck`` stopped there.
     """
     import ldb
 
@@ -300,11 +305,11 @@ def create_gpo(conn: DirectoryConnection, display_name: str) -> dict[str, Any]:
         share = sysvol.sysvol_for(conn)
         share.makedirs(share_path)
         created_sysvol = True
+        apply_sysvol_acl(conn, dn, share_path)
+
         share.mkdir(sysvol.join(share_path, "Machine"))
         share.mkdir(sysvol.join(share_path, "User"))
         share.write(sysvol.join(share_path, sysvol.GPT_INI), sysvol.format_gpt_ini(0))
-
-        apply_sysvol_acl(conn, dn, share_path)
     except Exception:
         logger.exception("creating GPO %s failed; rolling back", guid)
         if created_sysvol:
@@ -337,24 +342,45 @@ def apply_sysvol_acl(conn: DirectoryConnection, dn: str, share_path: str) -> str
     from samba.ndr import ndr_unpack
     from samba.ntacls import dsacl2fsacl
 
-    entry = conn.get(dn, attrs=["nTSecurityDescriptor"])
-    if entry is None:
-        raise NotFound("The group policy does not exist.", code="gpo_not_found", context={"dn": dn})
-
-    raw = values.as_bytes(entry, "nTSecurityDescriptor")
-    if not raw:
-        raise InvalidRequest(
-            "The policy object has no security descriptor to derive from.",
-            code="no_security_descriptor",
-            context={"dn": dn},
-        )
-
+    raw = _directory_descriptor(conn, dn)
     ds_sddl = ndr_unpack(security.descriptor, raw).as_sddl()
     domain_sid = security.dom_sid(str(conn.samdb.get_domain_sid()))
     fs_descriptor = dsacl2fsacl(ds_sddl, domain_sid, as_sddl=False)
 
     sysvol.sysvol_for(conn).set_acl(share_path, fs_descriptor)
     return ds_sddl
+
+
+# Owner, group and DACL (1 | 2 | 4), as samba-tool asks. Read whole, the
+# descriptor brings its SACL, and dsacl2fsacl copies the header flags but not
+# the SACL: the file descriptor then claims SEC_DESC_SACL_PRESENT with none
+# there. Samba passes over that; a Synology Directory Server refuses the whole
+# descriptor with ACCESS_DENIED, and no policy could be created there.
+_SD_FLAGS_WITHOUT_SACL = "sd_flags:1:7"
+
+
+def _directory_descriptor(conn: DirectoryConnection, dn: str) -> bytes:
+    try:
+        result = conn.search(
+            dn,
+            scope=SCOPE_BASE,
+            attrs=["nTSecurityDescriptor"],
+            controls=[_SD_FLAGS_WITHOUT_SACL],
+            max_results=1,
+        )
+    except NotFound:
+        result = None
+    if result is None or not result.entries:
+        raise NotFound("The group policy does not exist.", code="gpo_not_found", context={"dn": dn})
+
+    raw = values.as_bytes(result.entries[0], "nTSecurityDescriptor")
+    if not raw:
+        raise InvalidRequest(
+            "The policy object has no security descriptor to derive from.",
+            code="no_security_descriptor",
+            context={"dn": dn},
+        )
+    return raw
 
 
 # ---------------------------------------------------------------------------
