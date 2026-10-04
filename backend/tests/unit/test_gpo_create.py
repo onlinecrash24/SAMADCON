@@ -20,9 +20,8 @@ ACE ("Apply group policy", edacfd8f-…) into the file DACL — Samba bug 14927,
 fixed in 4.23. The same descriptor without it was accepted.
 
 And on the Samba 4.22 DC, a DC that takes the ACE: every file and folder
-created in the policy afterwards inherited it with an object GUID made of
-whatever was in memory — "es Betriebssyste", `ayName="$(string`, pointer-like
-values — whether GPMC or SAMADCON created the file. So the ACE is left out
+created in the policy afterwards inherited it malformed (Samba bug 9821),
+whether GPMC or SAMADCON created the file. So the ACE is left out
 everywhere, not only where it is refused.
 """
 
@@ -195,7 +194,7 @@ class _AclShare:
 
 
 def test_a_dc_that_would_take_object_aces_does_not_get_them_either():
-    """A Samba 4.22 DC: it stores the ACE, then passes it on with a garbage GUID."""
+    """A Samba 4.22 DC: it stores the ACE, then passes it on malformed."""
     share = _AclShare(refuse_object_aces=False)
     container._stamp(share, "p", _descriptor(ALLOWED, ALLOWED_OBJECT, DENIED), _Security)
     assert share.stamped == [[ALLOWED, DENIED]]

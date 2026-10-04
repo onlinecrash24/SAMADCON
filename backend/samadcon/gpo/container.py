@@ -363,10 +363,9 @@ def _stamp(share: Any, share_path: str, descriptor: Any, security: Any) -> None:
       without it only after such a refusal.
     - A Samba 4.22 DC stores it, and then, inheriting it onto every file and
       folder created in the policy afterwards — by GPMC as much as by
-      SAMADCON — fills its object GUID from memory it never initialised:
-      fragments of policy texts ("es Betriebssyste") and pointer-like values,
-      written into permissions any user can read. A policy folder without
-      the ACE has nothing to pass on.
+      SAMADCON — comes out malformed: Samba's inheritance of object ACEs is
+      broken (bug 9821). A policy folder without the ACE has nothing to pass
+      on.
 
     That made the retry the wrong way round. ``sysvolcheck`` on a 4.22 DC
     expects the ACE on the folder, but it also expects every file to carry the
