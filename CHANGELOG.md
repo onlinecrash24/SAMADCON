@@ -27,10 +27,9 @@ dsacl2fsacl in 4.21 and 4.22 - the version in the image - puts it there
 (Samba bug 14927, fixed in 4.23). A Samba DC accepts it, so there it
 stayed. Measured since on a Samba 4.22 DC, that is not harmless: the DC
 passes the ACE on to every file and folder created in the policy
-afterwards, and the inherited copy carries an object GUID filled from
-uninitialised memory - fragments of text and pointer-like values,
-readable by any user. It happens whoever creates the file: GPMC,
-samba-tool or SAMADCON.
+afterwards, and the inherited copies come out malformed - Samba's
+inheritance of object ACEs is broken (bug 9821). It happens whoever
+creates the file: GPMC, samba-tool or SAMADCON.
 
 From this release a new policy's folder gets only the allow and deny
 ACEs, as Samba 4.23 writes them, on every DC. With nothing to inherit, a
