@@ -6,12 +6,18 @@ Measured on a Samba 4.22 DC, a GPO from SAMADCON next to one from
 - The GPO folders carried the same rights, but SAMADCON's descriptor had
   SEC_DESC_SACL_PRESENT set with no SACL (type 0x9814 against 0x9004). The
   descriptor had been read whole, SACL included, and ``dsacl2fsacl`` copies
-  the header flags. Samba passes over that; on a Synology Directory Server the
-  same call is refused with ACCESS_DENIED, and no new GPO could be created.
+  the header flags.
 - ``Machine``, ``User`` and ``GPT.INI`` had the share's permissions, not the
   GPO's: they were created before the GPO's permissions were set, and over
   SMB setting a folder's permissions does not reach what is already in it.
   ``samba-tool ntacl sysvolcheck`` stopped at the first such file.
+
+And on a Synology Directory Server (Samba 4.15.13), from the image's Samba
+4.22.11: the folder's permissions were refused with ACCESS_DENIED, by
+SAMADCON and by the image's own samba-tool alike, while the DC's samba-tool
+succeeded. ``dsacl2fsacl`` in 4.21 and 4.22 carries the directory's object
+ACE ("Apply group policy", edacfd8f-…) into the file DACL — Samba bug 14927,
+fixed in 4.23. The same descriptor without it was accepted.
 """
 
 from __future__ import annotations
@@ -134,3 +140,88 @@ def test_the_descriptor_is_read_without_its_sacl():
     assert asked["base"] == "CN={X},CN=Policies"
     assert asked["controls"] == ["sd_flags:1:7"]
     assert asked["attrs"] == ["nTSecurityDescriptor"]
+
+
+# ---------------------------------------------------------------------------
+# A DC that refuses object ACEs in file permissions
+# ---------------------------------------------------------------------------
+
+ALLOWED, DENIED, ALLOWED_OBJECT = 0, 1, 5
+
+
+class _Security(types.SimpleNamespace):
+    """The parts of samba.dcerpc.security the retry uses."""
+
+    SEC_ACE_TYPE_ACCESS_ALLOWED = ALLOWED
+    SEC_ACE_TYPE_ACCESS_DENIED = DENIED
+
+    class descriptor:  # noqa: N801 - samba's name
+        def __init__(self) -> None:
+            self.owner_sid = self.group_sid = self.type = self.revision = None
+            self.dacl = types.SimpleNamespace(aces=[])
+
+        def dacl_add(self, ace: Any) -> None:
+            self.dacl.aces.append(ace)
+
+
+def _descriptor(*types_: int) -> Any:
+    descriptor = _Security.descriptor()
+    descriptor.owner_sid, descriptor.group_sid = "DA", "DA"
+    descriptor.type, descriptor.revision = 0x9004, 1
+    for kind in types_:
+        descriptor.dacl_add(types.SimpleNamespace(type=kind))
+    return descriptor
+
+
+class _AclShare:
+    def __init__(self, refuse_object_aces: bool) -> None:
+        self.refuse_object_aces = refuse_object_aces
+        self.stamped: list[list[int]] = []
+        self.accepted: Any = None
+
+    def set_acl(self, path: str, descriptor: Any) -> None:
+        kinds = [ace.type for ace in descriptor.dacl.aces]
+        if self.refuse_object_aces and ALLOWED_OBJECT in kinds:
+            raise container.PermissionDenied("Access denied.")
+        self.stamped.append(kinds)
+        self.accepted = descriptor
+
+
+def test_a_dc_that_takes_object_aces_gets_the_descriptor_unchanged():
+    """A Samba 4.22 DC: its own sysvolcheck expects the object ACE there."""
+    share = _AclShare(refuse_object_aces=False)
+    container._stamp(share, "p", _descriptor(ALLOWED, ALLOWED_OBJECT, DENIED), _Security)
+    assert share.stamped == [[ALLOWED, ALLOWED_OBJECT, DENIED]]
+
+
+def test_a_dc_that_refuses_them_gets_the_descriptor_without_them():
+    """A Synology Directory Server. What is left is what Samba 4.23 writes."""
+    share = _AclShare(refuse_object_aces=True)
+    original = _descriptor(ALLOWED, ALLOWED_OBJECT, DENIED)
+    container._stamp(share, "p", original, _Security)
+    assert share.stamped == [[ALLOWED, DENIED]]
+
+
+def test_the_retry_keeps_owner_group_and_header():
+    share = _AclShare(refuse_object_aces=True)
+    original = _descriptor(ALLOWED, ALLOWED_OBJECT)
+    original.owner_sid, original.group_sid = "S-owner", "S-group"
+    container._stamp(share, "p", original, _Security)
+    accepted = share.accepted
+    assert accepted is not original
+    assert (accepted.owner_sid, accepted.group_sid, accepted.type, accepted.revision) == (
+        "S-owner",
+        "S-group",
+        0x9004,
+        1,
+    )
+    assert [ace.type for ace in original.dacl.aces] == [ALLOWED, ALLOWED_OBJECT]
+
+
+def test_a_refusal_with_nothing_to_drop_is_reported_as_it_came():
+    class Refusing:
+        def set_acl(self, path: str, descriptor: Any) -> None:
+            raise container.PermissionDenied("Access denied.")
+
+    with pytest.raises(container.PermissionDenied):
+        container._stamp(Refusing(), "p", _descriptor(ALLOWED, DENIED), _Security)
