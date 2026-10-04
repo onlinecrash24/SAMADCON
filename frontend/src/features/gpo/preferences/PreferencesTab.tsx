@@ -1,5 +1,6 @@
 /**
- * Group policy preferences — the editor's "Einstellungen" branch.
+ * Group policy preferences — GPMC's "Einstellungen" branch, one tab per
+ * sub-branch: Windows Settings and Control Panel Settings (preferenceAreas.ts).
  *
  * Laid out as items rather than as a table: a drive map carries eight fields
  * and a shortcut twelve, and a row wide enough for all of them is a row nobody
@@ -39,6 +40,7 @@ import { useI18n } from '../../../i18n'
 import { useSession } from '../../../state/session'
 import { ObjectPicker } from '../../directory/ObjectPicker'
 import type { MessageKey } from '../../../i18n/messages'
+import { FIRST_TYPE, type PreferenceArea, typesIn } from './preferenceAreas'
 
 const HALVES = ['Machine', 'User'] as const
 const MULTI_SZ = 'REG_MULTI_SZ'
@@ -60,16 +62,18 @@ interface Draft {
 
 export function PreferencesTab({
   gpo,
+  area,
   onChanged,
 }: {
   gpo: Gpo
+  area: PreferenceArea
   onChanged: (message: string) => void
 }) {
   const { t } = useI18n()
   const queryClient = useQueryClient()
 
   const [selected, setSelected] = useState<{ type: PreferenceTypeId; half: string }>({
-    type: 'registry',
+    type: FIRST_TYPE[area],
     half: 'Machine',
   })
   const [draft, setDraft] = useState<Draft[]>([])
@@ -116,7 +120,7 @@ export function PreferencesTab({
   if (catalogue.error) return <ErrorMessage error={catalogue.error} />
   if (current.error) return <ErrorMessage error={current.error} />
 
-  const types = catalogue.data?.types ?? []
+  const types = typesIn(area, catalogue.data?.types ?? [])
   const actions = catalogue.data?.actions ?? []
   const type = types.find((item) => item.id === selected.type)
   // Printers are the only type where this is more than one; the "+ Eintrag"
@@ -129,7 +133,10 @@ export function PreferencesTab({
   return (
     <div className="gpedit">
       <div className="gpedit__panes">
-        <nav className="gpedit__tree" aria-label={t('gpo.tab.preferences')}>
+        <nav
+          className="gpedit__tree"
+          aria-label={t(area === 'windows' ? 'gpo.tab.prefWindows' : 'gpo.tab.prefControlPanel')}
+        >
           {HALVES.map((half) => (
             <div key={half}>
               <div className="cats__group">

@@ -32,7 +32,8 @@ type Tab =
   | 'redirection'
   | 'security'
   | 'vgp'
-  | 'preferences'
+  | 'prefWindows'
+  | 'prefControlPanel'
   | 'settings'
   | 'links'
   | 'filtering'
@@ -73,7 +74,8 @@ export function GpoDetail({ gpo, onClose, onChanged, onDeleted }: GpoDetailProps
             'redirection',
             'security',
             'vgp',
-            'preferences',
+            'prefWindows',
+            'prefControlPanel',
             'settings',
             'links',
             'filtering',
@@ -112,7 +114,17 @@ export function GpoDetail({ gpo, onClose, onChanged, onDeleted }: GpoDetailProps
         {tab === 'redirection' && <RedirectionTab gpo={gpo} onChanged={onChanged} />}
         {tab === 'security' && <SecurityTab gpo={gpo} onChanged={onChanged} />}
         {tab === 'vgp' && <VgpTab gpo={gpo} onChanged={onChanged} />}
-        {tab === 'preferences' && <PreferencesTab gpo={gpo} onChanged={onChanged} />}
+        {tab === 'prefWindows' && (
+          <PreferencesTab key="windows" gpo={gpo} area="windows" onChanged={onChanged} />
+        )}
+        {tab === 'prefControlPanel' && (
+          <PreferencesTab
+            key="controlPanel"
+            gpo={gpo}
+            area="controlPanel"
+            onChanged={onChanged}
+          />
+        )}
         {tab === 'settings' && <ReportTab gpo={gpo} />}
         {tab === 'links' && (
           <LinksTab

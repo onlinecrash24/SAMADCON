@@ -1119,6 +1119,9 @@ export type PreferenceTypeId =
   | 'shortcuts'
   | 'environment'
   | 'printers'
+  | 'groups'
+  | 'services'
+  | 'tasks'
 
 /** Create, Replace, Update, Delete — the letters the file carries. */
 export type PreferenceAction = 'C' | 'R' | 'U' | 'D'
