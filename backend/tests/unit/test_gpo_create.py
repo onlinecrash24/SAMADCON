@@ -18,6 +18,12 @@ SAMADCON and by the image's own samba-tool alike, while the DC's samba-tool
 succeeded. ``dsacl2fsacl`` in 4.21 and 4.22 carries the directory's object
 ACE ("Apply group policy", edacfd8f-…) into the file DACL — Samba bug 14927,
 fixed in 4.23. The same descriptor without it was accepted.
+
+And on the Samba 4.22 DC, a DC that takes the ACE: every file and folder
+created in the policy afterwards inherited it with an object GUID made of
+whatever was in memory — "es Betriebssyste", `ayName="$(string`, pointer-like
+values — whether GPMC or SAMADCON created the file. So the ACE is left out
+everywhere, not only where it is refused.
 """
 
 from __future__ import annotations
@@ -28,6 +34,7 @@ from typing import Any
 
 import pytest
 
+from samadcon.core.errors import PermissionDenied
 from samadcon.gpo import container
 
 
@@ -182,16 +189,23 @@ class _AclShare:
     def set_acl(self, path: str, descriptor: Any) -> None:
         kinds = [ace.type for ace in descriptor.dacl.aces]
         if self.refuse_object_aces and ALLOWED_OBJECT in kinds:
-            raise container.PermissionDenied("Access denied.")
+            raise PermissionDenied("Access denied.")
         self.stamped.append(kinds)
         self.accepted = descriptor
 
 
-def test_a_dc_that_takes_object_aces_gets_the_descriptor_unchanged():
-    """A Samba 4.22 DC: its own sysvolcheck expects the object ACE there."""
+def test_a_dc_that_would_take_object_aces_does_not_get_them_either():
+    """A Samba 4.22 DC: it stores the ACE, then passes it on with a garbage GUID."""
     share = _AclShare(refuse_object_aces=False)
     container._stamp(share, "p", _descriptor(ALLOWED, ALLOWED_OBJECT, DENIED), _Security)
-    assert share.stamped == [[ALLOWED, ALLOWED_OBJECT, DENIED]]
+    assert share.stamped == [[ALLOWED, DENIED]]
+
+
+def test_a_descriptor_without_object_aces_goes_out_as_it_is():
+    share = _AclShare(refuse_object_aces=False)
+    original = _descriptor(ALLOWED, DENIED)
+    container._stamp(share, "p", original, _Security)
+    assert share.accepted is original
 
 
 def test_a_dc_that_refuses_them_gets_the_descriptor_without_them():
@@ -221,7 +235,7 @@ def test_the_retry_keeps_owner_group_and_header():
 def test_a_refusal_with_nothing_to_drop_is_reported_as_it_came():
     class Refusing:
         def set_acl(self, path: str, descriptor: Any) -> None:
-            raise container.PermissionDenied("Access denied.")
+            raise PermissionDenied("Access denied.")
 
-    with pytest.raises(container.PermissionDenied):
+    with pytest.raises(PermissionDenied):
         container._stamp(Refusing(), "p", _descriptor(ALLOWED, DENIED), _Security)
