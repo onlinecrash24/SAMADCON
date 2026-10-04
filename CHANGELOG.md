@@ -14,6 +14,44 @@ release.
 
 ---
 
+## 0.6.10 — 2026-10-04
+
+New policies get their folder permissions without object ACEs, on every DC.
+
+**Confirmed on Synology.** The tester who could not create policies on a
+Synology Directory Server reports that 0.6.9 works there.
+
+**What changes.** 0.6.9 removed the "Apply group policy" object ACE from
+a new policy's folder permissions only when the DC refused it. Samba's
+dsacl2fsacl in 4.21 and 4.22 - the version in the image - puts it there
+(Samba bug 14927, fixed in 4.23). A Samba DC accepts it, so there it
+stayed. Measured since on a Samba 4.22 DC, that is not harmless: the DC
+passes the ACE on to every file and folder created in the policy
+afterwards, and the inherited copy carries an object GUID filled from
+uninitialised memory - fragments of text and pointer-like values,
+readable by any user. It happens whoever creates the file: GPMC,
+samba-tool or SAMADCON.
+
+From this release a new policy's folder gets only the allow and deny
+ACEs, as Samba 4.23 writes them, on every DC. With nothing to inherit, a
+file GPMC later added to such a policy carried clean permissions.
+
+**What it does not change.** Policies created elsewhere, or reset with
+`samba-tool ntacl sysvolreset` on Samba 4.21 or 4.22, still carry the
+ACE on their folder, and new files in them still inherit it. That needs
+a fix in Samba itself.
+
+**About sysvolcheck.** `samba-tool ntacl sysvolcheck` expects every file
+of a policy to carry exactly its folder's permissions. That holds right
+after `sysvolreset` and for no file written afterwards, by any tool,
+since new files inherit permissions instead. On a 4.21/4.22 DC it also
+expects the object ACE on the folder. A report from it about policies
+that have been edited, or created by SAMADCON, is therefore expected.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.10, :0.6 and :latest.
+
+---
+
 ## 0.6.9 — 2026-10-04
 
 New policies can be created on a Synology Directory Server.
