@@ -7,6 +7,7 @@ one deals with whatever an object happens to be.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from samadcon.ad import uac, values
@@ -17,6 +18,8 @@ from samadcon.ad.connection import (
     DirectoryConnection,
 )
 from samadcon.core.errors import Conflict, InvalidRequest, NotFound
+
+logger = logging.getLogger(__name__)
 
 # Attributes every list view needs. Kept small — a container with 2000 objects
 # should not drag half the schema across the network.
@@ -482,21 +485,116 @@ def get_object(
     return summarize(entry)
 
 
-def get_attributes(conn: DirectoryConnection, dn: str) -> dict[str, Any]:
+# Constructed attributes that say which attributes an object may have, and
+# which of those the signed-in account may write. Asked for, not listed.
+_ALLOWED = "allowedAttributes"
+_ALLOWED_EFFECTIVE = "allowedAttributesEffective"
+
+# Syntaxes whose values cannot be typed in as text: octet string, NT security
+# descriptor, SID. Measured: thumbnailPhoto and objectGUID are 2.5.5.10,
+# tokenGroups 2.5.5.17.
+_BINARY_SYNTAXES = frozenset({"2.5.5.10", "2.5.5.15", "2.5.5.17"})
+_FLAG_ATTR_IS_CONSTRUCTED = 0x4
+
+
+def attribute_schema(conn: DirectoryConnection) -> dict[str, dict[str, Any]]:
+    """What the schema says about every attribute, by lower-case name.
+
+    One search per schema and hour, like the GUID catalogue in rights.py. If
+    it cannot be read, the editor still lists what it can and leaves empty
+    attributes read-only rather than guessing.
+    """
+    from samadcon.core.cache import schema_cache
+
+    cache_key = f"attribute-schema:{conn.info.schema_dn}"
+    cached = schema_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    catalogue: dict[str, dict[str, Any]] = {}
+    try:
+        result = conn.search(
+            conn.info.schema_dn,
+            scope=SCOPE_ONELEVEL,
+            expression="(objectClass=attributeSchema)",
+            attrs=[
+                "lDAPDisplayName",
+                "attributeSyntax",
+                "isSingleValued",
+                "systemOnly",
+                "systemFlags",
+                "linkID",
+            ],
+            max_results=20000,
+        )
+        for entry in result:
+            name = values.as_str(entry, "lDAPDisplayName")
+            if name:
+                catalogue[name.lower()] = schema_facts(entry)
+    except Exception:
+        logger.warning("could not read the attribute schema", exc_info=True)
+        return catalogue
+
+    schema_cache.set(cache_key, catalogue)
+    return catalogue
+
+
+def schema_facts(entry: Any) -> dict[str, Any]:
+    """The few things the editor needs from an attributeSchema entry."""
+    flags = values.as_int(entry, "systemFlags") or 0
+    link_id = values.as_int(entry, "linkID")
+    return {
+        "single_valued": (values.as_str(entry, "isSingleValued") or "").upper() == "TRUE",
+        "binary": (values.as_str(entry, "attributeSyntax") or "") in _BINARY_SYNTAXES,
+        "system_only": (values.as_str(entry, "systemOnly") or "").upper() == "TRUE",
+        "constructed": bool(flags & _FLAG_ATTR_IS_CONSTRUCTED),
+        # Odd link IDs are back links: memberOf to member, maintained by the
+        # directory from the other side.
+        "backlink": link_id is not None and link_id % 2 == 1,
+    }
+
+
+def _why_not_writable(facts: dict[str, Any] | None, permitted: bool) -> str | None:
+    """Why an empty attribute cannot be filled in here, or None if it can."""
+    if facts is None:
+        return "unknown"
+    for note in ("constructed", "backlink", "system_only", "binary"):
+        if facts[note]:
+            return note
+    if not permitted:
+        return "not_permitted"
+    return None
+
+
+def get_attributes(
+    conn: DirectoryConnection, dn: str, include_empty: bool = False
+) -> dict[str, Any]:
     """All attributes of an object, for the raw attribute editor.
 
     Binary values are reported as base64 with their length so the editor can
     show something meaningful instead of mojibake. Each attribute also carries
     whether it may be written, so the editor does not have to keep its own copy
     of the protected list — and cannot drift from the one that is enforced.
+
+    With *include_empty*, every attribute the object may have is listed, as
+    RSAT's attribute editor does: ``*`` returns only those with a value. The
+    directory says which those are (allowedAttributes) and which of them the
+    signed-in account may write (allowedAttributesEffective); an empty one is
+    offered for editing only if it is writable, typed in as text, and stored
+    rather than constructed or maintained from the other end of a link.
     """
     import base64
 
     from samadcon.ad.users import PROTECTED_ATTRS
 
-    entry = conn.get(dn, attrs=["*", "nTSecurityDescriptor", "msDS-KeyCredentialLink"])
+    attrs = ["*", "nTSecurityDescriptor", "msDS-KeyCredentialLink"]
+    if include_empty:
+        attrs += [_ALLOWED, _ALLOWED_EFFECTIVE]
+    entry = conn.get(dn, attrs=attrs)
     if entry is None:
         raise NotFound("The directory object does not exist.", context={"dn": dn})
+
+    schema = attribute_schema(conn) if include_empty else {}
 
     attributes: dict[str, Any] = {}
     # .keys() is required here: an ldb.Message iterates over its elements, not
@@ -505,7 +603,7 @@ def get_attributes(conn: DirectoryConnection, dn: str) -> dict[str, Any]:
         # "dn" is part of every message but is not an attribute: its value is
         # an ldb.Dn, not a list of values, and iterating it raises. The DN is
         # returned separately below.
-        if name.lower() == "dn":
+        if name.lower() in ("dn", _ALLOWED.lower(), _ALLOWED_EFFECTIVE.lower()):
             continue
 
         raw_values = []
@@ -530,6 +628,29 @@ def get_attributes(conn: DirectoryConnection, dn: str) -> dict[str, Any]:
             # by hand is a corrupted object waiting to happen.
             "editable": name.lower() not in PROTECTED_ATTRS and not has_binary,
         }
+        if include_empty:
+            facts = schema.get(name.lower())
+            attributes[name]["single_valued"] = facts["single_valued"] if facts else None
+
+    if include_empty:
+        present = {name.lower() for name in attributes}
+        writable = {name.lower() for name in values.as_list(entry, _ALLOWED_EFFECTIVE)}
+        for name in values.as_list(entry, _ALLOWED):
+            key = name.lower()
+            if key in present:
+                continue
+            present.add(key)
+            facts = schema.get(key)
+            note = _why_not_writable(facts, key in writable)
+            if note is None and key in PROTECTED_ATTRS:
+                note = "protected"
+            attributes[name] = {
+                "values": [],
+                "editable": note is None,
+                "single_valued": facts["single_valued"] if facts else None,
+                "empty": True,
+                "note": note,
+            }
 
     return {
         "dn": values.as_str(entry, "distinguishedName") or str(entry.dn),

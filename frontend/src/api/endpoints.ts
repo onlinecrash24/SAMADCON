@@ -177,8 +177,10 @@ export const api = {
     http.put<{ applied: Record<string, unknown> }>('/sites/upn-suffixes', { suffixes }),
   path: (dn: string) =>
     http.get<{ dn: string; path: DirectoryObject[] }>(`/directory/object/path?dn=${dnParam(dn)}`),
-  attributes: (dn: string) =>
-    http.get<AttributeListing>(`/directory/object/attributes?dn=${dnParam(dn)}`),
+  attributes: (dn: string, includeEmpty = false) =>
+    http.get<AttributeListing>(
+      `/directory/object/attributes?dn=${dnParam(dn)}${includeEmpty ? '&include_empty=true' : ''}`,
+    ),
   /** Values are replaced; null removes the attribute. */
   updateAttributes: (dn: string, attributes: Record<string, string | string[] | null>) =>
     http.patch<{ dn: string; applied: Record<string, unknown> }>(

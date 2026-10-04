@@ -131,10 +131,21 @@ async def get_object(worker: Worker, session: CurrentSession, dn: DnQuery) -> di
 
 
 @router.get("/object/attributes")
-async def get_attributes(worker: Worker, session: CurrentSession, dn: DnQuery) -> dict[str, Any]:
-    """Every attribute of an object — the raw attribute editor."""
+async def get_attributes(
+    worker: Worker, session: CurrentSession, dn: DnQuery, include_empty: bool = False
+) -> dict[str, Any]:
+    """Every attribute of an object — the raw attribute editor.
+
+    With include_empty, also those the object may have but does not, as
+    RSAT's attribute editor lists them.
+    """
     return await ad_read(
-        worker, session, directory.get_attributes, dn, label="directory.attributes"
+        worker,
+        session,
+        directory.get_attributes,
+        dn,
+        include_empty,
+        label="directory.attributes",
     )
 
 

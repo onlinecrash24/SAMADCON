@@ -237,6 +237,19 @@ export const de = {
   'attributes.multivalueHint':
     'Ein Wert pro Zeile. Leere Zeilen werden verworfen; ein leeres Feld löscht das Attribut.',
   'attributes.willDelete': 'Das Attribut wird beim Speichern entfernt.',
+  'attributes.showEmpty': 'Leere Attribute anzeigen',
+  'attributes.notSet': '‹nicht gesetzt›',
+  'attributes.singleValueHint':
+    'Dieses Attribut nimmt nur einen Wert auf. Ein leeres Feld löscht das Attribut.',
+  'attributes.tooManyValues': 'Nur ein Wert erlaubt – bitte nur eine Zeile eingeben.',
+  'attributes.note.constructed': 'Wird vom Verzeichnis berechnet und nicht gespeichert.',
+  'attributes.note.backlink':
+    'Rückverweis: wird von der Gegenseite gepflegt, z. B. memberOf über member der Gruppe.',
+  'attributes.note.system_only': 'Wird nur vom Verzeichnis selbst geschrieben.',
+  'attributes.note.binary': 'Binärwert – lässt sich hier nicht als Text eingeben.',
+  'attributes.note.not_permitted': 'Ihr Konto darf dieses Attribut nicht schreiben.',
+  'attributes.note.protected': 'Wird von SAMADCON geschützt und an anderer Stelle bearbeitet.',
+  'attributes.note.unknown': 'Das Schema dazu ließ sich nicht lesen.',
 
   'detail.tab.security': 'Sicherheit',
   'detail.tab.memberOf': 'Mitglied von',
@@ -1957,6 +1970,18 @@ export const en: Record<MessageKey, string> = {
   'attributes.multivalueHint':
     'One value per line. Empty lines are dropped; an empty field deletes the attribute.',
   'attributes.willDelete': 'Saving will remove this attribute.',
+  'attributes.showEmpty': 'Show empty attributes',
+  'attributes.notSet': '‹not set›',
+  'attributes.singleValueHint': 'This attribute takes one value. An empty field deletes it.',
+  'attributes.tooManyValues': 'Only one value allowed – enter a single line.',
+  'attributes.note.constructed': 'Computed by the directory, not stored.',
+  'attributes.note.backlink':
+    'Back link: maintained from the other side, e.g. memberOf through the group’s member.',
+  'attributes.note.system_only': 'Written only by the directory itself.',
+  'attributes.note.binary': 'Binary value – cannot be typed in as text here.',
+  'attributes.note.not_permitted': 'Your account may not write this attribute.',
+  'attributes.note.protected': 'Protected by SAMADCON and edited elsewhere.',
+  'attributes.note.unknown': 'Its schema entry could not be read.',
 
   'detail.tab.security': 'Security',
   'detail.tab.memberOf': 'Member of',

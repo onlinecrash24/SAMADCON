@@ -7,6 +7,10 @@
  * appear inside a value. Whether an attribute may be written at all is decided
  * by the server and reported per attribute; this component only renders that
  * decision.
+ *
+ * Attributes without a value are listed on request, as RSAT lists them: the
+ * server asks the directory which ones the object may have and which of those
+ * the signed-in account may write.
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -16,6 +20,9 @@ import { api } from '../../api/endpoints'
 import type { AttributeEntry } from '../../api/types'
 import { Badge, ErrorMessage, Modal, Spinner } from '../../components/primitives'
 import { useI18n } from '../../i18n'
+import type { MessageKey } from '../../i18n/messages'
+import { readShowEmptyAttributes, writeShowEmptyAttributes } from '../../state/showEmptyAttributes'
+import { attributeRows, cannotSave, valuesFromText } from './attributeRows'
 
 interface AttributeEditorProps {
   dn: string
@@ -27,21 +34,18 @@ export function AttributeEditor({ dn, onChanged }: AttributeEditorProps) {
   const queryClient = useQueryClient()
 
   const [filter, setFilter] = useState('')
+  const [showEmpty, setShowEmpty] = useState(readShowEmptyAttributes)
   const [editing, setEditing] = useState<{ name: string; entry: AttributeEntry } | null>(null)
 
   const listing = useQuery({
-    queryKey: ['attributes', dn],
-    queryFn: () => api.attributes(dn),
+    queryKey: ['attributes', dn, showEmpty],
+    queryFn: () => api.attributes(dn, showEmpty),
   })
 
-  const rows = useMemo(() => {
-    const entries = Object.entries(listing.data?.attributes ?? {})
-    const needle = filter.trim().toLowerCase()
-    const matching = needle
-      ? entries.filter(([name]) => name.toLowerCase().includes(needle))
-      : entries
-    return matching.sort(([a], [b]) => a.localeCompare(b))
-  }, [listing.data, filter])
+  const rows = useMemo(
+    () => attributeRows(listing.data?.attributes ?? {}, filter),
+    [listing.data, filter],
+  )
 
   const save = useMutation({
     mutationFn: ({ name, values }: { name: string; values: string[] }) =>
@@ -66,6 +70,17 @@ export function AttributeEditor({ dn, onChanged }: AttributeEditorProps) {
         value={filter}
         onChange={(event) => setFilter(event.target.value)}
       />
+      <label className="checkbox">
+        <input
+          type="checkbox"
+          checked={showEmpty}
+          onChange={(event) => {
+            setShowEmpty(event.target.checked)
+            writeShowEmptyAttributes(event.target.checked)
+          }}
+        />
+        {t('attributes.showEmpty')}
+      </label>
 
       {listing.isLoading && <Spinner label={t('status.loading')} />}
       <ErrorMessage error={listing.error} />
@@ -76,6 +91,9 @@ export function AttributeEditor({ dn, onChanged }: AttributeEditorProps) {
             <tr key={name}>
               <td className="attrs__name mono">{name}</td>
               <td className="attrs__value">
+                {entry.values.length === 0 && (
+                  <span className="muted">{t('attributes.notSet')}</span>
+                )}
                 {entry.values.map((value, index) => (
                   <div key={index} className="attrs__item">
                     {value.text !== undefined ? (
@@ -98,7 +116,13 @@ export function AttributeEditor({ dn, onChanged }: AttributeEditorProps) {
                     {t('action.edit')}
                   </button>
                 ) : (
-                  <Badge tone="muted">{t('attributes.readonly')}</Badge>
+                  <span
+                    title={
+                      entry.note ? t(`attributes.note.${entry.note}` as MessageKey) : undefined
+                    }
+                  >
+                    <Badge tone="muted">{t('attributes.readonly')}</Badge>
+                  </span>
                 )}
               </td>
             </tr>
@@ -143,10 +167,8 @@ function AttributeDialog({
     entry.values.map((value) => value.text ?? '').join('\n'),
   )
 
-  const values = text
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
+  const values = valuesFromText(text)
+  const blocked = cannotSave(entry, values)
 
   return (
     <Modal
@@ -160,7 +182,7 @@ function AttributeDialog({
           <button
             type="button"
             className="button button--primary"
-            disabled={saving}
+            disabled={saving || blocked !== null}
             onClick={() => onSave(values)}
           >
             {t('action.save')}
@@ -170,14 +192,23 @@ function AttributeDialog({
     >
       <div className="form">
         <ErrorMessage error={error} />
-        <p className="muted small">{t('attributes.multivalueHint')}</p>
+        <p className="muted small">
+          {entry.single_valued === true
+            ? t('attributes.singleValueHint')
+            : t('attributes.multivalueHint')}
+        </p>
         <textarea
           rows={Math.min(Math.max(entry.values.length, 2), 12)}
           className="mono"
           value={text}
           onChange={(event) => setText(event.target.value)}
         />
-        {values.length === 0 && <p className="login__insecure">{t('attributes.willDelete')}</p>}
+        {blocked === 'single_valued' && (
+          <p className="login__insecure">{t('attributes.tooManyValues')}</p>
+        )}
+        {values.length === 0 && entry.values.length > 0 && (
+          <p className="login__insecure">{t('attributes.willDelete')}</p>
+        )}
       </div>
     </Modal>
   )

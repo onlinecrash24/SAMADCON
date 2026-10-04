@@ -293,7 +293,22 @@ export interface AttributeEntry {
   values: AttributeValue[]
   /** False for directory-managed attributes and for binary values. */
   editable: boolean
+  /** From the schema; only when empty attributes were asked for. Null if unknown. */
+  single_valued?: boolean | null
+  /** Allowed for the object but without a value. */
+  empty?: boolean
+  /** Why an empty attribute cannot be filled in here. */
+  note?: AttributeNote | null
 }
+
+export type AttributeNote =
+  | 'constructed'
+  | 'backlink'
+  | 'system_only'
+  | 'binary'
+  | 'not_permitted'
+  | 'protected'
+  | 'unknown'
 
 export interface AttributeListing {
   dn: string
