@@ -134,3 +134,145 @@ def test_a_missing_object_raises_not_found():
 
     with pytest.raises(NotFound):
         get_attributes(Empty(), DN)
+
+
+# ---------------------------------------------------------------------------
+# Attributes without a value, as RSAT's attribute editor lists them
+# ---------------------------------------------------------------------------
+
+SCHEMA_DN = "CN=Schema,CN=Configuration,DC=test,DC=lan"
+
+# Measured on a Samba 4.22 DC (CN=Administrator): 391 attributes allowed,
+# 279 of them writable for the administrator, 38 with a value. The schema
+# entries below are the ones it returned for these six.
+MEASURED_SCHEMA = {
+    "objectGUID": {"attributeSyntax": b"2.5.5.10", "isSingleValued": b"TRUE",
+                   "systemOnly": b"TRUE", "systemFlags": b"19"},
+    "otherMobile": {"attributeSyntax": b"2.5.5.12", "isSingleValued": b"FALSE",
+                    "systemOnly": b"FALSE", "systemFlags": b"16"},
+    "info": {"attributeSyntax": b"2.5.5.12", "isSingleValued": b"TRUE",
+             "systemOnly": b"FALSE", "systemFlags": b"16"},
+    "tokenGroups": {"attributeSyntax": b"2.5.5.17", "isSingleValued": b"FALSE",
+                    "systemOnly": b"FALSE", "systemFlags": b"134217748"},
+    "thumbnailPhoto": {"attributeSyntax": b"2.5.5.10", "isSingleValued": b"TRUE",
+                       "systemOnly": b"FALSE", "systemFlags": b"16"},
+    "memberOf": {"attributeSyntax": b"2.5.5.1", "isSingleValued": b"FALSE",
+                 "systemOnly": b"TRUE", "systemFlags": b"17", "linkID": b"3"},
+    "department": {"attributeSyntax": b"2.5.5.12", "isSingleValued": b"TRUE",
+                   "systemOnly": b"FALSE", "systemFlags": b"16"},
+    "cn": {"attributeSyntax": b"2.5.5.12", "isSingleValued": b"TRUE",
+           "systemOnly": b"FALSE", "systemFlags": b"16"},
+}
+
+
+def schema_entry(name: str) -> FakeMessage:
+    fields = {key: [value] for key, value in MEASURED_SCHEMA[name].items()}
+    return FakeMessage(f"CN={name},{SCHEMA_DN}", {"lDAPDisplayName": [name.encode()], **fields})
+
+
+class SchemaConnection(FakeConnection):
+    def __init__(self, entry: Any) -> None:
+        super().__init__(entry)
+        self.info = type("Info", (), {"schema_dn": SCHEMA_DN})()
+        self.asked: list[str] = []
+
+    def get(self, dn: str, attrs: list[str] | None = None) -> Any:
+        self.asked = list(attrs or [])
+        return self.entry
+
+    def search(self, base: str, **kwargs: Any) -> list[FakeMessage]:
+        assert base == SCHEMA_DN
+        return [schema_entry(name) for name in MEASURED_SCHEMA]
+
+
+@pytest.fixture(autouse=True)
+def _fresh_schema_cache():
+    from samadcon.core.cache import schema_cache
+
+    schema_cache.clear()
+    yield
+    schema_cache.clear()
+
+
+ALLOWED = [b"cn", b"department", b"info", b"otherMobile", b"thumbnailPhoto",
+           b"tokenGroups", b"memberOf", b"objectGUID"]
+WRITABLE = [b"cn", b"department", b"info", b"otherMobile", b"thumbnailPhoto"]
+
+
+def full_listing(include_empty: bool = True) -> tuple[dict[str, Any], SchemaConnection]:
+    entry = FakeMessage(DN, {
+        "cn": [b"Max"],
+        "allowedAttributes": ALLOWED,
+        "allowedAttributesEffective": WRITABLE,
+    })
+    conn = SchemaConnection(entry)
+    return get_attributes(conn, DN, include_empty=include_empty)["attributes"], conn
+
+
+def test_without_the_switch_only_attributes_with_a_value_are_listed():
+    attributes, conn = full_listing(include_empty=False)
+    assert set(attributes) == {"cn"}
+    assert "allowedAttributes" not in conn.asked
+
+
+def test_with_the_switch_every_allowed_attribute_is_listed():
+    attributes, conn = full_listing()
+    assert set(attributes) == {name.decode() for name in ALLOWED}
+    assert {"allowedAttributes", "allowedAttributesEffective"} <= set(conn.asked)
+
+
+def test_the_lists_that_answer_the_question_are_not_attributes_of_the_object():
+    attributes, _ = full_listing()
+    assert "allowedAttributes" not in attributes
+    assert "allowedAttributesEffective" not in attributes
+
+
+def test_an_empty_text_attribute_the_account_may_write_is_editable():
+    attributes, _ = full_listing()
+    assert attributes["info"] == {"values": [], "editable": True, "single_valued": True,
+                                  "empty": True, "note": None}
+    assert attributes["otherMobile"]["single_valued"] is False
+    assert attributes["otherMobile"]["editable"] is True
+
+
+@pytest.mark.parametrize(
+    ("name", "note"),
+    [
+        ("thumbnailPhoto", "binary"),
+        ("tokenGroups", "constructed"),
+        ("memberOf", "backlink"),
+        ("objectGUID", "system_only"),
+    ],
+)
+def test_empty_attributes_that_cannot_be_typed_in_say_why(name, note):
+    attributes, _ = full_listing()
+    assert attributes[name]["editable"] is False
+    assert attributes[name]["note"] == note
+
+
+def test_an_attribute_the_account_may_not_write_is_not_offered():
+    entry = FakeMessage(DN, {
+        "cn": [b"Max"],
+        "allowedAttributes": [b"cn", b"info"],
+        "allowedAttributesEffective": [b"cn"],
+    })
+    attributes = get_attributes(SchemaConnection(entry), DN, include_empty=True)["attributes"]
+    assert attributes["info"]["editable"] is False
+    assert attributes["info"]["note"] == "not_permitted"
+
+
+def test_attributes_with_a_value_say_whether_they_take_one_or_many():
+    attributes, _ = full_listing()
+    assert attributes["cn"]["single_valued"] is True
+    assert attributes["cn"]["values"] == [{"text": "Max"}]
+
+
+def test_names_are_matched_without_regard_to_case():
+    """allowedAttributes and the object can spell a name differently."""
+    entry = FakeMessage(DN, {
+        "CN": [b"Max"],
+        "allowedAttributes": [b"cn"],
+        "allowedAttributesEffective": [b"cn"],
+    })
+    attributes = get_attributes(SchemaConnection(entry), DN, include_empty=True)["attributes"]
+    assert list(attributes) == ["CN"]
