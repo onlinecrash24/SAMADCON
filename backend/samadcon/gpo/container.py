@@ -16,7 +16,7 @@ from typing import Any
 
 from samadcon.ad import values
 from samadcon.ad.connection import SCOPE_BASE, SCOPE_ONELEVEL, DirectoryConnection
-from samadcon.core.errors import Conflict, InvalidRequest, NotFound
+from samadcon.core.errors import Conflict, InvalidRequest, NotFound, PermissionDenied
 from samadcon.gpo import sysvol
 
 logger = logging.getLogger(__name__)
@@ -347,15 +347,56 @@ def apply_sysvol_acl(conn: DirectoryConnection, dn: str, share_path: str) -> str
     domain_sid = security.dom_sid(str(conn.samdb.get_domain_sid()))
     fs_descriptor = dsacl2fsacl(ds_sddl, domain_sid, as_sddl=False)
 
-    sysvol.sysvol_for(conn).set_acl(share_path, fs_descriptor)
+    _stamp(sysvol.sysvol_for(conn), share_path, fs_descriptor, security)
     return ds_sddl
+
+
+def _stamp(share: Any, share_path: str, descriptor: Any, security: Any) -> None:
+    """Set the permissions, and once more without object ACEs if refused.
+
+    ``dsacl2fsacl`` in Samba 4.21 and 4.22 — the image's — carries the
+    directory's object ACE ("Apply group policy") into the file DACL, where it
+    means nothing (Samba bug 14927, fixed in 4.23). A Samba DC stores it, and
+    its own ``sysvolcheck`` expects it, so it is left alone wherever it is
+    taken. A Synology Directory Server refuses the whole descriptor with
+    ACCESS_DENIED: measured there, the same descriptor without it was
+    accepted, and that is what Samba 4.23 writes.
+    """
+    try:
+        share.set_acl(share_path, descriptor)
+    except PermissionDenied:
+        kept = _without_object_aces(descriptor, security)
+        if kept is None:
+            raise
+        logger.info("%s refused object ACEs in file permissions; set without them", share_path)
+        share.set_acl(share_path, kept)
+
+
+def _without_object_aces(descriptor: Any, security: Any) -> Any | None:
+    """The descriptor with only allow and deny ACEs, or None if that is all
+    it had."""
+    plain = (security.SEC_ACE_TYPE_ACCESS_ALLOWED, security.SEC_ACE_TYPE_ACCESS_DENIED)
+    aces = list(descriptor.dacl.aces)
+    kept_aces = [ace for ace in aces if ace.type in plain]
+    if len(kept_aces) == len(aces):
+        return None
+
+    kept = security.descriptor()
+    kept.owner_sid = descriptor.owner_sid
+    kept.group_sid = descriptor.group_sid
+    kept.type = descriptor.type
+    kept.revision = descriptor.revision
+    for ace in kept_aces:
+        kept.dacl_add(ace)
+    return kept
 
 
 # Owner, group and DACL (1 | 2 | 4), as samba-tool asks. Read whole, the
 # descriptor brings its SACL, and dsacl2fsacl copies the header flags but not
 # the SACL: the file descriptor then claims SEC_DESC_SACL_PRESENT with none
-# there. Samba passes over that; a Synology Directory Server refuses the whole
-# descriptor with ACCESS_DENIED, and no policy could be created there.
+# there (0x9814 against samba-tool's 0x9004). Samba passes over that. It was
+# first suspected of the refusal on a Synology Directory Server, which turned
+# out to be the object ACE (see _stamp); the flag is gone all the same.
 _SD_FLAGS_WITHOUT_SACL = "sd_flags:1:7"
 
 
