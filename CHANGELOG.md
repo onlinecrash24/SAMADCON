@@ -14,6 +14,44 @@ release.
 
 ---
 
+## 0.6.11 — 2026-10-04
+
+Empty attributes in the attribute editor, and preferences split the way GPMC splits them.
+
+**Attributes without a value.** A tester asked for what RSAT's attribute
+editor does: list every attribute an object may have, not only those
+that are set. The attribute editor now has a switch, "Leere Attribute
+anzeigen" / "Show empty attributes", off by default and remembered by the
+browser. With it on, SAMADCON asks the object which attributes it may
+have (allowedAttributes) and which of those your account may write
+(allowedAttributesEffective), and reads the schema for the rest.
+
+- Empty attributes are listed below the set ones as "not set".
+- One can be filled in where your account may write it and it is plain
+  text. Constructed attributes (tokenGroups), back links (memberOf),
+  system-only attributes (objectGUID), binary values (thumbnailPhoto) and
+  attributes SAMADCON edits elsewhere stay read-only; the tooltip says
+  why.
+- Every attribute now says whether it takes one value or several. For a
+  single-valued one the edit dialog accepts one line only, instead of
+  leaving the refusal to the DC.
+
+Measured on a Samba 4.22 DC for a user object: 391 attributes allowed,
+279 of them writable for the administrator, 38 with a value.
+
+**Preferences in two tabs.** In GPMC, Preferences ("Einstellungen") has
+two branches, and the single tab held types from both. It is now two
+tabs, as in GPMC:
+
+- "Windows-Einstellungen" / "Windows Settings": drive maps, registry,
+  files, folders, shortcuts, environment.
+- "Systemsteuerungseinstellungen" / "Control Panel Settings": printers,
+  local users and groups, services, scheduled tasks.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.11, :0.6 and :latest.
+
+---
+
 ## 0.6.10 — 2026-10-04
 
 New policies get their folder permissions without object ACEs, on every DC.
