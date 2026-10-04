@@ -14,6 +14,45 @@ release.
 
 ---
 
+## 0.6.9 — 2026-10-04
+
+New policies can be created on a Synology Directory Server.
+
+A tester on a Synology Directory Server could not create, copy or restore
+any policy: "Access denied" every time. 0.6.8 aligned SAMADCON with
+samba-tool and removed a stray SACL flag, the first suspect - and it
+still failed. Narrowed down on his DC:
+
+- `samba-tool gpo create` on the DC itself (Samba 4.15.13) worked, with
+  Kerberos too;
+- the same command from the SAMADCON container (Samba 4.22.11) failed
+  exactly as SAMADCON did, when setting the policy folder's permissions.
+
+**What happened.** The folder's permissions are derived from the policy
+object's with Samba's own dsacl2fsacl. In Samba 4.21 and 4.22 it carries
+the object's "Apply group policy" entry - an object ACE, which only means
+something in the directory - into the file permissions (Samba bug 14927,
+fixed in 4.23). A Samba DC stores it. A Synology Directory Server keeps
+permissions in its own ACL system and refuses the whole set.
+
+Measured on his DC with a test folder: the permissions as Samba 4.22
+builds them were refused, the same permissions without the object ACE
+were accepted.
+
+**The fix.** SAMADCON sets the permissions as before. If the DC refuses
+them, it removes the object ACEs - which is what Samba 4.23 writes - and
+sets them once more; the log says so. A DC that takes them the first
+time, as every Samba DC does, gets them unchanged, and its own
+`samba-tool ntacl sysvolcheck` stays clean.
+
+Creating a policy on the Synology itself through SAMADCON is still to be
+confirmed by the tester; the permissions it now sets there are the ones
+measured as accepted.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.9, :0.6 and :latest.
+
+---
+
 ## 0.6.8 — 2026-10-03
 
 New policies get their SYSVOL permissions the way samba-tool sets them.
