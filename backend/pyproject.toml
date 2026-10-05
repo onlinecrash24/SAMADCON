@@ -30,7 +30,7 @@ license = { text = "AGPL-3.0-or-later" }
 # that catches a floor permitting something vulnerable. Lower one of these and
 # that second pass is what will object.
 dependencies = [
-    "fastapi>=0.141.1",
+    "fastapi>=0.142.2",
     # Declared even though fastapi brings it, for two reasons: it is imported
     # directly (api/v1/servers.py), so it belongs here anyway; and fastapi's own
     # floor is starlette>=0.46.0, which permits versions carrying eight
