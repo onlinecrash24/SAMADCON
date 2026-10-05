@@ -66,7 +66,17 @@ ENV DEBIAN_FRONTEND=noninteractive \
 # MSI as it is downloaded: the MSI's own tables name the files, so they come
 # out as de-de/Search.adml rather than the cabinet's staging_de_de_Search.adml.
 # The cabinet in those packages is MSZIP, which its libgcab reads. About 1.8 MB.
-RUN apt-get update && apt-get install -y --no-install-recommends \
+#
+# APT_REFRESH is the build date, set by CI. This layer is cached, and a cached
+# layer keeps whatever Debian shipped the day it was built: measured on the
+# 0.6.11 dev image, OpenSSL and PCRE2 were a security update behind. A new
+# value runs the layer again — at most once a day — and the upgrade brings the
+# base image's own packages along, which an install alone leaves as they are.
+ARG APT_REFRESH=unset
+RUN echo "package refresh: ${APT_REFRESH}" \
+    && apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && apt-get install -y --no-install-recommends \
         python3 \
         python3-venv \
         python3-pip \

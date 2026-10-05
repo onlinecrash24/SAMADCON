@@ -44,6 +44,12 @@ jobs:
       # The `test` stage of the Dockerfile is the runtime image plus pytest and
       # the suite, so the tests run against exactly what ships rather than
       # against a separately installed set of dependencies.
+      # Today's date reruns the cached package layer once a day, so Debian's
+      # security fixes reach the image (docker/Dockerfile, APT_REFRESH).
+      - name: Date for the package refresh
+        id: refresh
+        run: echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+
       - name: Build the test image
         uses: docker/build-push-action@v6
         with:
@@ -51,6 +57,7 @@ jobs:
           file: docker/Dockerfile
           target: test
           load: true
+          build-args: APT_REFRESH=${{ steps.refresh.outputs.date }}
           tags: samadcon:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -264,6 +271,10 @@ jobs:
             type=sha,format=short
             type=raw,value=latest,enable={{is_default_branch}}
 
+      - name: Date for the package refresh
+        id: refresh
+        run: echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -273,6 +284,7 @@ jobs:
           # in something people deploy.
           target: runtime
           push: true
+          build-args: APT_REFRESH=${{ steps.refresh.outputs.date }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
