@@ -14,6 +14,51 @@ release.
 
 ---
 
+## 0.6.12 — 2026-10-05
+
+Debian security updates in the image, sortable policy list, updated dependencies.
+
+**Security updates that never reached the image.** Measured on the
+0.6.11 dev image: OpenSSL (libssl3t64, openssl, openssl-provider-legacy)
+and PCRE2 were one Debian security update behind. The image's package
+layer came out of the CI build cache, which is only invalidated when
+Debian republishes its base image - fixes released in between never
+arrived, and packages of the base image itself were not even touched by
+an install.
+
+- The package layer now upgrades before it installs and is rebuilt at
+  most once a day (APT_REFRESH, set by CI to the build date); every other
+  build of the day still uses the cache.
+- CI now fails if the built image has any pending update from Debian's
+  security suite. It failed on the four packages above before the change
+  and passes after it.
+
+If you pin an image version: this release carries the updates; earlier
+ones keep what they were built with.
+
+**Sorting the policy list.** A tester asked to choose how policies are
+sorted. Name and Changed are now clickable column headers, as in the
+object list, and the choice is remembered. With a domain or OU picked,
+the list shows the link order as its first column - GPMC's "Link Order",
+the order that decides which policy wins - and sorts by it unless asked
+otherwise. That order is what had looked like "sorted by date".
+
+**Dependencies.** pip-audit and npm audit report no known
+vulnerabilities, before or after.
+
+- Python: cryptography 50.0.2 (wheels with OpenSSL 4.0.3), fastapi
+  0.142.2, python-dotenv 1.2.4, uvloop 0.23.0, websockets 17.2.
+- FastAPI 0.142 brings native OpenTelemetry and a dependency on
+  opentelemetry-api; by default it traces every request and sets up OTLP
+  export by itself when an OTEL_EXPORTER_OTLP_* endpoint is set and the
+  SDK is installed. The image has no SDK, so nothing would have left it;
+  SAMADCON now switches all of it off explicitly regardless.
+- Frontend: React 19.3.0, React Query 5.104.1.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.12, :0.6 and :latest.
+
+---
+
 ## 0.6.11 — 2026-10-04
 
 Empty attributes in the attribute editor, and preferences split the way GPMC splits them.
