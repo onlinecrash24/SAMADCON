@@ -60,6 +60,24 @@ jobs:
       - name: Unit tests
         run: docker run --rm --entrypoint python samadcon:test -m pytest tests/unit -q
 
+      # The image is built on Debian stable, and Debian ships security fixes
+      # between the base images it publishes. The package layer comes out of
+      # the build cache, so without a check those fixes simply never arrived:
+      # measured on the 0.6.11 dev image, OpenSSL and PCRE2 were one security
+      # update behind. Root and the runner's default capabilities, because the
+      # shipped container drops the ones apt needs.
+      - name: No pending Debian security updates
+        run: |
+          docker run --rm -u 0 --entrypoint sh samadcon:test -c '
+            apt-get update -qq
+            pending=$(apt list --upgradable 2>/dev/null | grep -- "-security" || true)
+            if [ -n "$pending" ]; then
+              echo "Security updates missing from the image:"
+              echo "$pending"
+              exit 1
+            fi
+            echo "No pending security updates."'
+
       # The frontend half. Run on the runner rather than in the image, because
       # the shipped image contains the built bundle and no node — building a
       # second image just to run these would cost more than it proves.
