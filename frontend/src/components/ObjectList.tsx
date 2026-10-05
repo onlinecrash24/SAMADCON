@@ -223,7 +223,7 @@ export function ObjectList({
  * ordered by; the arrow is for everyone else, and is drawn only on that one
  * column — three arrows would say nothing.
  */
-function SortHeader({
+export function SortHeader({
   column,
   label,
   sort,

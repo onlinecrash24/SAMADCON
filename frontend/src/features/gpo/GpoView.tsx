@@ -14,6 +14,17 @@ import type { Gpo } from '../../api/types'
 import { Badge, ErrorMessage, Modal, Spinner, useDateFormat } from '../../components/primitives'
 import { useI18n } from '../../i18n'
 import { anchorOf, useContextMenu, type MenuNode } from '../../components/ContextMenu'
+import { SortHeader } from '../../components/ObjectList'
+import {
+  type GpoRow,
+  type GpoSort,
+  type GpoSortColumn,
+  type GpoView as GpoListView,
+  readGpoSort,
+  sortGpos,
+  toggleGpoSort,
+  writeGpoSort,
+} from '../../state/gpoSort'
 import { CopyGpoDialog, DeleteGpoDialog, gpoName, RenameGpoDialog } from './GpoDialogs'
 import { startPolicyDrag } from './policyDrag'
 
@@ -66,6 +77,10 @@ export function GpoView({ containerDn, onChanged, onOpenPolicy }: GpoViewProps) 
     })
   }
   const [restoring, setRestoring] = useState(false)
+  const [sorts, setSorts] = useState<Record<GpoListView, GpoSort>>(() => ({
+    all: readGpoSort('all'),
+    linked: readGpoSort('linked'),
+  }))
   const [error, setError] = useState<unknown>(null)
 
   const listing = useQuery({ queryKey: ['gpos'], queryFn: () => api.gpos() })
@@ -96,13 +111,24 @@ export function GpoView({ containerDn, onChanged, onOpenPolicy }: GpoViewProps) 
       )
     : undefined
 
-  const gpos = containerDn
-    ? (linkedHere?.links ?? [])
-        .map((link) => all.find((gpo) => gpo.guid.toUpperCase() === link.guid.toUpperCase()))
+  const rows: GpoRow<Gpo>[] = containerDn
+    ? (linkedHere?.links ?? []).flatMap((link) => {
+        const gpo = all.find((item) => item.guid.toUpperCase() === link.guid.toUpperCase())
         // A link can outlive its policy. The tree says so in its own row; here
         // there is no policy to draw, so the row simply is not there.
-        .filter((gpo): gpo is Gpo => gpo !== undefined)
-    : all
+        return gpo ? [{ gpo, order: link.order }] : []
+      })
+    : all.map((gpo) => ({ gpo, order: null }))
+
+  const view: GpoListView = containerDn ? 'linked' : 'all'
+  const sort = sorts[view]
+  const sorted = sortGpos(rows, sort)
+  const gpos = sorted.map(({ gpo }) => gpo)
+  const onSort = (column: string) => {
+    const next = toggleGpoSort(sort, column as GpoSortColumn)
+    setSorts({ ...sorts, [view]: next })
+    writeGpoSort(view, next)
+  }
 
   return (
     <>
@@ -130,14 +156,17 @@ export function GpoView({ containerDn, onChanged, onOpenPolicy }: GpoViewProps) 
         <table className="table table--compact">
           <thead>
             <tr>
-              <th>{t('gpo.name')}</th>
+              {view === 'linked' && (
+                <SortHeader column="order" label={t('gpo.linkOrder')} sort={sort} onSort={onSort} />
+              )}
+              <SortHeader column="name" label={t('gpo.name')} sort={sort} onSort={onSort} />
               <th>{t('gpo.version')}</th>
               <th>{t('gpo.contents')}</th>
-              <th>{t('gpo.changed')}</th>
+              <SortHeader column="changed" label={t('gpo.changed')} sort={sort} onSort={onSort} />
             </tr>
           </thead>
           <tbody>
-            {gpos.map((gpo) => (
+            {sorted.map(({ gpo, order }) => (
               <tr
                 key={gpo.dn}
                 className="table__row--draggable"
@@ -164,6 +193,7 @@ export function GpoView({ containerDn, onChanged, onOpenPolicy }: GpoViewProps) 
                   })
                 }
               >
+                {view === 'linked' && <td className="small">{order}</td>}
                 <td>
                   <button
                     type="button"
