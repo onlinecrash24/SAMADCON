@@ -118,6 +118,11 @@ COPY backend/samadcon ./samadcon
 RUN pip install --no-cache-dir --require-hashes -r requirements.lock \
     && pip install --no-cache-dir --no-deps .
 
+# Nothing installs anything once the image is running, and an installer left
+# in it is one more package to keep patched — a scan of 0.6.12 listed pip
+# 25.1.1 in the venv. The build stops if pip can still be imported.
+RUN ! python -c "import pip" 2>/dev/null
+
 COPY --from=admx /unpacked/usr/share/samba/admx /usr/share/samba/admx
 
 COPY --from=frontend /build/dist /srv/samadcon/www
