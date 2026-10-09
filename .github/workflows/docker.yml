@@ -225,6 +225,18 @@ jobs:
           python scripts/dependency_requirements.py --floors > "${RUNNER_TEMP}/floors.txt"
           pip-audit --strict -r "${RUNNER_TEMP}/floors.txt"
 
+      # The frontend's half: what ends up in the bundle, read from the lock
+      # file, no install needed. Build tools are left out — their advisories
+      # are mostly about the dev server, which never runs here, and would
+      # stop a release over code that does not ship. Trivy cannot see these
+      # packages in the image: they arrive as one built bundle.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Frontend dependencies, as they are bundled
+        run: npm audit --prefix frontend --omit=dev
+
   publish:
     name: Publish to ghcr.io
     runs-on: ubuntu-latest
