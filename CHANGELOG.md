@@ -14,6 +14,34 @@ release.
 
 ---
 
+## 0.6.13 — 2026-10-09
+
+No pip in the image, and the frontend's dependencies audited in CI.
+
+A Trivy scan of the 0.6.12 image reported no known vulnerabilities, in
+the Debian packages or the Python ones. It did list two things this
+release takes care of.
+
+**pip is gone from the running image.** pip 25.1.1 sat in the venv, and
+Debian's python3-pip was installed as well, though nothing in the
+running container installs anything. Both are gone: python3-pip is no
+longer installed, and the venv's own pip is removed once the
+dependencies and SAMADCON are in. The build now stops if pip can still
+be imported. The test image, which is never shipped, takes pip back to
+add pytest.
+
+**The frontend's dependencies are audited.** pip-audit has held the
+Python lock in CI for a while; nothing held the npm lock, and Trivy
+cannot see those packages in the image - React and the rest arrive as
+one built bundle. npm audit now runs over what is bundled. Build tools
+are left out: their advisories are mostly about the development server,
+which never runs here. Before it went in, the same command was shown to
+fail on a package with a known advisory.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.13, :0.6 and :latest.
+
+---
+
 ## 0.6.12 — 2026-10-05
 
 Debian security updates in the image, sortable policy list, updated dependencies.
