@@ -79,7 +79,6 @@ RUN echo "package refresh: ${APT_REFRESH}" \
     && apt-get install -y --no-install-recommends \
         python3 \
         python3-venv \
-        python3-pip \
         python3-samba \
         python3-lxml \
         python3-dnspython \
@@ -115,8 +114,11 @@ WORKDIR /opt/samadcon
 # be the one download here nothing checks.
 COPY backend/pyproject.toml backend/requirements.lock ./
 COPY backend/samadcon ./samadcon
+# pip goes once it has done this; the venv got its own from python3-venv,
+# and Debian's python3-pip is not installed at all.
 RUN pip install --no-cache-dir --require-hashes -r requirements.lock \
-    && pip install --no-cache-dir --no-deps .
+    && pip install --no-cache-dir --no-deps . \
+    && pip uninstall -y pip
 
 # Nothing installs anything once the image is running, and an installer left
 # in it is one more package to keep patched — a scan of 0.6.12 listed pip
@@ -174,6 +176,9 @@ USER root
 COPY backend/tests /opt/samadcon/tests
 # The test extra of pyproject.toml rather than a list of its own: two copies of
 # the same pins drift, and these had — httpx>=0.27 here, >=0.28.1 there.
-RUN pip install --no-cache-dir ".[test]" \
+# pip comes back for this from the wheel python3-venv bundles; this image is
+# never shipped.
+RUN python -m ensurepip \
+    && python -m pip install --no-cache-dir ".[test]" \
     && chown -R samadcon:samadcon /opt/samadcon
 USER samadcon
