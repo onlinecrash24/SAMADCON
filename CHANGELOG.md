@@ -14,6 +14,28 @@ release.
 
 ---
 
+## 0.6.14 — 2026-10-14
+
+The image rebuilt with Debian's curl security update.
+
+Debian published DSA-6558-1 for curl on 14 October 2026 (CVE-2026-8286,
+CVE-2026-8924, CVE-2026-8927, CVE-2026-92392). The 0.6.13 image, built on
+9 October, carries curl and libcurl4t64 8.14.1-2+deb13u5; this one carries
+8.14.1-2+deb13u7, the fixed version.
+
+SAMADCON uses curl in one place only: the container's health check, which
+asks SAMADCON itself on 127.0.0.1 for its health. curl never talks to an
+address anyone outside the container chooses, so the exposure was small -
+but the vulnerable version was in the image, and scanners report it.
+
+Nothing else changed. pip-audit and npm audit report no known
+vulnerabilities, and CI held the build to having no pending Debian
+security update, as it does every build since 0.6.12.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.14, :0.6 and :latest.
+
+---
+
 ## 0.6.13 — 2026-10-09
 
 No pip in the image, and the frontend's dependencies audited in CI.
