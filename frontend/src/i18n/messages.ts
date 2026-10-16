@@ -524,6 +524,74 @@ export const de = {
   'error.not_found': 'Das Objekt existiert nicht.',
   'error.not_found.hint':
     'Vielleicht wurde es inzwischen gelöscht oder verschoben, auch von jemand anderem.',
+  'error.ambiguous_gpo.hint': 'Verwenden Sie stattdessen die Kennung (GUID) der Richtlinie.',
+  'error.bitlocker_unreadable.hint':
+    'Das Wiederherstellungskennwort ist ein vertrauliches Attribut. Ihr Konto sieht, dass der Schlüssel existiert, darf ihn aber nicht lesen.',
+  'error.clock_skew.hint':
+    'Kerberos toleriert etwa fünf Minuten, und ein Container hat keine eigene Uhr – synchronisieren Sie den Docker-Host per NTP, in einer AD-Domäne mit dem PDC-Emulator.',
+  'error.csrf_failed.hint': 'Laden Sie die Seite neu und versuchen Sie es noch einmal.',
+  'error.custom_servers_disabled.hint': 'Wählen Sie eine der angebotenen Domänen.',
+  'error.dc_discovery_empty.hint':
+    'Die DNS-Abfrage nach den SRV-Einträgen der Domänencontroller ergab keine Treffer.',
+  'error.dc_discovery_failed.hint':
+    'Die DNS-Abfrage ist fehlgeschlagen. Geben Sie die Serveradresse bei der Anmeldung direkt ein, oder geben Sie dem Container einen DNS-Server, der die Domäne auflöst.',
+  'error.delete_protected.hint':
+    'Heben Sie zuerst den Löschschutz in den Eigenschaften der OU auf.',
+  'error.file_in_use.hint': 'Vielleicht bearbeitet gerade ein anderer Administrator dieselbe GPO.',
+  'error.gpo_exists.hint':
+    'Anzeigenamen müssen im Verzeichnis nicht eindeutig sein, aber zwei Richtlinien mit demselben Namen sind in keiner Konsole auseinanderzuhalten.',
+  'error.gpo_linked.hint': 'Entfernen Sie zuerst die Verknüpfungen, oder löschen Sie sie trotzdem.',
+  'error.gpo_version_conflict.hint':
+    'Laden Sie die Einstellung neu und nehmen Sie die Änderung noch einmal vor.',
+  'error.insufficient_access.hint':
+    'Prüfen Sie die Delegierung am Zielobjekt oder an der übergeordneten OU.',
+  'error.invalid_site_name.hint': 'Der Name dient in den _sites-Einträgen als DNS-Bezeichnung.',
+  'error.invalid_subnet.hint': 'Zum Beispiel 192.168.1.0/24.',
+  'error.kerberos_unavailable.hint': 'Das Container-Image ist unvollständig: krb5-user fehlt.',
+  'error.laps_encrypted.hint':
+    'Die Verschlüsselung von Windows LAPS unterstützt SAMADCON noch nicht.',
+  'error.laps_unavailable.hint':
+    'Entweder ist kein Kennwort gespeichert, oder Ihr Konto darf das LAPS-Attribut nicht lesen.',
+  'error.ldap_operations_error.hint':
+    'Meist ein gescheiterter Kerberos- oder TLS-Verbindungsaufbau: kein Dienstprinzipal für die verwendete Adresse, mehr als fünf Minuten Zeitunterschied oder ein Zertifikat, das nicht akzeptiert wird.',
+  'error.login_throttled.hint':
+    'SAMADCON setzt weitere Versuche aus, damit das AD-Konto nicht gesperrt wird.',
+  'error.missing_realm.hint': 'Geben Sie eine Serveradresse ein oder setzen Sie SAMADCON_REALM.',
+  'error.no_central_store.hint': 'Laden Sie ein Vorlagenpaket hoch, um ihn anzulegen.',
+  'error.no_security_descriptor.hint':
+    'Zum Lesen einer ACL braucht Ihr Konto das Recht READ_CONTROL auf das Objekt.',
+  'error.no_target.hint': 'Geben Sie die Adresse eines Domänencontrollers ein.',
+  'error.no_templates.hint':
+    'Erwartet werden .admx-Dateien und dazu .adml-Dateien in Sprachordnern daneben.',
+  'error.no_ticket.hint':
+    'Der Kerberos-Cache blieb leer. Prüfen Sie die Schreibweise des Realms, den Zeitunterschied zum KDC und ob das Konto in dieser Domäne existiert.',
+  'error.not_empty.hint':
+    'Verschieben Sie die Objekte zuerst, oder setzen Sie beim Löschen „Enthaltene Objekte mit löschen“.',
+  'error.object_class_violation.hint': 'Vermutlich fehlt ein Pflichtattribut.',
+  'error.password_policy_violation.hint':
+    'Prüfen Sie Länge, Komplexität, Mindestalter und Kennwortchronik. Die geltenden Werte stehen unter Diagnose › Kennwortrichtlinie.',
+  'error.password_required.hint':
+    'Geben Sie ein Kennwort an oder legen Sie das Konto deaktiviert an.',
+  'error.policy_not_found.hint':
+    'Die Vorlage, die sie definiert, ist vermutlich nicht im zentralen Speicher.',
+  'error.probe_failed.hint':
+    'Vielleicht ist es kein Domänencontroller, oder er beantwortet keine anonymen rootDSE-Abfragen. Geben Sie den Realm dann von Hand ein.',
+  'error.realm_undetermined.hint': 'Geben Sie den Realm von Hand ein, z. B. EXAMPLE.LAN.',
+  'error.rootdse_empty.hint':
+    'Er antwortet auf dem LDAP-Port, sieht aber nicht wie ein Domänencontroller aus.',
+  'error.server_unreachable.hint': 'Weder Port 389 noch Port 636 antwortet auf {host}.',
+  'error.site_in_use.hint': 'Ordnen Sie die Subnetze zuerst einem anderen Standort zu.',
+  'error.site_incomplete.hint':
+    'Er wurde ohne angelegt; ein hier angelegter Standort hat ihn immer.',
+  'error.site_not_empty.hint': 'Verschieben Sie die Server zuerst an einen anderen Standort.',
+  'error.sysvol_unavailable.hint':
+    'Gruppenrichtlinien brauchen neben LDAP auch SMB zum Domänencontroller. Prüfen Sie, ob Port 445 erreichbar ist und das angemeldete Konto die Freigabe lesen darf.',
+  'error.template_exists.hint': 'Ersetzen Sie sie bewusst, wenn Sie das wollen.',
+  'error.timeout.hint': 'Der Domänencontroller ist vielleicht langsam oder nicht erreichbar.',
+  'error.too_many_sessions.hint':
+    'Warten Sie, bis andere Sitzungen ablaufen, oder erhöhen Sie SAMADCON_MAX_SESSIONS.',
+  'error.unwilling_to_perform.hint':
+    'Oft ein geschütztes Objekt, eine nicht erlaubte Attributänderung oder eine Richtlinie.',
   'error.already_exists': 'Ein Objekt mit diesem Namen existiert bereits.',
   'error.sam_account_name_taken': 'Dieser Anmeldename ist bereits vergeben.',
   'error.not_empty': 'Der Container ist nicht leer.',
@@ -2297,6 +2365,65 @@ export const en: Record<MessageKey, string> = {
   'error.insufficient_access': 'Your account is not allowed to perform this operation.',
   'error.not_found': 'The object does not exist.',
   'error.not_found.hint': 'It may have been deleted or moved by someone else in the meantime.',
+  'error.ambiguous_gpo.hint': 'Use the policy\'s identifier instead.',
+  'error.bitlocker_unreadable.hint':
+    'The recovery password is a confidential attribute. Your account can see that the key exists but lacks the right to read it.',
+  'error.clock_skew.hint':
+    'Kerberos tolerates about five minutes, and a container has no clock of its own – synchronise the Docker host by NTP, in an AD domain against the PDC emulator.',
+  'error.csrf_failed.hint': 'Reload the page and try again.',
+  'error.custom_servers_disabled.hint': 'Pick one of the offered domains.',
+  'error.dc_discovery_empty.hint':
+    'The DNS lookup for the domain controllers\' SRV records returned none.',
+  'error.dc_discovery_failed.hint':
+    'The DNS lookup failed. Enter the server address directly at sign-in, or point the container at a DNS server that serves the domain.',
+  'error.delete_protected.hint': 'Clear the protection in the OU\'s properties first.',
+  'error.file_in_use.hint': 'Another administrator may be editing the same GPO.',
+  'error.gpo_exists.hint':
+    'Display names are not unique in the directory, but two policies with the same name are indistinguishable in every console.',
+  'error.gpo_linked.hint': 'Remove the links first, or delete it anyway.',
+  'error.gpo_version_conflict.hint': 'Reload the setting and make the change again.',
+  'error.insufficient_access.hint': 'Check the delegation on the target object or its parent OU.',
+  'error.invalid_site_name.hint': 'The name is used as a DNS label in the _sites records.',
+  'error.invalid_subnet.hint': 'For example 192.168.1.0/24.',
+  'error.kerberos_unavailable.hint': 'The container image is incomplete: krb5-user is missing.',
+  'error.laps_encrypted.hint': 'Windows LAPS encryption is not supported by SAMADCON yet.',
+  'error.laps_unavailable.hint':
+    'Either no password is stored, or your account lacks read access to the LAPS attribute.',
+  'error.ldap_operations_error.hint':
+    'Usually a failed Kerberos or TLS handshake: no service principal for the address used, a clock difference of more than five minutes, or a certificate the client will not accept.',
+  'error.login_throttled.hint':
+    'SAMADCON pauses further attempts so the AD account is not locked out.',
+  'error.missing_realm.hint': 'Enter a server address, or configure SAMADCON_REALM.',
+  'error.no_central_store.hint': 'Upload a template package to create one.',
+  'error.no_security_descriptor.hint': 'Reading an ACL requires READ_CONTROL on the object.',
+  'error.no_target.hint': 'Enter the address of a domain controller.',
+  'error.no_templates.hint':
+    'Expected .admx files, and .adml files in language folders beside them.',
+  'error.no_ticket.hint':
+    'The credential cache stayed empty. Check the realm spelling, the clock difference to the KDC, and that the account exists in this domain.',
+  'error.not_empty.hint': 'Move the objects out first, or delete recursively.',
+  'error.object_class_violation.hint': 'A mandatory attribute is probably missing.',
+  'error.password_policy_violation.hint':
+    'Check length, complexity, minimum age and password history. The values in force are under Diagnostics › Password policy.',
+  'error.password_required.hint': 'Either supply a password or create the account disabled.',
+  'error.policy_not_found.hint': 'The template that defines it may not be in the central store.',
+  'error.probe_failed.hint':
+    'It may not be a domain controller, or it refuses unauthenticated rootDSE reads. Enter the realm manually in that case.',
+  'error.realm_undetermined.hint': 'Enter the realm manually, e.g. EXAMPLE.LAN.',
+  'error.rootdse_empty.hint':
+    'It answers on the LDAP port but does not look like a domain controller.',
+  'error.server_unreachable.hint': 'Neither port 389 nor 636 answers on {host}.',
+  'error.site_in_use.hint': 'Assign the subnets to another site first.',
+  'error.site_incomplete.hint': 'It was created without one; a site made here always has it.',
+  'error.site_not_empty.hint': 'Move the servers to another site first.',
+  'error.sysvol_unavailable.hint':
+    'Group policy needs SMB to the domain controller in addition to LDAP. Check that port 445 is reachable and that the signed-in account may read the share.',
+  'error.template_exists.hint': 'Replace it deliberately if that is what you mean.',
+  'error.timeout.hint': 'The domain controller may be slow or unreachable.',
+  'error.too_many_sessions.hint':
+    'Wait for other sessions to expire or raise SAMADCON_MAX_SESSIONS.',
+  'error.unwilling_to_perform.hint':
+    'Often a protected object, a disallowed attribute change, or a policy restriction.',
   'error.already_exists': 'An object with this name already exists.',
   'error.sam_account_name_taken': 'This logon name is already in use.',
   'error.not_empty': 'The container is not empty.',
