@@ -14,6 +14,51 @@ release.
 
 ---
 
+## 0.6.15 — 2026-10-16
+
+The domain password policy editable, German error hints, and a stale DN after a delete.
+
+**The domain password policy, editable.** A tester set the password
+policy in the Default Domain Policy, created a user, and was held to the
+old values. On a Samba DC the policy for domain accounts is the domain
+object's own attributes - minPwdLength, pwdProperties, the ages, the
+lockout values. A Windows DC copies the Default Domain Policy onto them;
+a Samba DC does not.
+
+- Diagnostics > Password policy has an Edit button for all nine values.
+  They are written as `samba-tool domain passwordsettings set` writes
+  them: the same ranges, 0 as "never" for the maximum age, the lockout
+  duration and the reset window, the maximum age kept above the minimum,
+  other pwdProperties bits left alone. Only changed values are sent, and
+  every change is audited.
+- The card also shows the lockout reset window, and "1 Tag" instead of
+  "1 Tage".
+- In the GPO editor, the password and lockout settings say that a Samba
+  DC does not apply them to domain accounts - they do reach the local
+  accounts of Windows clients - and where the values in force are edited.
+  A password policy in a GPO linked anywhere but the domain, the Default
+  Domain Controllers Policy included, has no effect on domain accounts on
+  Windows either.
+
+**Deleting the open container.** With an OU open, deleting it worked, and
+the list then showed "Das Objekt existiert nicht": it asked the DC for
+the children of the OU it had just deleted. Only the selection had been
+cleared. The open container now moves to the parent after a delete, and
+follows a rename or a move, from the list, the tree, the context menu or
+the detail pane, which had also left a deleted object selected.
+
+**German error hints.** 43 error codes came with an English hint from
+the server under a German message. All of them are translated, and CI
+now fails on a hint without a German one, as it already did for codes.
+
+Checked on a Samba 4.22 DC: the password policy edited from the console
+and confirmed with `samba-tool domain passwordsettings show`, an open OU
+deleted without an error, a German hint on a protected OU.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.15, :0.6 and :latest.
+
+---
+
 ## 0.6.14 — 2026-10-14
 
 The image rebuilt with Debian's curl security update.
