@@ -1007,6 +1007,14 @@ body.is-resizing { cursor: col-resize; user-select: none; }
   padding: 12px 14px;
 }
 .card h3 { margin: 0 0 10px; font-size: 0.95em; font-weight: 600; }
+/* A heading with an action beside it; the heading keeps its own spacing. */
+.card__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
 
 /* Label/value pairs. Two columns on wide panes, stacked when narrow — the
    values here are DNs and SIDs, which need the room more than the labels. */

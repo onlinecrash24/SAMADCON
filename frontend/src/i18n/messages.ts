@@ -1052,7 +1052,25 @@ export const de = {
   'diag.untilAdmin': 'Bis ein Administrator entsperrt',
   'diag.never': 'Nie',
   'diag.none': 'Keins',
-  'diag.days': '{count} Tage',
+  'diag.days_one': '{count} Tag',
+  'diag.days_other': '{count} Tage',
+  'diag.lockoutWindow': 'Zähler zurücksetzen nach',
+  'diag.minAgeDays': 'Minimales Kennwortalter (Tage)',
+  'diag.maxAgeDays': 'Maximales Kennwortalter (Tage)',
+  'diag.lockoutDurationMinutes': 'Sperrdauer (Minuten)',
+  'diag.lockoutWindowMinutes': 'Zähler zurücksetzen nach (Minuten)',
+  'diag.policyEdit.button': 'Bearbeiten',
+  'diag.policyEdit.title': 'Kennwortrichtlinie der Domäne bearbeiten',
+  'diag.policyEdit.intro':
+    'Diese Werte gelten für alle Domänenkonten. Auf einem Samba-DC werden sie nicht aus der Default Domain Policy übernommen – sie werden hier gesetzt, wie mit samba-tool domain passwordsettings set.',
+  'diag.policyEdit.reversible': 'Kennwörter mit umkehrbarer Verschlüsselung speichern',
+  'diag.policyEdit.zeroNone': '0 = kein Mindestalter',
+  'diag.policyEdit.zeroNever': '0 = Kennwörter laufen nie ab',
+  'diag.policyEdit.zeroNoLockout': '0 = keine Sperrung',
+  'diag.policyEdit.zeroUntilAdmin': '0 = gesperrt, bis ein Administrator entsperrt',
+  'diag.policyEdit.wholeNumbers': 'Bitte nur ganze Zahlen ab 0 eingeben.',
+  'diag.policyEdit.existing':
+    'Gilt ab der nächsten Kennwortänderung; vorhandene Kennwörter werden nicht nachgeprüft. Für Benutzer, für die eine differenzierte Kennwortrichtlinie (PSO) gilt, gilt stattdessen diese.',
   'diag.reversibleWarning':
     'Kennwörter werden mit umkehrbarer Verschlüsselung gespeichert. Das entspricht faktisch Klartext.',
   'diag.psos': 'Differenzierte Kennwortrichtlinien',
@@ -1090,6 +1108,25 @@ export const de = {
   'error.server_not_found': 'Der Server existiert nicht.',
   'error.server_exists': 'Im Zielstandort existiert bereits ein Server mit diesem Namen.',
   'error.domain_not_found': 'Das Domänenobjekt konnte nicht gelesen werden.',
+  'error.no_changes': 'Es gibt nichts zu ändern.',
+  'error.password_age_order':
+    'Das maximale Kennwortalter ({max_age} Tage) muss größer sein als das minimale ({min_age} Tage).',
+  'error.password_age_order.hint': '0 Tage beim maximalen Alter bedeutet: Kennwörter laufen nie ab.',
+  'error.password_policy_out_of_range': 'Der Wert {given} liegt außerhalb von {min} bis {max}.',
+  'error.password_policy_out_of_range.min_length':
+    'Die Mindestlänge muss zwischen {min} und {max} Zeichen liegen.',
+  'error.password_policy_out_of_range.history_length':
+    'Die Kennwortchronik muss zwischen {min} und {max} Kennwörtern liegen.',
+  'error.password_policy_out_of_range.min_age_days':
+    'Das minimale Kennwortalter muss zwischen {min} und {max} Tagen liegen.',
+  'error.password_policy_out_of_range.max_age_days':
+    'Das maximale Kennwortalter muss zwischen {min} und {max} Tagen liegen.',
+  'error.password_policy_out_of_range.lockout_threshold':
+    'Die Sperrschwelle muss zwischen {min} und {max} Fehlversuchen liegen.',
+  'error.password_policy_out_of_range.lockout_duration_minutes':
+    'Die Sperrdauer muss zwischen {min} und {max} Minuten liegen.',
+  'error.password_policy_out_of_range.lockout_window_minutes':
+    'Das Zurücksetzen des Zählers muss zwischen {min} und {max} Minuten liegen.',
 
   // -- Gruppenrichtlinien ---------------------------------------------------
   'gpo.count': '{count} Richtlinien',
@@ -1522,6 +1559,8 @@ export const de = {
   'security.eventLogHint':
     'Ein Client übernimmt die Werte bei der nächsten Richtlinienaktualisierung in die Registry (HKLM\\SYSTEM\\CurrentControlSet\\Services\\EventLog). wevtutil kann danach noch die alte Größe zeigen, bis der Ereignisprotokolldienst sie neu einliest; maßgeblich ist der Wert MaxSize in der Registry.',
   'security.group.audit_advanced': 'Erweiterte Überwachungsrichtlinie',
+  'security.sambaDomainPolicyHint':
+    'Für Domänenkonten wirken diese Werte auf einem Samba-DC nicht: Er übernimmt sie nicht aus der GPO, anders als ein Windows-DC. Was für Domänenkonten gilt, steht unter Diagnose › Kennwortrichtlinie und wird dort bearbeitet. Auf die lokalen Konten der Windows-Clients wirkt die GPO wie gewohnt.',
   'security.unit.kilobytes': 'KB',
   'security.retention.0': 'Ereignisse nach Bedarf überschreiben',
   'security.retention.1': 'Ereignisse nach Tagen überschreiben',
@@ -2786,7 +2825,25 @@ export const en: Record<MessageKey, string> = {
   'diag.untilAdmin': 'Until an administrator unlocks',
   'diag.never': 'Never',
   'diag.none': 'None',
-  'diag.days': '{count} days',
+  'diag.days_one': '{count} day',
+  'diag.days_other': '{count} days',
+  'diag.lockoutWindow': 'Reset counter after',
+  'diag.minAgeDays': 'Minimum password age (days)',
+  'diag.maxAgeDays': 'Maximum password age (days)',
+  'diag.lockoutDurationMinutes': 'Lockout duration (minutes)',
+  'diag.lockoutWindowMinutes': 'Reset counter after (minutes)',
+  'diag.policyEdit.button': 'Edit',
+  'diag.policyEdit.title': 'Edit the domain password policy',
+  'diag.policyEdit.intro':
+    'These values apply to every domain account. A Samba DC does not take them from the Default Domain Policy – they are set here, as with samba-tool domain passwordsettings set.',
+  'diag.policyEdit.reversible': 'Store passwords using reversible encryption',
+  'diag.policyEdit.zeroNone': '0 = no minimum age',
+  'diag.policyEdit.zeroNever': '0 = passwords never expire',
+  'diag.policyEdit.zeroNoLockout': '0 = no lockout',
+  'diag.policyEdit.zeroUntilAdmin': '0 = locked until an administrator unlocks',
+  'diag.policyEdit.wholeNumbers': 'Enter whole numbers from 0 only.',
+  'diag.policyEdit.existing':
+    'Applies from the next password change; existing passwords are not rechecked. Users covered by a fine-grained password policy (PSO) are held to that instead.',
   'diag.reversibleWarning':
     'Passwords are stored with reversible encryption, which is effectively clear text.',
   'diag.psos': 'Fine-grained password policies',
@@ -2824,6 +2881,25 @@ export const en: Record<MessageKey, string> = {
   'error.server_not_found': 'The server does not exist.',
   'error.server_exists': 'A server with this name already exists in the target site.',
   'error.domain_not_found': 'The domain object could not be read.',
+  'error.no_changes': 'There is nothing to change.',
+  'error.password_age_order':
+    'The maximum password age ({max_age} days) must be greater than the minimum ({min_age} days).',
+  'error.password_age_order.hint': '0 days as the maximum age means passwords never expire.',
+  'error.password_policy_out_of_range': 'The value {given} is outside {min} to {max}.',
+  'error.password_policy_out_of_range.min_length':
+    'The minimum length must be between {min} and {max} characters.',
+  'error.password_policy_out_of_range.history_length':
+    'The password history must be between {min} and {max} passwords.',
+  'error.password_policy_out_of_range.min_age_days':
+    'The minimum password age must be between {min} and {max} days.',
+  'error.password_policy_out_of_range.max_age_days':
+    'The maximum password age must be between {min} and {max} days.',
+  'error.password_policy_out_of_range.lockout_threshold':
+    'The lockout threshold must be between {min} and {max} failed attempts.',
+  'error.password_policy_out_of_range.lockout_duration_minutes':
+    'The lockout duration must be between {min} and {max} minutes.',
+  'error.password_policy_out_of_range.lockout_window_minutes':
+    'The counter reset must be between {min} and {max} minutes.',
 
   // -- group policy ---------------------------------------------------------
   'gpo.count': '{count} policies',
@@ -3252,6 +3328,8 @@ export const en: Record<MessageKey, string> = {
   'security.eventLogHint':
     'A client writes these values to its registry at the next policy refresh (HKLM\\SYSTEM\\CurrentControlSet\\Services\\EventLog). wevtutil may still show the old size until the event log service reads it again; the MaxSize value in the registry is what counts.',
   'security.group.audit_advanced': 'Advanced audit policy',
+  'security.sambaDomainPolicyHint':
+    'For domain accounts these values have no effect on a Samba DC: unlike a Windows DC, it does not take them from the GPO. What domain accounts are held to is under Diagnostics › Password policy and is edited there. On the local accounts of Windows clients the GPO applies as usual.',
   'security.unit.kilobytes': 'KB',
   'security.retention.0': 'Overwrite events as needed',
   'security.retention.1': 'Overwrite events by days',

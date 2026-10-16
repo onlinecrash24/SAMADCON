@@ -15,6 +15,7 @@ from samadcon.api.v1 import (
     groups,
     health,
     ous,
+    password_policy,
     preferences,
     scripts,
     security,
@@ -38,6 +39,7 @@ router.include_router(security.router)
 router.include_router(dns.router)
 router.include_router(sites.router)
 router.include_router(diagnostics.router)
+router.include_router(password_policy.router)
 router.include_router(gpos.router)
 router.include_router(admx.router)
 router.include_router(scripts.router)

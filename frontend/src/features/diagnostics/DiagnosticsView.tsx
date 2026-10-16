@@ -23,6 +23,7 @@ import { Badge, ErrorMessage, Spinner, useDateFormat } from '../../components/pr
 import { useI18n } from '../../i18n'
 import type { MessageKey } from '../../i18n/messages'
 import { useSession } from '../../state/session'
+import { PasswordPolicyDialog } from './PasswordPolicyDialog'
 
 type Tab = 'overview' | 'replication' | 'policy' | 'accounts' | 'members'
 
@@ -67,7 +68,7 @@ export function DiagnosticsView() {
       )}
 
       {tab === 'replication' && <ReplicationCard status={data.replication} />}
-      {tab === 'policy' && <PolicyCard policy={data.policy} />}
+      {tab === 'policy' && <PolicyCard policy={data.policy} editable />}
       {tab === 'accounts' && <AccountsCard />}
       {tab === 'members' && <MembersCard />}
     </>
@@ -419,23 +420,43 @@ export function ReplicationCard({ status }: { status: ReplicationStatus }) {
 // Password policy
 // ---------------------------------------------------------------------------
 
-export function PolicyCard({ policy }: { policy: PasswordPolicy }) {
-  const { t } = useI18n()
+/**
+ * The domain's password policy. *editable* adds the button that opens the
+ * editor; the report, which shows the same card, is a record and has none.
+ */
+export function PolicyCard({
+  policy,
+  editable = false,
+}: {
+  policy: PasswordPolicy
+  editable?: boolean
+}) {
+  const { t, tn } = useI18n()
+  const [editing, setEditing] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
 
   return (
     <div className="stack">
       <section className="card">
-        <h3>{t('diag.policy')}</h3>
+        <div className="card__header">
+          <h3>{t('diag.policy')}</h3>
+          {editable && (
+            <button type="button" className="button" onClick={() => setEditing(true)}>
+              {t('diag.policyEdit.button')}
+            </button>
+          )}
+        </div>
+        {notice && <p className="muted small">{notice}</p>}
         <dl className="facts">
           <Fact label={t('diag.minLength')} value={policy.min_length} />
           <Fact label={t('diag.history')} value={policy.history_length} />
           <Fact
             label={t('diag.maxAge')}
-            value={policy.max_age_days === null ? t('diag.never') : t('diag.days', { count: policy.max_age_days })}
+            value={policy.max_age_days === null ? t('diag.never') : tn('diag.days', policy.max_age_days)}
           />
           <Fact
             label={t('diag.minAge')}
-            value={policy.min_age_days === null ? t('diag.none') : t('diag.days', { count: policy.min_age_days })}
+            value={policy.min_age_days === null ? t('diag.none') : tn('diag.days', policy.min_age_days)}
           />
           <Fact
             label={t('diag.complexity')}
@@ -455,9 +476,24 @@ export function PolicyCard({ policy }: { policy: PasswordPolicy }) {
                 : t('sites.minutes', { count: policy.lockout_duration_minutes })
             }
           />
+          <Fact
+            label={t('diag.lockoutWindow')}
+            value={
+              policy.lockout_window_minutes === null
+                ? t('diag.none')
+                : t('sites.minutes', { count: policy.lockout_window_minutes })
+            }
+          />
         </dl>
         {policy.reversible_encryption && (
           <div className="alert alert--warning">{t('diag.reversibleWarning')}</div>
+        )}
+        {editing && (
+          <PasswordPolicyDialog
+            policy={policy}
+            onClose={() => setEditing(false)}
+            onSaved={setNotice}
+          />
         )}
       </section>
 
@@ -486,7 +522,7 @@ export function PolicyCard({ policy }: { policy: PasswordPolicy }) {
                     <td>
                       {pso.max_age_days === null
                         ? t('diag.never')
-                        : t('diag.days', { count: pso.max_age_days })}
+                        : tn('diag.days', pso.max_age_days)}
                     </td>
                     <td className="muted small">{pso.applies_to.join(', ')}</td>
                   </tr>

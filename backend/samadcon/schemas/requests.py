@@ -262,6 +262,24 @@ class UpdateSiteRequest(StrictModel):
     location: str | None = Field(default=None, max_length=1024)
 
 
+class PasswordPolicyRequest(StrictModel):
+    """The domain's password policy; a field left out is left as it is.
+
+    Ranges are checked in samadcon.ad.password_policy, where they come with an
+    error code the console translates; here only the types.
+    """
+
+    complexity: bool | None = None
+    reversible_encryption: bool | None = None
+    min_length: int | None = None
+    history_length: int | None = None
+    min_age_days: int | None = None
+    max_age_days: int | None = None
+    lockout_threshold: int | None = None
+    lockout_duration_minutes: int | None = None
+    lockout_window_minutes: int | None = None
+
+
 class UpnSuffixesRequest(StrictModel):
     """The hand-added UPN suffixes, in full; the list replaces what is there."""
 

@@ -197,6 +197,12 @@ export function SecurityTab({
               {group === 'event_log' && (
                 <p className="muted small">{t('security.eventLogHint')}</p>
               )}
+              {/* A tester set these in the Default Domain Policy, created a
+                  user, and was held to the old values: a Samba DC does not
+                  copy them onto the domain object, as a Windows DC does. */}
+              {(group === 'password' || group === 'lockout') && (
+                <div className="alert alert--info">{t('security.sambaDomainPolicyHint')}</div>
+              )}
               <PlainSettings
                 settings={settings.filter((item) => item.group === group)}
                 valueOf={valueOf}

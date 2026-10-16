@@ -641,6 +641,19 @@ export interface PasswordPolicy {
   password_settings_objects: PasswordSettingsObject[]
 }
 
+/** What PUT /password-policy takes; a field left out stays as it is. */
+export interface PasswordPolicyChanges {
+  complexity?: boolean
+  reversible_encryption?: boolean
+  min_length?: number
+  history_length?: number
+  min_age_days?: number
+  max_age_days?: number
+  lockout_threshold?: number
+  lockout_duration_minutes?: number
+  lockout_window_minutes?: number
+}
+
 /** Which Kerberos ciphers a computer says it supports. */
 export interface MemberEncryption {
   /** False when the attribute is absent — the KDC decides, which is not a weakness. */

@@ -53,6 +53,7 @@ import type {
   MemberListing,
   OuDetail,
   PasswordPolicy,
+  PasswordPolicyChanges,
   PolicyState,
   PreferenceAction,
   PreferenceMember,
@@ -749,6 +750,8 @@ export const api = {
   domainMembers: (limit = 500) =>
     http.get<DomainMembers>(`/diagnostics/members?limit=${limit}`),
   passwordPolicy: () => http.get<PasswordPolicy>('/diagnostics/policy'),
+  setPasswordPolicy: (changes: PasswordPolicyChanges) =>
+    http.put<PasswordPolicy>('/password-policy', changes),
   problemAccounts: (limit = 200) =>
     http.get<AccountProblems>(`/diagnostics/accounts?limit=${limit}`),
 

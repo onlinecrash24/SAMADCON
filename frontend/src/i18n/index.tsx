@@ -42,6 +42,7 @@ type PluralKey =
   | 'dns.recordCount'
   | 'sites.serverCount'
   | 'sheet.pending'
+  | 'diag.days'
 
 interface I18n {
   language: Language
