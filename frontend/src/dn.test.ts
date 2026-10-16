@@ -1,6 +1,41 @@
 import { describe, expect, it } from 'vitest'
 
-import { isAtOrBelow, nameFromDn, parentDn } from './dn'
+import { isAtOrBelow, nameFromDn, parentDn, relocate } from './dn'
+
+const D = 'DC=example,DC=test'
+
+describe('relocate', () => {
+  it('moves the console out of a container that was deleted', () => {
+    // The reported case: OU=Test open, OU=Test deleted, the list then asked
+    // the DC for the children of a container that no longer existed.
+    expect(relocate(`OU=Test,${D}`, `OU=Test,${D}`, null)).toBe(D)
+  })
+
+  it('moves it out when a container above it was deleted', () => {
+    expect(relocate(`OU=Inner,OU=Test,${D}`, `OU=Test,${D}`, null)).toBe(D)
+  })
+
+  it('follows a container that was renamed or moved, below it too', () => {
+    expect(relocate(`OU=Test,${D}`, `OU=Test,${D}`, `OU=Neu,${D}`)).toBe(`OU=Neu,${D}`)
+    expect(relocate(`OU=Inner,OU=Test,${D}`, `OU=Test,${D}`, `OU=Test,OU=Archiv,${D}`)).toBe(
+      `OU=Inner,OU=Test,OU=Archiv,${D}`,
+    )
+  })
+
+  it('leaves a position elsewhere as it is', () => {
+    expect(relocate(`OU=Other,${D}`, `OU=Test,${D}`, null)).toBe(`OU=Other,${D}`)
+    expect(relocate(D, `OU=Test,${D}`, null)).toBe(D)
+    // Same ending, different container: the comma decides.
+    expect(relocate(`OU=MyTest,${D}`, `OU=Test,${D}`, null)).toBe(`OU=MyTest,${D}`)
+  })
+
+  it('compares without regard to case, as the directory does', () => {
+    expect(relocate(`ou=test,dc=example,dc=test`, `OU=Test,${D}`, null)).toBe(D)
+    expect(relocate(`OU=Inner,ou=test,dc=example,dc=test`, `OU=Test,${D}`, `OU=Neu,${D}`)).toBe(
+      `OU=Inner,OU=Neu,${D}`,
+    )
+  })
+})
 
 describe('parentDn', () => {
   it('is everything after the first component', () => {
