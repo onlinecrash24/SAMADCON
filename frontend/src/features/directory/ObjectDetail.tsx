@@ -44,9 +44,16 @@ export interface ObjectDetailProps {
   onChanged: (message: string) => void
   /** A rename or a move changed the DN out from under whoever hosts this. */
   onRetarget?: (dn: string, name: string) => void
+  /** The object was deleted from in here. */
+  onDeleted?: (dn: string) => void
 }
 
-export function ObjectDetail({ object, onChanged, onRetarget }: ObjectDetailProps) {
+export function ObjectDetail({
+  object,
+  onChanged,
+  onRetarget,
+  onDeleted,
+}: ObjectDetailProps) {
   const { t } = useI18n()
   const typeLabel = useTypeLabel()
 
@@ -96,6 +103,7 @@ export function ObjectDetail({ object, onChanged, onRetarget }: ObjectDetailProp
         }}
         onChanged={onChanged}
         onRetarget={onRetarget}
+        onDeleted={onDeleted}
       />
 
       {detail.isLoading && <Spinner label={t('status.loading')} />}

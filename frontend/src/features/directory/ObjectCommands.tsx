@@ -25,12 +25,15 @@ export function ObjectCommands({
   facts,
   onChanged,
   onRetarget,
+  onDeleted,
 }: {
   object: DirectoryObject
   facts: AccountFacts
   onChanged: (message: string) => void
   /** A rename or a move changed the DN out from under whoever hosts this. */
   onRetarget?: (dn: string, name: string) => void
+  /** The object was deleted from in here. */
+  onDeleted?: (dn: string) => void
 }) {
   const { t } = useI18n()
   const queryClient = useQueryClient()
@@ -160,7 +163,10 @@ export function ObjectCommands({
           isContainer={object.is_container}
           isOu={object.type === 'organizational_unit'}
           onClose={() => setDialog(null)}
-          onDone={done}
+          onDone={(message) => {
+            done(message)
+            onDeleted?.(object.dn)
+          }}
         />
       )}
     </>

@@ -17,11 +17,14 @@ export function DetailPane({
   object,
   onChanged,
   onRetarget,
+  onDeleted,
 }: {
   object: DirectoryObject | null
   onChanged: (message: string) => void
   /** A rename or a move from in here changed the DN. */
   onRetarget?: (dn: string, name: string) => void
+  /** The object was deleted from in here. */
+  onDeleted?: (dn: string) => void
 }) {
   const { t } = useI18n()
 
@@ -36,6 +39,7 @@ export function DetailPane({
         object={object}
         onChanged={onChanged}
         onRetarget={onRetarget}
+        onDeleted={onDeleted}
       />
     </aside>
   )

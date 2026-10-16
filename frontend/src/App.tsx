@@ -30,7 +30,7 @@ import { SNAPINS, panesFor, type SnapinId } from './features/console/snapins'
 import { readListLimit, writeListLimit, type ListLimit } from './state/listLimit'
 import { readListSort, toggleSort, writeListSort, type ListSort } from './state/listSort'
 import { readListColumns, requestedColumns, writeListColumns } from './state/listColumns'
-import { nameFromDn } from './dn'
+import { isAtOrBelow, nameFromDn, relocate } from './dn'
 import { DiagnosticsView } from './features/diagnostics/DiagnosticsView'
 import { SecurityFindings } from './features/diagnostics/SecurityFindings'
 import { DnsView } from './features/dns/DnsView'
@@ -384,6 +384,15 @@ function Console() {
     void queryClient.invalidateQueries({ queryKey: ['tree'] })
   }
 
+  // An object is gone or has a new DN. The open container and the selection
+  // may have been that object or below it; both follow (relocate), or the
+  // list asks the DC about a DN that no longer exists — "Das Objekt existiert
+  // nicht" right after a delete that worked.
+  const afterRelocated = (from: string, to: string | null) => {
+    setCurrentDn((current) => relocate(current, from, to))
+    setSelected((current) => (current && isAtOrBelow(current.dn, from) ? null : current))
+  }
+
   // A row's menu changed an object that still exists — enabled, disabled,
   // unlocked, reset. The detail pane beside the list reads it through its own
   // query and kept showing "Aktiv" after the menu had disabled the account;
@@ -639,6 +648,7 @@ function Console() {
                 object={selected}
                 onChanged={onChanged}
                 onRetarget={(dn) => void navigateTo(dn)}
+                onDeleted={(dn) => afterRelocated(dn, null)}
               />
             </div>
           </>
@@ -667,6 +677,7 @@ function Console() {
           currentName={objectDialog.object.name}
           onClose={() => setObjectDialog(null)}
           onDone={onChanged}
+          onRelocated={(dn) => afterRelocated(objectDialog.object.dn, dn)}
         />
       )}
       {objectDialog?.kind === 'move' && (
@@ -675,6 +686,7 @@ function Console() {
           name={objectDialog.object.name}
           onClose={() => setObjectDialog(null)}
           onDone={onChanged}
+          onRelocated={(dn) => afterRelocated(objectDialog.object.dn, dn)}
         />
       )}
       {accountDisable.dialog}
@@ -686,7 +698,7 @@ function Console() {
           isOu={objectDialog.object.type === 'organizational_unit'}
           onClose={() => setObjectDialog(null)}
           onDone={(message) => {
-            if (selected?.dn === objectDialog.object.dn) setSelected(null)
+            afterRelocated(objectDialog.object.dn, null)
             onChanged(message)
           }}
         />

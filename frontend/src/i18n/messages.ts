@@ -522,6 +522,8 @@ export const de = {
     'Zu viele Fehlversuche. SAMADCON pausiert weitere Versuche, damit das AD-Konto nicht gesperrt wird.',
   'error.insufficient_access': 'Ihr Konto hat für diesen Vorgang keine Berechtigung.',
   'error.not_found': 'Das Objekt existiert nicht.',
+  'error.not_found.hint':
+    'Vielleicht wurde es inzwischen gelöscht oder verschoben, auch von jemand anderem.',
   'error.already_exists': 'Ein Objekt mit diesem Namen existiert bereits.',
   'error.sam_account_name_taken': 'Dieser Anmeldename ist bereits vergeben.',
   'error.not_empty': 'Der Container ist nicht leer.',
@@ -2255,6 +2257,7 @@ export const en: Record<MessageKey, string> = {
     'Too many failed attempts. SAMADCON pauses further tries so the AD account is not locked out.',
   'error.insufficient_access': 'Your account is not allowed to perform this operation.',
   'error.not_found': 'The object does not exist.',
+  'error.not_found.hint': 'It may have been deleted or moved by someone else in the meantime.',
   'error.already_exists': 'An object with this name already exists.',
   'error.sam_account_name_taken': 'This logon name is already in use.',
   'error.not_empty': 'The container is not empty.',

@@ -42,3 +42,19 @@ export function isAtOrBelow(dn: string | null | undefined, ancestor: string): bo
   // "OU=Users,DC=x" for any name that merely ends the same way.
   return lower === above || lower.endsWith(',' + above)
 }
+
+/**
+ * Where a position in the tree ends up after *from* was deleted (*to* null)
+ * or renamed or moved to *to*.
+ *
+ * A position at or below a deleted object goes to the deleted object's
+ * parent; one at or below a renamed or moved object follows it. Anything
+ * else stays. Without this the console kept the old DN: with an OU open,
+ * deleting it left the list asking the DC for the children of a container
+ * that no longer existed, and the DC answered LDAP error 32.
+ */
+export function relocate(dn: string, from: string, to: string | null): string {
+  if (!isAtOrBelow(dn, from)) return dn
+  if (to === null) return parentDn(from)
+  return dn.slice(0, dn.length - from.length) + to
+}
