@@ -14,6 +14,51 @@ release.
 
 ---
 
+## 0.6.17 — 2026-10-17
+
+Common options and item-level targeting for preference items, in a GPMC-like list.
+
+The GPO editor's Windows Settings and Control Panel Settings tabs now
+edit what GPMC shows on an item's Common tab:
+
+- Stop processing items in this extension if an error occurs.
+- Run in logged-on user's security context (user half only).
+- Remove this item when it is no longer applied. This turns the action
+  into Replace, as GPMC does.
+- Apply once and do not reapply. This and the remove option exclude
+  each other, as in GPMC.
+- Item-level targeting by security group, organisational unit, user and
+  computer name. Each condition has AND/OR and "is not"; a group or OU
+  can be checked against the user or the computer. Groups, OUs and users
+  are picked from the directory; SAMADCON writes the name and SID that
+  GPMC writes.
+
+Targeting that holds anything else, such as collections or other filter
+types, is shown by name and kept as it is; edit it in GPMC.
+
+The file format was taken from GPMC reference files written on Windows
+11. Reading and writing them again gives the same bytes. On a Windows 11
+client, a drive mapped by SAMADCON with an OU condition was applied as
+expected, and GPMC opens the items SAMADCON writes.
+
+The list now looks like GPMC's:
+
+- Each type is a table with name, order, action and the type's own
+  column (path, key, target). An item with targeting is marked.
+- Double-click or Enter opens the item in a window with the General and
+  Common tabs.
+- A right-click opens Properties, New, Move up, Move down and Delete.
+  Shift+F10 or the menu key does the same, and Delete asks to remove
+  the selected item.
+- Changes are saved when the window is confirmed, when an item is moved
+  and when one is deleted. There is no separate Save button any more.
+
+The drive letter is picked from a list.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.17, :0.6 and :latest.
+
+---
+
 ## 0.6.16 — 2026-10-17
 
 Samba and Windows domain controllers told apart where the password policy differs.
