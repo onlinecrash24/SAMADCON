@@ -19,6 +19,9 @@ Dockerfile      text eol=lf
 backend/tests/data/*.ini    binary
 backend/tests/data/*.inf    binary
 backend/tests/data/*.csv    binary
+# UTF-8 with CRLF, as GPMC writes group policy preferences; their digests are
+# the evidence, so git must not normalise the line endings.
+backend/tests/data/*.xml    binary
 
 # Never touch these.
 *.png           binary

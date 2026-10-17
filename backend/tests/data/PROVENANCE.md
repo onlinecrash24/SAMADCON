@@ -110,3 +110,40 @@ columns, and a header and texts in the language of the console that wrote it.
 `GptTmpl-audit.inf` settles that `[Registry Values]` is written without spaces
 around the equals sign — which the first reference could not show, having had
 that section empty.
+
+## The preference references with item-level targeting (October 2026)
+
+`Drives-ilt.xml` and `Registry-ilt.xml` come from the reference GPO
+"SAMADCON-Referenz-ILT", made in a German GPMC on Windows 11 to settle how the
+common options and item-level targeting of group policy preferences are
+written. The domain is the maintainer's test domain, and its names and SIDs
+were kept: they are part of what is measured.
+
+Rebuilt from what `cat` printed on the domain controller, with tabs for the
+indentation the terminal showed as spaces, and only three assumptions tried:
+byte-order mark or none, CRLF or LF, final newline or none. One combination
+matched the digests `sha256sum` gave on the domain controller,
+
+    62e30f1b66aaf340dddf8999a8599c60687fbdc38a737c7df68503721edc9c97  Drives.xml
+    e55fd2a46201cb1fb63c3c9739689e80f94d400c3e8b89a3c4737e8a07ef572e  Registry.xml
+
+— UTF-8 without a byte-order mark, CRLF, a final newline — so these are the
+bytes on the share.
+
+What they settle, item by item (all drive maps to `\zmb-ad\netlogon`):
+
+- P: every common option ticked GPMC allows together. "Remove this item when
+  it is no longer applied" is `removePolicy="1"` and turned the action into
+  Replace (`action="R"`); "run in the logged-on user's security context" is
+  `userContext="1"`; "stop processing items on error" ticked is
+  `bypassErrors="0"`. Targeting: user in group Domain Users.
+- T: "apply once and do not reapply" instead of removal — GPMC greys one out
+  while the other is ticked. It is no attribute but a filter,
+  `<FilterRunOnce hidden="1" not="0" bool="AND" id="{GUID}"/>`, after which
+  GPMC writes a CRLF and two tabs before `</Filters>`.
+- Q, R, S: no options ticked — `bypassErrors="1"`, no `userContext`, no
+  `removePolicy`. Q targets an OU, negated (`FilterOrgUnit not="1"`); R a
+  computer name OR computer in group (`bool="OR"`, `userContext="0"`); S a
+  user AND a group AND a computer name.
+- Registry: a machine-side item with removal and stop-on-error; it carries
+  no `userContext` at all.

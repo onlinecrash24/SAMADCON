@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RegistrySettings clsid="{A3CCFC41-DFDB-43a5-8D26-0FE8B954DA51}"><Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="Probe" status="Probe" image="6" removePolicy="1" bypassErrors="0" changed="2026-10-17 18:25:30" uid="{0B49DF45-0E93-4843-958C-012BDCC831C9}"><Properties action="R" displayDecimal="0" default="0" hive="HKEY_LOCAL_MACHINE" key="\SOFTWARE\SAMADCON-Test" name="Probe" type="REG_SZ" value="1"/><Filters><FilterComputer bool="AND" not="0" type="NETBIOS" name="WIN11-PVE"/></Filters></Registry>
+</RegistrySettings>
