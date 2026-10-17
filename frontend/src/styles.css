@@ -1330,3 +1330,6 @@ fieldset[disabled] { opacity: 0.6; }
 
   @page { margin: 18mm 15mm; }
 }
+
+/* The targeting marker beside a preference item's name in the list. */
+.pref__targeted { margin-left: 8px; font-size: 0.75em; vertical-align: middle; }

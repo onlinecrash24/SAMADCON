@@ -2,10 +2,12 @@
  * Group policy preferences — GPMC's "Einstellungen" branch, one tab per
  * sub-branch: Windows Settings and Control Panel Settings (preferenceAreas.ts).
  *
- * Laid out as items rather than as a table: a drive map carries eight fields
- * and a shortcut twelve, and a row wide enough for all of them is a row nobody
- * can read. Each item is a small form, which is also closer to what the
- * console shows.
+ * Laid out as GPMC lays it out: a list of the items of one type — name,
+ * order, action and the one thing that tells them apart — and each item opened
+ * in a window with two tabs, "General" and "Common". The items used to be
+ * forms one under the other, which read as clutter once a type had more than
+ * two. Every change is saved at once, the whole list as the file holds it:
+ * OK in the window, a move, a delete. There is no separate save to forget.
  *
  * The form comes from the server's catalogue rather than from here, down to
  * which fields exist and which values a choice offers. Adding a preference
@@ -23,7 +25,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import { api } from '../../../api/endpoints'
 import type {
@@ -31,43 +33,32 @@ import type {
   Gpo,
   PreferenceAction,
   PreferenceField,
-  PreferenceItem,
   PreferenceKind,
   PreferenceMember,
-  PreferenceOptions,
   PreferenceTypeId,
-  TargetCondition,
 } from '../../../api/types'
-import { ErrorMessage, Spinner } from '../../../components/primitives'
+import { anchorOf, useContextMenu, type MenuNode } from '../../../components/ContextMenu'
+import { ErrorMessage, Modal, Spinner } from '../../../components/primitives'
 import { useI18n } from '../../../i18n'
 import { useSession } from '../../../state/session'
 import { ObjectPicker } from '../../directory/ObjectPicker'
 import type { MessageKey } from '../../../i18n/messages'
 import { choiceLabel, choicesWithCurrent } from './fieldChoices'
 import { FIRST_TYPE, type PreferenceArea, typesIn } from './preferenceAreas'
-import { NO_OPTIONS } from './preferenceOptions'
+import {
+  blank,
+  type Draft,
+  itemSummary,
+  moved,
+  toDraft,
+  toPayload,
+  withItem,
+  without,
+} from './preferenceList'
 import { OptionsEditor, TargetingEditor } from './TargetingEditor'
 
 const HALVES = ['Machine', 'User'] as const
 const MULTI_SZ = 'REG_MULTI_SZ'
-
-/** What the browser sends back: never raw filters, never the unknown parts. */
-interface Draft {
-  kind: string
-  uid?: string
-  /** Absent for a service, which has no Create/Replace/Update/Delete. */
-  action?: PreferenceAction
-  properties: Record<string, string>
-  values?: string[]
-  members?: PreferenceMember[]
-  options: PreferenceOptions
-  /** Null when the targeting holds something only GPMC edits; then it is not sent. */
-  targeting: TargetCondition[] | null
-  /** Read only, for the item's own heading. */
-  name: string
-  filter_names: string[]
-  has_password: boolean
-}
 
 export function PreferencesTab({
   gpo,
@@ -80,12 +71,15 @@ export function PreferencesTab({
 }) {
   const { t } = useI18n()
   const queryClient = useQueryClient()
+  const menu = useContextMenu()
 
   const [selected, setSelected] = useState<{ type: PreferenceTypeId; half: string }>({
     type: FIRST_TYPE[area],
     half: 'Machine',
   })
-  const [draft, setDraft] = useState<Draft[]>([])
+  const [row, setRow] = useState<number | null>(null)
+  const [editing, setEditing] = useState<{ index: number | null; draft: Draft } | null>(null)
+  const [deleting, setDeleting] = useState<number | null>(null)
   const [error, setError] = useState<unknown>(null)
 
   const catalogue = useQuery({
@@ -98,30 +92,21 @@ export function PreferencesTab({
   })
 
   const items = current.data?.types?.[selected.type]?.halves?.[selected.half]?.items
-
-  useEffect(() => {
-    setDraft((items ?? []).map(toDraft))
-  }, [items])
+  const list = useMemo(() => (items ?? []).map(toDraft), [items])
 
   const save = useMutation({
-    mutationFn: () =>
+    mutationFn: (next: Draft[]) =>
       api.setGpoPreferences(gpo.dn, {
         type: selected.type,
         half: selected.half,
-        items: draft.map(({ kind, uid, action, properties, values, members, options, targeting }) => ({
-          kind,
-          uid,
-          action,
-          properties,
-          values,
-          members,
-          options,
-          ...(targeting === null ? {} : { targeting: { conditions: targeting } }),
-        })),
+        items: toPayload(next),
         expected_version: current.data?.version_number,
       }),
     onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: ['gpo-preferences', gpo.dn] })
+      setEditing(null)
+      setDeleting(null)
+      setError(null)
       onChanged(result.changed ? t('pref.saved') : t('pref.unchanged'))
     },
     onError: setError,
@@ -134,12 +119,71 @@ export function PreferencesTab({
   const types = typesIn(area, catalogue.data?.types ?? [])
   const actions = catalogue.data?.actions ?? []
   const type = types.find((item) => item.id === selected.type)
-  // Printers are the only type where this is more than one; the "+ Eintrag"
-  // row then offers a button per kind instead of a single one.
+  // Printers are the only type where this is more than one; "New" then
+  // offers one entry per kind.
   const kinds = (type?.kinds ?? []).filter((kind) => kind.halves.includes(selected.half))
+  const creatable = kinds.filter((kind) => kind.creatable)
 
-  const edit = (index: number, change: Partial<Draft>) =>
-    setDraft(draft.map((item, at) => (at === index ? { ...item, ...change } : item)))
+  const select = (next: { type: PreferenceTypeId; half: string }) => {
+    setSelected(next)
+    setRow(null)
+    setError(null)
+  }
+  const open = (index: number) => {
+    const draft = list[index]
+    if (draft) setEditing({ index, draft })
+  }
+  const move = (index: number, delta: number) => {
+    const next = moved(list, index, delta)
+    if (next === list) return
+    setRow(index + delta)
+    save.mutate(next)
+  }
+
+  const newEntries: MenuNode[] =
+    creatable.length === 1
+      ? [{ id: `new:${creatable[0]?.id}`, labelKey: 'pref.menu.new' }]
+      : creatable.length > 1
+        ? [
+            {
+              id: 'new',
+              labelKey: 'pref.menu.new',
+              children: creatable.map((kind) => ({
+                id: `new:${kind.id}`,
+                labelKey: `pref.kind.${kind.id}` as MessageKey,
+              })),
+            },
+          ]
+        : []
+  const openNew = (id: string) => {
+    const kind = creatable.find((entry) => `new:${entry.id}` === id)
+    if (kind) setEditing({ index: null, draft: blank(kind) })
+  }
+
+  const rowMenu = (index: number, at: { x: number; y: number }) => {
+    setRow(index)
+    menu.open(
+      at,
+      [
+        { id: 'properties', labelKey: 'pref.menu.properties' },
+        ...newEntries,
+        'separator',
+        { id: 'up', labelKey: 'pref.menu.up' },
+        { id: 'down', labelKey: 'pref.menu.down' },
+        'separator',
+        { id: 'delete', labelKey: 'pref.menu.delete', danger: true },
+      ],
+      (id) => {
+        if (id === 'properties') open(index)
+        else if (id === 'up') move(index, -1)
+        else if (id === 'down') move(index, 1)
+        else if (id === 'delete') setDeleting(index)
+        else openNew(id)
+      },
+    )
+  }
+
+  const kindOf = (draft: Draft) => kinds.find((entry) => entry.id === draft.kind) ?? kinds[0]
 
   return (
     <div className="gpedit">
@@ -165,7 +209,7 @@ export function PreferencesTab({
                             ? 'cats__node cats__node--active'
                             : 'cats__node'
                         }
-                        onClick={() => setSelected({ type: item.id, half })}
+                        onClick={() => select({ type: item.id, half })}
                       >
                         <span className="cats__name">
                           {t(`pref.type.${item.id}` as MessageKey)}
@@ -183,55 +227,142 @@ export function PreferencesTab({
           ))}
         </nav>
 
-        <section className="gpedit__list">
-          <ErrorMessage error={error} onDismiss={() => setError(null)} />
+        <section
+          className="gpedit__list"
+          onContextMenu={(event) => {
+            if (newEntries.length === 0) return
+            event.preventDefault()
+            menu.open({ x: event.clientX, y: event.clientY }, newEntries, openNew)
+          }}
+        >
+          {!editing && <ErrorMessage error={error} onDismiss={() => setError(null)} />}
 
           <p className="muted small">{t(`pref.hint.${selected.type}` as MessageKey)}</p>
 
-          {draft.length === 0 && <p className="muted">{t('pref.none')}</p>}
-
-          {draft.map((item, index) => {
-            const kind = kinds.find((entry) => entry.id === item.kind) ?? kinds[0]
-            if (!kind) return null
-            return (
-              <ItemForm
-                key={item.uid ?? `new-${index}`}
-                type={selected.type}
-                half={selected.half}
-                kind={kind}
-                showKind={kinds.length > 1}
-                actions={actions}
-                item={item}
-                onChange={(change) => edit(index, change)}
-                onRemove={() => setDraft(draft.filter((_, at) => at !== index))}
-              />
-            )
-          })}
-
           <div className="pane__actions">
-            {kinds
-              .filter((kind) => kind.creatable)
-              .map((kind) => (
+            {creatable.map((kind) => (
               <button
                 key={kind.id}
                 type="button"
                 className="button"
-                onClick={() => setDraft([...draft, blank(kind)])}
+                onClick={() => setEditing({ index: null, draft: blank(kind) })}
               >
-                + {kinds.length > 1 ? t(`pref.kind.${kind.id}` as MessageKey) : t('pref.add')}
+                + {creatable.length > 1 ? t(`pref.kind.${kind.id}` as MessageKey) : t('pref.menu.new')}
               </button>
-              ))}
-            <button
-              type="button"
-              className="button button--primary"
-              disabled={save.isPending}
-              onClick={() => save.mutate()}
-            >
-              {t('action.save')}
-            </button>
+            ))}
           </div>
+
+          {list.length === 0 ? (
+            <p className="muted">{t('pref.none')}</p>
+          ) : (
+            <div className="table-wrap">
+              <table className="table table--compact">
+                <thead>
+                  <tr>
+                    <th>{t('pref.column.name')}</th>
+                    <th className="table__cell--narrow">{t('pref.column.order')}</th>
+                    <th className="table__cell--narrow">{t('pref.action')}</th>
+                    <th>{t(`pref.column.${selected.type}` as MessageKey)}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {list.map((draft, index) => (
+                    <tr
+                      key={draft.uid ?? index}
+                      tabIndex={0}
+                      className={row === index ? 'table__row--selected' : undefined}
+                      onClick={() => setRow(index)}
+                      onDoubleClick={() => open(index)}
+                      onContextMenu={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        rowMenu(index, { x: event.clientX, y: event.clientY })
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') open(index)
+                        else if (event.key === 'Delete') setDeleting(index)
+                        else if ((event.shiftKey && event.key === 'F10') || event.key === 'ContextMenu') {
+                          event.preventDefault()
+                          rowMenu(index, anchorOf(event.currentTarget))
+                        } else return
+                        event.stopPropagation()
+                      }}
+                    >
+                      <td>
+                        {draft.name || t('pref.newItem')}
+                        {(draft.targeting === null || draft.targeting.length > 0) && (
+                          <span className="badge badge--muted pref__targeted" title={t('pref.targeted')}>
+                            {t('pref.targeting')}
+                          </span>
+                        )}
+                        {kinds.length > 1 && (
+                          <div className="muted small">
+                            {t(`pref.kind.${draft.kind}` as MessageKey)}
+                          </div>
+                        )}
+                      </td>
+                      <td className="table__cell--narrow">{index + 1}</td>
+                      <td className="table__cell--narrow">
+                        {draft.action ? t(`pref.action.${draft.action}` as MessageKey) : ''}
+                      </td>
+                      <td className="mono small">{itemSummary(draft.kind, draft.properties)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {menu.menu}
         </section>
       </div>
+
+      {editing && (() => {
+        const kind = kindOf(editing.draft)
+        if (!kind) return null
+        return (
+          <ItemDialog
+            type={selected.type}
+            half={selected.half}
+            kind={kind}
+            showKind={kinds.length > 1}
+            actions={actions}
+            item={editing.draft}
+            saving={save.isPending}
+            error={error}
+            onChange={(change) => setEditing({ ...editing, draft: { ...editing.draft, ...change } })}
+            onClose={() => {
+              setEditing(null)
+              setError(null)
+            }}
+            onOk={() => save.mutate(withItem(list, editing.index, editing.draft))}
+          />
+        )
+      })()}
+
+      {deleting !== null && list[deleting] && (
+        <Modal
+          title={t('pref.delete.title', { name: list[deleting]?.name || t('pref.newItem') })}
+          onClose={() => setDeleting(null)}
+          footer={
+            <>
+              <button type="button" className="button" onClick={() => setDeleting(null)}>
+                {t('action.cancel')}
+              </button>
+              <button
+                type="button"
+                className="button button--danger"
+                disabled={save.isPending}
+                onClick={() => save.mutate(without(list, deleting))}
+              >
+                {t('pref.menu.delete')}
+              </button>
+            </>
+          }
+        >
+          <ErrorMessage error={error} />
+          <p>{t('pref.delete.body')}</p>
+        </Modal>
+      )}
     </div>
   )
 }
@@ -241,48 +372,22 @@ function Count({ count }: { count: number }) {
   return <span className="muted small">{count}</span>
 }
 
-function toDraft(item: PreferenceItem): Draft {
-  return {
-    kind: item.kind,
-    uid: item.uid,
-    action: item.action ? (item.action as PreferenceAction) : undefined,
-    properties: { ...item.properties },
-    values: item.values,
-    members: item.members,
-    options: item.options ?? NO_OPTIONS,
-    targeting: item.targeting?.editable ? item.targeting.conditions : null,
-    name: item.name,
-    filter_names: item.filter_names,
-    has_password: item.has_password,
-  }
-}
-
-function blank(kind: PreferenceKind): Draft {
-  const properties: Record<string, string> = {}
-  for (const field of kind.fields) properties[field.name] = field.default
-  return {
-    kind: kind.id,
-    action: kind.has_action ? 'C' : undefined,
-    properties,
-    values: [],
-    members: [],
-    options: NO_OPTIONS,
-    targeting: [],
-    name: '',
-    filter_names: [],
-    has_password: false,
-  }
-}
-
-function ItemForm({
+/**
+ * One item in its own window, with GPMC's two tabs: what the item does, and
+ * the options and targeting every item has.
+ */
+function ItemDialog({
   type,
   half,
   kind,
   showKind,
   actions,
   item,
+  saving,
+  error,
   onChange,
-  onRemove,
+  onClose,
+  onOk,
 }: {
   type: PreferenceTypeId
   half: string
@@ -290,8 +395,84 @@ function ItemForm({
   showKind: boolean
   actions: PreferenceAction[]
   item: Draft
+  saving: boolean
+  error: unknown
   onChange: (change: Partial<Draft>) => void
-  onRemove: () => void
+  onClose: () => void
+  onOk: () => void
+}) {
+  const { t } = useI18n()
+  const [tab, setTab] = useState<'general' | 'common'>('general')
+  const title = showKind
+    ? `${item.name || t('pref.newItem')} — ${t(`pref.kind.${kind.id}` as MessageKey)}`
+    : item.name || t('pref.newItem')
+
+  return (
+    <Modal
+      title={title}
+      wide
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className="button" onClick={onClose}>
+            {t('action.cancel')}
+          </button>
+          <button type="button" className="button button--primary" disabled={saving} onClick={onOk}>
+            {t('action.ok')}
+          </button>
+        </>
+      }
+    >
+      <div className="tabs">
+        {(['general', 'common'] as const).map((id) => (
+          <button
+            key={id}
+            type="button"
+            className={tab === id ? 'tabs__tab tabs__tab--active' : 'tabs__tab'}
+            onClick={() => setTab(id)}
+          >
+            {t(`pref.tab.${id}` as MessageKey)}
+          </button>
+        ))}
+      </div>
+      <div className="form">
+        <ErrorMessage error={error} />
+        {tab === 'general' ? (
+          <GeneralFields type={type} kind={kind} actions={actions} item={item} onChange={onChange} />
+        ) : (
+          <>
+            <OptionsEditor
+              half={half}
+              options={item.options}
+              action={item.action}
+              hasAction={kind.has_action}
+              targetingEditable={item.targeting !== null}
+              onChange={(options, action) => onChange({ options, action })}
+            />
+            <TargetingEditor
+              conditions={item.targeting}
+              filterNames={item.filter_names}
+              onChange={(targeting) => onChange({ targeting })}
+            />
+          </>
+        )}
+      </div>
+    </Modal>
+  )
+}
+
+function GeneralFields({
+  type,
+  kind,
+  actions,
+  item,
+  onChange,
+}: {
+  type: PreferenceTypeId
+  kind: PreferenceKind
+  actions: PreferenceAction[]
+  item: Draft
+  onChange: (change: Partial<Draft>) => void
 }) {
   const { t } = useI18n()
   const setProperty = (name: string, value: string) =>
@@ -302,13 +483,10 @@ function ItemForm({
   const multiLine = type === 'registry' && item.properties.type === MULTI_SZ
 
   return (
-    <div className="card stack-tight">
-      <div className="field-inline">
-        <strong>{item.name || t('pref.newItem')}</strong>
-        {showKind && (
-          <span className="badge">{t(`pref.kind.${kind.id}` as MessageKey)}</span>
-        )}
-        {kind.has_action && (
+    <>
+      {kind.has_action && (
+        <label className="field">
+          <span className="field__label">{t('pref.action')}</span>
           <select
             value={item.action ?? 'C'}
             onChange={(event) => onChange({ action: event.target.value as PreferenceAction })}
@@ -319,11 +497,8 @@ function ItemForm({
               </option>
             ))}
           </select>
-        )}
-        <button type="button" className="button button--danger" onClick={onRemove}>
-          {t('action.remove')}
-        </button>
-      </div>
+        </label>
+      )}
 
       {item.has_password && <div className="alert alert--warning">{t('pref.password')}</div>}
       {!kind.creatable && <div className="alert alert--info">{t('pref.notCreatable')}</div>}
@@ -354,27 +529,10 @@ function ItemForm({
         )}
       </div>
 
-      <OptionsEditor
-        half={half}
-        options={item.options}
-        action={item.action}
-        hasAction={kind.has_action}
-        targetingEditable={item.targeting !== null}
-        onChange={(options, action) => onChange({ options, action })}
-      />
-      <TargetingEditor
-        conditions={item.targeting}
-        filterNames={item.filter_names}
-        onChange={(targeting) => onChange({ targeting })}
-      />
-
       {kind.id === 'group' && (
-        <Members
-          members={item.members ?? []}
-          onChange={(members) => onChange({ members })}
-        />
+        <Members members={item.members ?? []} onChange={(members) => onChange({ members })} />
       )}
-    </div>
+    </>
   )
 }
 
