@@ -256,9 +256,12 @@ class DirectoryConnection:
         except Exception as exc:
             raise translate(exc) from exc
 
-    def modify(self, message: Any) -> None:
+    def modify(self, message: Any, controls: list[str] | None = None) -> None:
         try:
-            self.samdb.modify(message)
+            if controls:
+                self.samdb.modify(message, controls=controls)
+            else:
+                self.samdb.modify(message)
         except Exception as exc:
             raise translate(exc) from exc
 

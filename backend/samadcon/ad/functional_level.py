@@ -5,7 +5,8 @@ Raising is ``samba-tool domain level raise`` (Samba 4.22.11,
 python/samba/netcmd/domain/level.py): the same rules — only upwards, the
 domain never above the weakest DC, the forest never above the domain — and
 the same writes in the same order. It cannot be undone; nothing lowers a
-level again.
+level again. One difference: samba-tool writes on the DC, as system; this
+writes over LDAP, which for a systemOnly attribute takes the relax control.
 
 samba-tool leaves the rest to the administrator. Here it is checked, because
 a console that raises a level should know whether the domain is ready:
@@ -52,6 +53,11 @@ FOREST_PREP: dict[int, int] = {3: 2, 4: 5, 5: 11, 6: 15, 7: 16}
 DOMAIN_PREP: dict[int, int] = {3: 3, 4: 5, 5: 9, 6: 10, 7: 16}
 
 SCHEMA_2019 = 88
+
+# msDS-Behavior-Version is systemOnly. Over LDAP, Samba's objectclass_attrs
+# refuses it ("can only be modified as system") unless the request carries
+# relax. Measured on a throwaway 4.22 DC: without it, LDAP_CONSTRAINT_VIOLATION.
+RELAX = ["relax:0"]
 LEVEL_2016 = 7
 
 LEVEL = "msDS-Behavior-Version"
@@ -352,7 +358,7 @@ def raise_levels(
         message.dn = ldb.Dn(conn.samdb, dn)
         message[attribute] = ldb.MessageElement(value, ldb.FLAG_MOD_REPLACE, attribute)
         try:
-            conn.modify(message)
+            conn.modify(message, controls=RELAX)
         except SamadconError as exc:
             # samba-tool passes over a crossRef the server will not take.
             if target == "crossref" and exc.code == "unwilling_to_perform":
