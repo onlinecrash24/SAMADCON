@@ -17,6 +17,7 @@ class Info:
     dns_domain = "example.test"
     netbios_name = "EXAMPLE"
     base_dn = "DC=example,DC=test"
+    config_dn = "CN=Configuration,DC=example,DC=test"
     root_domain_dn = "DC=example,DC=test"
     domain_sid = "S-1-5-21-1-2-3"
     dc_hostname = "dc1.example.test"
@@ -30,6 +31,10 @@ class Info:
 class Conn:
     info = Info()
     transport = None
+
+    def get(self, dn: str, attrs: Any = None) -> Any:
+        # The levels are read fresh; with nothing here, sign-in's stand.
+        return None
 
 
 def collected(**overrides: Any) -> dict[str, Any]:

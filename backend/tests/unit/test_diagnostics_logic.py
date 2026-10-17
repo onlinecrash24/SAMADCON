@@ -15,7 +15,14 @@ from samadcon.ad import diagnostics
 
 @pytest.mark.parametrize(
     ("value", "expected"),
-    [(0, "Windows 2000"), (3, "Windows Server 2008"), (7, "Windows Server 2016")],
+    [
+        (0, "Windows 2000"),
+        (3, "Windows Server 2008"),
+        (7, "Windows Server 2016"),
+        # Not 8: Microsoft numbers Windows Server 2025 as 10, and 8 and 9
+        # were never given out.
+        (10, "Windows Server 2025"),
+    ],
 )
 def test_a_known_functional_level_gets_its_name(value, expected):
     assert diagnostics.level_name(value) == expected
@@ -24,6 +31,10 @@ def test_a_known_functional_level_gets_its_name(value, expected):
 def test_an_unknown_functional_level_still_says_something():
     """A newer Windows must not turn the field blank."""
     assert diagnostics.level_name(99) == "Unknown (99)"
+
+
+def test_8_is_not_a_functional_level():
+    assert diagnostics.level_name(8) == "Unknown (8)"
 
 
 def test_a_missing_functional_level_stays_missing():
@@ -116,3 +127,52 @@ def test_a_lockout_without_a_duration_lasts_until_an_admin_clears_it():
 def test_the_boundary_belongs_to_the_expired_side():
     locked_at = NOW - timedelta(minutes=30)
     assert diagnostics._still_locked(locked_at, timedelta(minutes=30), NOW) is False
+
+
+# ---------------------------------------------------------------------------
+# The levels the overview shows
+# ---------------------------------------------------------------------------
+
+
+class _LevelsInfo:
+    dns_domain = "example.lan"
+    netbios_name = "EXAMPLE"
+    base_dn = "DC=example,DC=lan"
+    config_dn = "CN=Configuration,DC=example,DC=lan"
+    root_domain_dn = "DC=example,DC=lan"
+    domain_sid = "S-1-5-21-1-2-3"
+    dc_hostname = "dc1.example.lan"
+    # What the rootDSE said at sign-in, before the raise.
+    domain_functional_level = 4
+    forest_functional_level = 4
+    dc_vendor = "Samba Team (https://www.samba.org)"
+    dc_vendor_version = "4.22.11"
+    is_samba = True
+
+
+class _LevelsConn:
+    info = _LevelsInfo()
+
+    def __init__(self, objects):
+        self.objects = objects
+
+    def get(self, dn, attrs=None):
+        return self.objects.get(dn)
+
+
+def test_the_overview_reads_the_levels_from_the_directory_not_from_sign_in():
+    """The connection reads the rootDSE once; a raise since would not show."""
+    conn = _LevelsConn(
+        {
+            "DC=example,DC=lan": {"msDS-Behavior-Version": ["7"]},
+            "CN=Partitions,CN=Configuration,DC=example,DC=lan": {"msDS-Behavior-Version": ["7"]},
+        }
+    )
+    facts = diagnostics.domain_facts(conn)
+    assert (facts["domain_level"], facts["forest_level"]) == (7, 7)
+    assert facts["domain_level_name"] == "Windows Server 2016"
+
+
+def test_the_overview_falls_back_to_sign_in_when_the_directory_says_nothing():
+    facts = diagnostics.domain_facts(_LevelsConn({}))
+    assert (facts["domain_level"], facts["forest_level"]) == (4, 4)
