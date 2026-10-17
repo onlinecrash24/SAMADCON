@@ -336,6 +336,7 @@ class Writable(Directory):
     def __init__(self, objects, *, cross_ref_unwilling=False):
         super().__init__(objects)
         self.modified = []
+        self.controls = []
         self.cross_ref_unwilling = cross_ref_unwilling
 
     @property
@@ -344,7 +345,7 @@ class Writable(Directory):
 
         return ldb.Ldb()
 
-    def modify(self, message):
+    def modify(self, message, controls=None):
         from samadcon.ad import values
 
         dn = str(message.dn)
@@ -355,6 +356,7 @@ class Writable(Directory):
             # What connection.translate makes of LDB_ERR_UNWILLING_TO_PERFORM.
             raise InvalidRequest("The directory server refused it.", code="unwilling_to_perform")
         self.modified.append((dn, changes))
+        self.controls.append(controls)
 
 
 def test_raising_writes_what_samba_tool_writes_where_it_writes_it():
@@ -380,3 +382,14 @@ def test_a_refused_raise_writes_nothing():
     with pytest.raises(Conflict):
         fl.raise_levels(conn, domain_level=7, forest_level=None, confirm="myantispam.local")
     assert conn.modified == []
+
+
+def test_every_write_carries_the_relax_control():
+    """msDS-Behavior-Version is systemOnly. samba-tool writes it on the DC,
+    as system; over LDAP Samba refuses it without relax (objectclass_attrs.c),
+    measured on the throwaway DC: LDAP_CONSTRAINT_VIOLATION, "can only be
+    modified as system"."""
+    pytest.importorskip("ldb")
+    conn = Writable(READY_OBJECTS)
+    fl.raise_levels(conn, domain_level=7, forest_level=7, confirm="myantispam.local")
+    assert conn.controls == [["relax:0"]] * 3
