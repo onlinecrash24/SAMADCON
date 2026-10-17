@@ -645,6 +645,35 @@ export interface PasswordPolicy {
 }
 
 /** What PUT /password-policy takes; a field left out stays as it is. */
+/** One thing between the domain and a functional level, in the order to do it. */
+export type FunctionalLevelStep =
+  | { step: 'dc_level'; controllers: string[]; setting?: string }
+  | { step: 'schema'; command: string }
+  | { step: 'prep'; command: string }
+
+export interface FunctionalLevelTarget {
+  level: number
+  name: string
+  /** Whether the domain would move too, or only the forest. */
+  domain: boolean
+  missing: FunctionalLevelStep[]
+}
+
+export interface FunctionalLevelState {
+  is_samba: boolean
+  domain_level: number
+  domain_level_name: string | null
+  forest_level: number
+  forest_level_name: string | null
+  mixed: boolean
+  controllers: { name: string; level: number; level_name: string | null }[]
+  /** What functionalprep left on CN=ActiveDirectoryUpdate; 0 when absent. */
+  forest_revision: number
+  domain_revision: number
+  schema_version: number | null
+  targets: FunctionalLevelTarget[]
+}
+
 export interface PasswordPolicyChanges {
   complexity?: boolean
   reversible_encryption?: boolean

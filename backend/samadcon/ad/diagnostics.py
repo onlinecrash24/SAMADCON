@@ -25,7 +25,8 @@ from samadcon.core.errors import NotFound
 
 logger = logging.getLogger(__name__)
 
-# msDS-Behavior-Version values (MS-ADTS 6.1.4.2/6.1.4.3).
+# msDS-Behavior-Version values (MS-ADTS 6.1.4.2/6.1.4.3). Windows Server 2025
+# is 10, not 8; 8 and 9 were never given out.
 FUNCTIONAL_LEVELS: dict[int, str] = {
     0: "Windows 2000",
     1: "Windows Server 2003 interim",
@@ -35,7 +36,7 @@ FUNCTIONAL_LEVELS: dict[int, str] = {
     5: "Windows Server 2012",
     6: "Windows Server 2012 R2",
     7: "Windows Server 2016",
-    8: "Windows Server 2025",
+    10: "Windows Server 2025",
 }
 
 # pwdProperties bits (MS-ADTS 2.2.16).
@@ -517,6 +518,21 @@ def _account_summary(entry: Any) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+def _current_levels(conn: DirectoryConnection) -> tuple[int | None, int | None]:
+    """The domain and forest level as the directory holds them now.
+
+    The connection read the rootDSE once, at sign-in; after a raise it would
+    show the old level until the next one. Where the objects say nothing, the
+    rootDSE's values stand.
+    """
+    domain = conn.get(conn.info.base_dn, attrs=["msDS-Behavior-Version"])
+    forest = conn.get(f"CN=Partitions,{conn.info.config_dn}", attrs=["msDS-Behavior-Version"])
+    return (
+        values.as_int(domain, "msDS-Behavior-Version", conn.info.domain_functional_level),
+        values.as_int(forest, "msDS-Behavior-Version", conn.info.forest_functional_level),
+    )
+
+
 def domain_facts(conn: DirectoryConnection) -> dict[str, Any]:
     """Which domain this is, from what the connection already knows.
 
@@ -524,16 +540,17 @@ def domain_facts(conn: DirectoryConnection) -> dict[str, Any]:
     and reaching into `overview()` for that would fetch four other things
     to throw them away.
     """
+    domain_level, forest_level = _current_levels(conn)
     return {
         "dns_domain": conn.info.dns_domain,
         "netbios_name": conn.info.netbios_name,
         "base_dn": conn.info.base_dn,
         "domain_sid": conn.info.domain_sid,
         "connected_dc": conn.info.dc_hostname,
-        "domain_level": conn.info.domain_functional_level,
-        "domain_level_name": level_name(conn.info.domain_functional_level),
-        "forest_level": conn.info.forest_functional_level,
-        "forest_level_name": level_name(conn.info.forest_functional_level),
+        "domain_level": domain_level,
+        "domain_level_name": level_name(domain_level),
+        "forest_level": forest_level,
+        "forest_level_name": level_name(forest_level),
         "is_forest_root": (conn.info.root_domain_dn or conn.info.base_dn).lower()
         == conn.info.base_dn.lower(),
         # Samba names itself in the rootDSE; a Windows DC does not.

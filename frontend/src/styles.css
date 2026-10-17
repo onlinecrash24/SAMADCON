@@ -1336,3 +1336,10 @@ fieldset[disabled] { opacity: 0.6; }
 /* Rows are picked and opened, as in GPMC, not read as text: a double-click
    that opens an item should not leave a word of it highlighted behind. */
 .pref__list tbody tr { user-select: none; cursor: default; }
+
+/* The steps a functional level still needs: each with the line or command to
+   run on the DC, copyable, because it is typed into a root shell. */
+.fl__steps { margin: 6px 0; padding-left: 22px; }
+.fl__steps li { margin: 8px 0; }
+.fl__command { display: flex; gap: 8px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+.fl__command code { padding: 4px 8px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 4px; overflow-wrap: anywhere; }

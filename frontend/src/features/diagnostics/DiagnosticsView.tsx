@@ -24,9 +24,10 @@ import { useI18n } from '../../i18n'
 import type { MessageKey } from '../../i18n/messages'
 import { useSession } from '../../state/session'
 import { isSambaDc } from '../../dcKind'
+import { FunctionalLevelCard } from './FunctionalLevelCard'
 import { PasswordPolicyDialog } from './PasswordPolicyDialog'
 
-type Tab = 'overview' | 'replication' | 'policy' | 'accounts' | 'members'
+type Tab = 'overview' | 'levels' | 'replication' | 'policy' | 'accounts' | 'members'
 
 export function DiagnosticsView() {
   const { t } = useI18n()
@@ -45,7 +46,7 @@ export function DiagnosticsView() {
     <>
       <div className="pane__header">
         <div className="tabs">
-          {(['overview', 'replication', 'policy', 'accounts', 'members'] as Tab[]).map(
+          {(['overview', 'levels', 'replication', 'policy', 'accounts', 'members'] as Tab[]).map(
             (id) => (
             <button
               key={id}
@@ -69,6 +70,7 @@ export function DiagnosticsView() {
         </div>
       )}
 
+      {tab === 'levels' && <FunctionalLevelCard dnsDomain={data.domain.dns_domain} />}
       {tab === 'replication' && <ReplicationCard status={data.replication} />}
       {tab === 'policy' && (
         <PolicyCard policy={data.policy} editable={samba} windowsDc={!samba} />

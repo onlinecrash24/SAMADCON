@@ -955,6 +955,45 @@ export const de = {
   'diag.tab.replication': 'Replikation',
   'diag.tab.policy': 'Kennwortrichtlinie',
   'diag.tab.members': 'Mitglieder',
+  'diag.tab.levels': 'Funktionsebene',
+  'fl.title': 'Funktionsebene',
+  'fl.schema': 'Schema-Version (objectVersion)',
+  'fl.prep': 'Vorbereitung (functionalprep)',
+  'fl.prepRevisions': 'Gesamtstruktur Revision {forest}, Domäne Revision {domain}',
+  'fl.controller': 'Domänencontroller',
+  'fl.controllerLevel': 'Läuft auf Ebene',
+  'fl.raiseTitle': 'Anheben',
+  'fl.sambaPartial':
+    'Samba nennt die Ebenen 2012 bis 2016 selbst eine erste, unvollständige Umsetzung. Sie bringen vor allem Kerberos-Armoring (FAST), Authentifizierungsrichtlinien und -silos sowie Claims im Kerberos-Ticket; Zugriffsentscheidungen anhand von Claims trifft Samba noch nicht. Heben Sie nur an, wenn Sie eines davon brauchen: Eine angehobene Ebene lässt sich nicht wieder senken.',
+  'fl.windows':
+    'Bei Windows-Domänencontrollern zeigt SAMADCON nur an, wie weit die Domäne ist. Anheben lässt sich die Ebene dort mit „Active Directory-Domänen und -Vertrauensstellungen“ oder mit Set-ADDomainMode und Set-ADForestMode.',
+  'fl.highest': 'Domäne und Gesamtstruktur stehen bereits auf der höchsten bekannten Ebene.',
+  'fl.target': 'Zielebene',
+  'fl.ready': 'Bereit zum Anheben',
+  'fl.missingIntro': 'Für {level} fehlt noch, in dieser Reihenfolge:',
+  'fl.step.dcSamba':
+    'Auf {controllers}: in der smb.conf im Abschnitt [global] diese Zeile eintragen und Samba neu starten.',
+  'fl.step.dcWindows':
+    '{controllers} läuft auf einer älteren Windows-Server-Version und muss vorher aktualisiert oder ersetzt werden.',
+  'fl.step.schema': 'Auf dem Schema-Master das Schema auf den Stand von Windows Server 2019 bringen:',
+  'fl.step.prep':
+    'Auf dem Schema-Master die Vorbereitung ausführen. Der Domänenteil verlangt den Infrastruktur-Master; bei einer einzelnen Domäne ist das meist derselbe DC:',
+  'fl.reload': 'Danach diese Seite neu laden; SAMADCON prüft dann erneut.',
+  'fl.scope': 'Was angehoben wird',
+  'fl.scope.both': 'Domäne und Gesamtstruktur',
+  'fl.scope.domain': 'Nur die Domäne',
+  'fl.scope.forest': 'Nur die Gesamtstruktur',
+  'fl.raise': 'Anheben …',
+  'fl.confirmTitle': 'Auf {level} anheben?',
+  'fl.confirmScope.both': 'Domäne und Gesamtstruktur werden auf {level} angehoben.',
+  'fl.confirmScope.domain':
+    'Die Domäne wird auf {level} angehoben; die Gesamtstruktur bleibt, wo sie ist.',
+  'fl.confirmScope.forest': 'Die Gesamtstruktur wird auf {level} angehoben.',
+  'fl.confirmWarning':
+    'Das lässt sich nicht rückgängig machen. Jeder Samba-DC muss „ad dc functional level“ in seiner smb.conf danach mindestens auf dieser Ebene behalten, sonst startet er nicht mehr. Ein neuer DC braucht die Zeile, bevor er der Domäne beitritt.',
+  'fl.confirmType': 'Zur Bestätigung den Domänennamen eintippen: {domain}',
+  'fl.confirmButton': 'Endgültig anheben',
+  'fl.done': 'Angehoben. Domäne: {domain}, Gesamtstruktur: {forest}.',
   'diag.members': 'Rechner in der Domäne',
   'diag.membersHint':
     'Nicht wer gerade verbunden ist — das steht in smbstatus auf dem Domänencontroller und verlässt ihn nicht. Hier steht, was jeder Rechner darf: welche Kerberos-Verschlüsselung er aushandeln kann, und ob er sich bei der Anmeldung anderer für sie ausgeben könnte.',
@@ -1205,6 +1244,30 @@ export const de = {
     'Auf einem Windows-Domänencontroller kommt die Kennwortrichtlinie aus der Default Domain Policy.',
   'error.windows_dc_password_policy.hint':
     'Ändern Sie sie in der Default Domain Policy; der DC überträgt sie auf die Domäne.',
+  'error.windows_dc_functional_level':
+    'SAMADCON hebt die Funktionsebene nur auf Samba-Domänencontrollern an.',
+  'error.windows_dc_functional_level.hint':
+    'Unter Windows mit „Active Directory-Domänen und -Vertrauensstellungen“ oder mit Set-ADDomainMode und Set-ADForestMode.',
+  'error.functional_level_confirm':
+    'Zur Bestätigung den Domänennamen {domain} eintippen; ein Anheben lässt sich nicht rückgängig machen.',
+  'error.functional_level_unknown': 'Samba kennt die Funktionsebene {level} nicht.',
+  'error.functional_level_not_higher': 'Eine Funktionsebene lässt sich nur anheben.',
+  'error.functional_level_not_higher.domain':
+    'Die Domäne steht schon auf {current}; sie lässt sich nur anheben.',
+  'error.functional_level_not_higher.forest':
+    'Die Gesamtstruktur steht schon auf {current}; sie lässt sich nur anheben.',
+  'error.functional_level_forest_above_domain':
+    'Die Gesamtstruktur kann nicht über die Domäne ({domain}) gehoben werden.',
+  'error.functional_level_forest_above_domain.hint': 'Erst die Domäne anheben oder beide zusammen.',
+  'error.functional_level_above_dc': '{controllers} läuft noch nicht auf {level}.',
+  'error.functional_level_above_dc.hint':
+    'In der smb.conf jedes genannten DCs „{setting}“ eintragen und Samba neu starten.',
+  'error.functional_level_not_prepared': 'Die Domäne ist für {level} noch nicht vorbereitet.',
+  'error.functional_level_not_prepared.schema':
+    'Für {level} fehlt das Schema von Windows Server 2019.',
+  'error.functional_level_not_prepared.prep':
+    'Für {level} ist samba-tool domain functionalprep noch nicht gelaufen.',
+  'error.functional_level_not_prepared.hint': 'Auf dem Schema-Master ausführen: {command}',
   'error.password_age_order':
     'Das maximale Kennwortalter ({max_age} Tage) muss größer sein als das minimale ({min_age} Tage).',
   'error.password_age_order.hint': '0 Tage beim maximalen Alter bedeutet: Kennwörter laufen nie ab.',
@@ -2860,6 +2923,44 @@ export const en: Record<MessageKey, string> = {
   'diag.tab.replication': 'Replication',
   'diag.tab.policy': 'Password policy',
   'diag.tab.members': 'Members',
+  'diag.tab.levels': 'Functional level',
+  'fl.title': 'Functional level',
+  'fl.schema': 'Schema version (objectVersion)',
+  'fl.prep': 'Preparation (functionalprep)',
+  'fl.prepRevisions': 'forest revision {forest}, domain revision {domain}',
+  'fl.controller': 'Domain controller',
+  'fl.controllerLevel': 'Runs at level',
+  'fl.raiseTitle': 'Raise',
+  'fl.sambaPartial':
+    'Samba itself calls the levels 2012 to 2016 an initial, partial implementation. They bring mainly Kerberos armoring (FAST), authentication policies and silos, and claims in the Kerberos ticket; Samba does not yet make access decisions on claims. Raise only if you need one of these: a raised level cannot be lowered again.',
+  'fl.windows':
+    'On Windows domain controllers SAMADCON only shows how far the domain is. Raise the level there with Active Directory Domains and Trusts, or with Set-ADDomainMode and Set-ADForestMode.',
+  'fl.highest': 'Domain and forest are already at the highest level known.',
+  'fl.target': 'Target level',
+  'fl.ready': 'Ready to raise',
+  'fl.missingIntro': 'Still missing for {level}, in this order:',
+  'fl.step.dcSamba':
+    'On {controllers}: add this line to the [global] section of smb.conf and restart Samba.',
+  'fl.step.dcWindows':
+    '{controllers} runs an older Windows Server version and has to be upgraded or replaced first.',
+  'fl.step.schema': 'On the schema master, bring the schema up to Windows Server 2019:',
+  'fl.step.prep':
+    'On the schema master, run the preparation. Its domain part needs the infrastructure master; in a single domain that is usually the same DC:',
+  'fl.reload': 'Then reload this page; SAMADCON checks again.',
+  'fl.scope': 'What to raise',
+  'fl.scope.both': 'Domain and forest',
+  'fl.scope.domain': 'The domain only',
+  'fl.scope.forest': 'The forest only',
+  'fl.raise': 'Raise …',
+  'fl.confirmTitle': 'Raise to {level}?',
+  'fl.confirmScope.both': 'The domain and the forest are raised to {level}.',
+  'fl.confirmScope.domain': 'The domain is raised to {level}; the forest stays where it is.',
+  'fl.confirmScope.forest': 'The forest is raised to {level}.',
+  'fl.confirmWarning':
+    'This cannot be undone. Every Samba DC has to keep "ad dc functional level" in its smb.conf at this level or higher afterwards, or it will no longer start. A new DC needs the line before it joins the domain.',
+  'fl.confirmType': "Type the domain's name to confirm: {domain}",
+  'fl.confirmButton': 'Raise for good',
+  'fl.done': 'Raised. Domain: {domain}, forest: {forest}.',
   'diag.members': 'Computers in the domain',
   'diag.membersHint':
     'Not who is connected right now — that lives in smbstatus on the domain controller and never leaves it. This is what each machine may do: which Kerberos ciphers it can negotiate, and whether it could impersonate other people as they authenticate to it.',
@@ -3110,6 +3211,30 @@ export const en: Record<MessageKey, string> = {
     'On a Windows domain controller the password policy comes from the Default Domain Policy.',
   'error.windows_dc_password_policy.hint':
     'Change it in the Default Domain Policy; the DC applies it to the domain.',
+  'error.windows_dc_functional_level':
+    'SAMADCON raises the functional level on Samba domain controllers only.',
+  'error.windows_dc_functional_level.hint':
+    'On Windows, use Active Directory Domains and Trusts, or Set-ADDomainMode and Set-ADForestMode.',
+  'error.functional_level_confirm':
+    "Type the domain's name {domain} to confirm; a raise cannot be undone.",
+  'error.functional_level_unknown': 'Samba does not know the functional level {level}.',
+  'error.functional_level_not_higher': 'A functional level can only be raised.',
+  'error.functional_level_not_higher.domain':
+    'The domain is already at {current}; it can only be raised.',
+  'error.functional_level_not_higher.forest':
+    'The forest is already at {current}; it can only be raised.',
+  'error.functional_level_forest_above_domain':
+    'The forest cannot be raised above the domain ({domain}).',
+  'error.functional_level_forest_above_domain.hint': 'Raise the domain first, or both together.',
+  'error.functional_level_above_dc': '{controllers} does not run at {level} yet.',
+  'error.functional_level_above_dc.hint':
+    'Add "{setting}" to the smb.conf of each DC named and restart Samba.',
+  'error.functional_level_not_prepared': 'The domain is not prepared for {level} yet.',
+  'error.functional_level_not_prepared.schema':
+    '{level} needs the Windows Server 2019 schema.',
+  'error.functional_level_not_prepared.prep':
+    'samba-tool domain functionalprep has not run for {level} yet.',
+  'error.functional_level_not_prepared.hint': 'Run on the schema master: {command}',
   'error.password_age_order':
     'The maximum password age ({max_age} days) must be greater than the minimum ({min_age} days).',
   'error.password_age_order.hint': '0 days as the maximum age means passwords never expire.',

@@ -32,6 +32,7 @@ import type {
   ExistingTemplates,
   FindingArea,
   FindingsReport,
+  FunctionalLevelState,
   RegistrationDifferences,
   ScriptFile,
   DirectoryObject,
@@ -752,6 +753,12 @@ export const api = {
   passwordPolicy: () => http.get<PasswordPolicy>('/diagnostics/policy'),
   setPasswordPolicy: (changes: PasswordPolicyChanges) =>
     http.put<PasswordPolicy>('/password-policy', changes),
+  functionalLevel: () => http.get<FunctionalLevelState>('/functional-level'),
+  raiseFunctionalLevel: (request: {
+    domain_level: number | null
+    forest_level: number | null
+    confirm: string
+  }) => http.put<FunctionalLevelState>('/functional-level', request),
   problemAccounts: (limit = 200) =>
     http.get<AccountProblems>(`/diagnostics/accounts?limit=${limit}`),
 
