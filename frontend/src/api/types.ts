@@ -1197,14 +1197,46 @@ export interface PreferenceItem {
   members: PreferenceMember[]
   bypass_errors: boolean
   user_context: boolean
+  /** The common options, as GPMC's dialog shows them. */
+  options: PreferenceOptions
+  /**
+   * Item-level targeting. Editable when it holds only group, OU, computer
+   * and user conditions; otherwise shown through filter_names and carried
+   * over from the file by the server, never replaced.
+   */
+  targeting: { editable: boolean; conditions: TargetCondition[] }
   /** An encrypted password already in the file. Never set from here. */
   has_password: boolean
-  /**
-   * Item-level targeting, read only. It is not sent back when saving — the
-   * server carries it over from the file by uid, so editing an item cannot
-   * drop the filter that decides who it applies to.
-   */
   filter_names: string[]
+}
+
+export interface PreferenceOptions {
+  /** "Stop processing items on error" — bypassErrors="0" in the file. */
+  stop_on_error: boolean
+  /** Run in the logged-on user's security context; user half only. */
+  user_context: boolean
+  /** Remove the item when it no longer applies; makes the action Replace. */
+  remove_policy: boolean
+  /** Apply once and do not reapply; excludes remove_policy. */
+  run_once: boolean
+}
+
+export type TargetConditionType = 'group' | 'ou' | 'computer' | 'user'
+
+export interface TargetCondition {
+  type: TargetConditionType
+  bool: 'AND' | 'OR'
+  not: boolean
+  name: string
+  sid?: string
+  /** Group or OU: true for the user, false for the computer. */
+  user_context?: boolean
+  primary_group?: boolean
+  local_group?: boolean
+  direct_member?: boolean
+  computer_type?: 'NETBIOS' | 'DNS'
+  /** Set when picked in the console; the server takes name and SID from it. */
+  dn?: string
 }
 
 export interface GpoPreferences {

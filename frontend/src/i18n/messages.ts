@@ -726,6 +726,26 @@ export const de = {
   'error.preference_dword_value.hint': 'Eine Dezimalzahl oder acht hexadezimale Ziffern eingeben.',
   'error.preference_not_creatable': 'Diese Art von Element lässt sich hier nicht anlegen.',
   'error.preference_not_creatable.hint': 'Geplante Aufgaben tragen eine Aufgabendefinition, die diese Version liest und bewahrt, aber nicht neu schreibt. In der GPMC anlegen; danach ist sie hier bearbeitbar.',
+  'error.preference_options_conflict':
+    'Ein Element wird entweder entfernt, wenn es nicht mehr angewendet wird, oder nur einmalig angewendet.',
+  'error.preference_options_conflict.hint': 'Die GPMC bietet immer nur eine der beiden Optionen an.',
+  'error.preference_user_context_machine':
+    'Nur Elemente der Benutzerkonfiguration können im Sicherheitskontext des angemeldeten Benutzers laufen.',
+  'error.preference_targeting_not_editable':
+    'Die Zielgruppenadressierung dieses Elements lässt sich nur in der GPMC ändern.',
+  'error.preference_targeting_not_editable.hint':
+    'Sie enthält eine Sammlung oder einen Filtertyp, den diese Version nicht bearbeitet. Sie bleibt beim Speichern unverändert erhalten.',
+  'error.preference_run_once': 'Die Markierung „Nur einmalig anwenden“ ist beschädigt.',
+  'error.preference_condition_invalid': 'Eine Bedingung der Zielgruppenadressierung ist ungültig.',
+  'error.preference_condition_invalid.type': 'Diese Art von Bedingung kennt SAMADCON nicht.',
+  'error.preference_condition_invalid.bool': 'Eine Bedingung wird mit UND oder ODER verknüpft.',
+  'error.preference_condition_invalid.name': 'Einer Bedingung fehlt der Name, oder er ist ungültig.',
+  'error.preference_condition_invalid.sid': 'Einer Gruppe oder einem Benutzer fehlt eine gültige SID.',
+  'error.preference_condition_invalid.computer_type':
+    'Ein Computername ist entweder ein NetBIOS- oder ein DNS-Name.',
+  'error.preference_condition_invalid.dn':
+    'Das gewählte Objekt passt nicht zur Bedingung, oder es existiert nicht mehr.',
+  'error.preference_condition_invalid.count': 'Zu viele Bedingungen für ein Element.',
   'error.preference_unknown_element': 'Diese Datei enthält Einstellungen, die diese Version nicht bearbeiten kann.',
   'error.preference_unknown_element.hint': 'In der GPMC bearbeiten, oder die Unterstützung dieser Arten anfragen.',
   'error.preference_wrong_half': 'Das gibt es in dieser Hälfte der Richtlinie nicht.',
@@ -1511,7 +1531,28 @@ export const de = {
   'pref.saved': 'Einstellungen gespeichert.',
   'pref.unchanged': 'Nichts zu ändern — die Einträge standen bereits so.',
   'pref.changed': 'Zuletzt geändert',
-  'pref.filters': 'Zielgruppenadressierung auf Elementebene — hier nur angezeigt. Sie bleibt beim Speichern unverändert erhalten.',
+  'pref.options': 'Gemeinsame Optionen',
+  'pref.option.stop_on_error': 'Elementverarbeitung in dieser Erweiterung bei Fehler stoppen',
+  'pref.option.user_context':
+    'Im Sicherheitskontext des angemeldeten Benutzers ausführen (Benutzerrichtlinienoption)',
+  'pref.option.remove_policy': 'Element entfernen, wenn es nicht mehr angewendet wird',
+  'pref.option.run_once': 'Nur einmalig anwenden',
+  'pref.option.removeHint':
+    'Wie in der GPMC steht die Aktion damit auf „Ersetzen“: Nur so lässt sich das Element später wieder entfernen.',
+  'pref.targeting': 'Zielgruppenadressierung',
+  'pref.targeting.none': 'Keine Bedingungen – das Element gilt für alle im Geltungsbereich der GPO.',
+  'pref.targeting.and': 'UND',
+  'pref.targeting.or': 'ODER',
+  'pref.targeting.not': 'ist nicht',
+  'pref.targeting.forUser': 'Benutzer',
+  'pref.targeting.forComputer': 'Computer',
+  'pref.targeting.type.group': 'Sicherheitsgruppe',
+  'pref.targeting.type.ou': 'Organisationseinheit',
+  'pref.targeting.type.user': 'Benutzer',
+  'pref.targeting.type.computer': 'Computername',
+  'pref.targeting.computerName': 'oder NetBIOS-Namen eingeben',
+  'pref.filters':
+    'Diese Zielgruppenadressierung enthält eine Sammlung oder einen Filtertyp, den nur die GPMC bearbeitet. Sie wird hier angezeigt und bleibt beim Speichern unverändert erhalten.',
   'pref.password': 'Dieser Eintrag enthält ein gespeichertes Kennwort. Der Schlüssel dafür ist seit 2014 öffentlich bekannt — jeder, der die Richtlinie lesen darf, kann es entschlüsseln. SAMADCON reicht es unverändert durch und legt selbst keines an.',
   'pref.multiline': 'Eine Zeile je Wert',
   'pref.field.thisDrive': 'Dieses Laufwerk',
@@ -2566,6 +2607,26 @@ export const en: Record<MessageKey, string> = {
   'error.preference_dword_value.hint': 'Enter a decimal number, or eight hexadecimal digits.',
   'error.preference_not_creatable': 'This kind of item cannot be created here.',
   'error.preference_not_creatable.hint': 'Scheduled tasks carry a task definition this version reads and keeps but does not write from scratch. Create it in GPMC; it stays editable here afterwards.',
+  'error.preference_options_conflict':
+    'An item is either removed when it no longer applies or applied once.',
+  'error.preference_options_conflict.hint': 'GPMC offers only one of the two at a time.',
+  'error.preference_user_context_machine':
+    'Only a user-half item can run in the logged-on user\'s context.',
+  'error.preference_targeting_not_editable':
+    'This item\'s targeting can only be changed in GPMC.',
+  'error.preference_targeting_not_editable.hint':
+    'It holds a collection or a filter type this version does not edit. Saving keeps it exactly as it is.',
+  'error.preference_run_once': 'The "apply once" marker is malformed.',
+  'error.preference_condition_invalid': 'A targeting condition is not valid.',
+  'error.preference_condition_invalid.type': 'SAMADCON does not know this kind of condition.',
+  'error.preference_condition_invalid.bool': 'A condition is joined with AND or OR.',
+  'error.preference_condition_invalid.name': 'A condition has no name, or an invalid one.',
+  'error.preference_condition_invalid.sid': 'A group or user condition has no valid SID.',
+  'error.preference_condition_invalid.computer_type':
+    'A computer name is either a NetBIOS or a DNS name.',
+  'error.preference_condition_invalid.dn':
+    'The object picked does not fit the condition, or no longer exists.',
+  'error.preference_condition_invalid.count': 'Too many conditions for one item.',
   'error.preference_unknown_element': 'This file holds settings this version cannot edit.',
   'error.preference_unknown_element.hint': 'Edit it in GPMC, or ask for these kinds to be added.',
   'error.preference_wrong_half': 'This does not exist in that half of the policy.',
@@ -3347,7 +3408,28 @@ export const en: Record<MessageKey, string> = {
   'pref.saved': 'Preferences saved.',
   'pref.unchanged': 'Nothing to change — the items already read that way.',
   'pref.changed': 'Last changed',
-  'pref.filters': 'Item-level targeting — shown here only. Saving leaves it exactly as it is.',
+  'pref.options': 'Common options',
+  'pref.option.stop_on_error': 'Stop processing items in this extension if an error occurs',
+  'pref.option.user_context':
+    'Run in logged-on user\'s security context (user policy option)',
+  'pref.option.remove_policy': 'Remove this item when it is no longer applied',
+  'pref.option.run_once': 'Apply once and do not reapply',
+  'pref.option.removeHint':
+    'As in GPMC, this sets the action to Replace: only then can the item be removed later.',
+  'pref.targeting': 'Item-level targeting',
+  'pref.targeting.none': 'No conditions – the item applies to everyone the GPO applies to.',
+  'pref.targeting.and': 'AND',
+  'pref.targeting.or': 'OR',
+  'pref.targeting.not': 'is not',
+  'pref.targeting.forUser': 'User',
+  'pref.targeting.forComputer': 'Computer',
+  'pref.targeting.type.group': 'Security group',
+  'pref.targeting.type.ou': 'Organizational unit',
+  'pref.targeting.type.user': 'User',
+  'pref.targeting.type.computer': 'Computer name',
+  'pref.targeting.computerName': 'or type a NetBIOS name',
+  'pref.filters':
+    'This targeting holds a collection or a filter type only GPMC edits. It is shown here, and saving leaves it exactly as it is.',
   'pref.password': 'This item holds a stored password. The key for it has been public since 2014 — anyone allowed to read the policy can decrypt it. SAMADCON passes it through unchanged and never creates one.',
   'pref.multiline': 'One line per value',
   'pref.field.thisDrive': 'This drive',

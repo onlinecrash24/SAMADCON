@@ -37,6 +37,7 @@ from xml.etree import ElementTree
 from xml.sax.saxutils import escape
 
 from samadcon.core.errors import InvalidRequest
+from samadcon.gpo.preferences import targeting
 from samadcon.gpo.preferences.catalogue import ACTION, ItemKind, PreferenceType
 
 logger = logging.getLogger(__name__)
@@ -117,6 +118,12 @@ def _read_item(kind: ItemKind, element: Any) -> dict[str, Any]:
 
     filters_element = element.find(FILTERS_TAG)
     filters = None if filters_element is None else _render_element(filters_element)
+    # Targeting this module understands is written back as GPMC writes it,
+    # which also restores the CRLF a parser turns into LF; anything else is
+    # carried as read (targeting.py says what counts as understood).
+    target = targeting.parse(filters)
+    if filters is not None and target["editable"]:
+        filters = targeting.render(target["conditions"], target["run_once"])
 
     # <Properties> is empty for every kind but one: a REG_MULTI_SZ carries its
     # lines in a <Values> block underneath, with a space-joined summary left in
@@ -157,6 +164,15 @@ def _read_item(kind: ItemKind, element: Any) -> dict[str, Any]:
         "changed": attributes.get("changed", ""),
         "bypass_errors": attributes.get("bypassErrors") == "1",
         "user_context": attributes.get("userContext") == "1",
+        # The common options as GPMC's dialog shows them. "Stop processing
+        # items on error" ticked is bypassErrors="0"; "apply once" is a filter.
+        "options": {
+            "stop_on_error": attributes.get("bypassErrors") == "0",
+            "user_context": attributes.get("userContext") == "1",
+            "remove_policy": attributes.get("removePolicy") == "1",
+            "run_once": target["run_once"] is not None,
+        },
+        "targeting": {"editable": target["editable"], "conditions": target["conditions"]},
         "action": action,
         "properties": properties,
         "properties_children": children,
@@ -231,7 +247,7 @@ def _render_item(preference: PreferenceType, item: dict[str, Any]) -> str:
     attributes["uid"] = str(item.get("uid", ""))
     for name, value in (item.get("extra") or {}).items():
         attributes.setdefault(name, str(value))
-    attributes = _in_order(attributes, item.get("order") or [])
+    attributes = _in_order(attributes, _with_options(item.get("order") or []))
 
     properties = _wire_properties(kind, item)
 
@@ -307,6 +323,28 @@ def members_block(members: list[dict[str, str]]) -> str:
         }
         rendered.append(f"<Member{_attributes(attributes)}/>")
     return f"<Members>{''.join(rendered)}</Members>"
+
+
+# Where GPMC puts the common options among an item's attributes, measured on
+# the reference drive P: and the registry item: after `image`, before
+# `changed`. Files differ — a 2025 drive put them after `uid`, a shortcut leads
+# with `userContext` — so an item read from a file keeps its own order, and
+# only an option it did not have yet is placed by this one.
+_OPTION_ORDER = ("removePolicy", "userContext", "bypassErrors")
+_NEW_ITEM_ORDER = ("clsid", "name", "status", "image", *_OPTION_ORDER, "changed", "uid")
+
+
+def _with_options(order: list[str]) -> list[str]:
+    if not order:
+        return list(_NEW_ITEM_ORDER)
+    placed = list(order)
+    for option in _OPTION_ORDER:
+        if option in placed:
+            continue
+        later = (*_OPTION_ORDER[_OPTION_ORDER.index(option) + 1 :], "changed")
+        anchor = next((placed.index(name) for name in later if name in placed), len(placed))
+        placed.insert(anchor, option)
+    return placed
 
 
 def _in_order(attributes: dict[str, str], order: list[str]) -> dict[str, str]:

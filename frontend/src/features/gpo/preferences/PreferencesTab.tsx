@@ -12,11 +12,12 @@
  * type is then a change in one Python file — this tab needs a label and
  * nothing else.
  *
- * Two things the editor deliberately shows but does not touch:
+ * Two things the editor handles with care:
  *
- * * **Item-level targeting.** It is displayed and left alone. Sending it back
- *   with every save would mean a rename could drop the filter that decides
- *   who a drive is mapped for — silently, and in the permissive direction.
+ * * **Item-level targeting.** Group, OU, user and computer conditions are
+ *   edited (TargetingEditor.tsx); anything else — a collection, an IP range,
+ *   WMI — is displayed and left alone, and nothing about it is sent back. A
+ *   dropped filter widens who a drive is mapped for, silently.
  * * **A stored password.** The key for `cpassword` has been public since 2014.
  *   An item that has one keeps it; nothing here can add one.
  */
@@ -33,7 +34,9 @@ import type {
   PreferenceItem,
   PreferenceKind,
   PreferenceMember,
+  PreferenceOptions,
   PreferenceTypeId,
+  TargetCondition,
 } from '../../../api/types'
 import { ErrorMessage, Spinner } from '../../../components/primitives'
 import { useI18n } from '../../../i18n'
@@ -41,11 +44,13 @@ import { useSession } from '../../../state/session'
 import { ObjectPicker } from '../../directory/ObjectPicker'
 import type { MessageKey } from '../../../i18n/messages'
 import { FIRST_TYPE, type PreferenceArea, typesIn } from './preferenceAreas'
+import { NO_OPTIONS } from './preferenceOptions'
+import { OptionsEditor, TargetingEditor } from './TargetingEditor'
 
 const HALVES = ['Machine', 'User'] as const
 const MULTI_SZ = 'REG_MULTI_SZ'
 
-/** What the browser sends back: never the filters, never the unknown parts. */
+/** What the browser sends back: never raw filters, never the unknown parts. */
 interface Draft {
   kind: string
   uid?: string
@@ -54,6 +59,9 @@ interface Draft {
   properties: Record<string, string>
   values?: string[]
   members?: PreferenceMember[]
+  options: PreferenceOptions
+  /** Null when the targeting holds something only GPMC edits; then it is not sent. */
+  targeting: TargetCondition[] | null
   /** Read only, for the item's own heading. */
   name: string
   filter_names: string[]
@@ -99,13 +107,15 @@ export function PreferencesTab({
       api.setGpoPreferences(gpo.dn, {
         type: selected.type,
         half: selected.half,
-        items: draft.map(({ kind, uid, action, properties, values, members }) => ({
+        items: draft.map(({ kind, uid, action, properties, values, members, options, targeting }) => ({
           kind,
           uid,
           action,
           properties,
           values,
           members,
+          options,
+          ...(targeting === null ? {} : { targeting: { conditions: targeting } }),
         })),
         expected_version: current.data?.version_number,
       }),
@@ -186,6 +196,7 @@ export function PreferencesTab({
               <ItemForm
                 key={item.uid ?? `new-${index}`}
                 type={selected.type}
+                half={selected.half}
                 kind={kind}
                 showKind={kinds.length > 1}
                 actions={actions}
@@ -237,6 +248,8 @@ function toDraft(item: PreferenceItem): Draft {
     properties: { ...item.properties },
     values: item.values,
     members: item.members,
+    options: item.options ?? NO_OPTIONS,
+    targeting: item.targeting?.editable ? item.targeting.conditions : null,
     name: item.name,
     filter_names: item.filter_names,
     has_password: item.has_password,
@@ -252,6 +265,8 @@ function blank(kind: PreferenceKind): Draft {
     properties,
     values: [],
     members: [],
+    options: NO_OPTIONS,
+    targeting: [],
     name: '',
     filter_names: [],
     has_password: false,
@@ -260,6 +275,7 @@ function blank(kind: PreferenceKind): Draft {
 
 function ItemForm({
   type,
+  half,
   kind,
   showKind,
   actions,
@@ -268,6 +284,7 @@ function ItemForm({
   onRemove,
 }: {
   type: PreferenceTypeId
+  half: string
   kind: PreferenceKind
   showKind: boolean
   actions: PreferenceAction[]
@@ -309,18 +326,6 @@ function ItemForm({
 
       {item.has_password && <div className="alert alert--warning">{t('pref.password')}</div>}
       {!kind.creatable && <div className="alert alert--info">{t('pref.notCreatable')}</div>}
-      {item.filter_names.length > 0 && (
-        <div className="alert alert--info">
-          {t('pref.filters')}
-          <ul className="plain-list">
-            {item.filter_names.map((name) => (
-              <li key={name} className="mono small">
-                {name}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
 
       <div className="field-row">
         {kind.fields.map((field) =>
@@ -347,6 +352,20 @@ function ItemForm({
           ),
         )}
       </div>
+
+      <OptionsEditor
+        half={half}
+        options={item.options}
+        action={item.action}
+        hasAction={kind.has_action}
+        targetingEditable={item.targeting !== null}
+        onChange={(options, action) => onChange({ options, action })}
+      />
+      <TargetingEditor
+        conditions={item.targeting}
+        filterNames={item.filter_names}
+        onChange={(targeting) => onChange({ targeting })}
+      />
 
       {kind.id === 'group' && (
         <Members

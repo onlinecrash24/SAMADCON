@@ -28,7 +28,7 @@ from typing import Any
 from samadcon.ad.connection import DirectoryConnection
 from samadcon.core.errors import Conflict, InvalidRequest
 from samadcon.gpo import container, cse, sysvol
-from samadcon.gpo.preferences import catalogue, xmlfile
+from samadcon.gpo.preferences import catalogue, targeting, xmlfile
 from samadcon.gpo.preferences.catalogue import ItemKind, PreferenceType
 
 logger = logging.getLogger(__name__)
@@ -101,7 +101,9 @@ def write(
         _refuse_unknown_elements(preference, current)
 
     existing = {item["uid"]: item for item in _parse(preference, current) if item["uid"]}
-    prepared = [_prepare(preference, half, item, existing) for item in items]
+    prepared = [
+        _prepare(preference, half, _with_directory_names(conn, item), existing) for item in items
+    ]
 
     if not prepared:
         return _clear(conn, dn, preference, half, share, resolved, gpo)
@@ -207,6 +209,8 @@ def _prepare(
     properties = catalogue.normalise(kind.id, properties)
     children, properties = _children(kind, item, previous, properties)
 
+    filters, extra, action = _options_and_targeting(kind, half, item, previous, action)
+
     name = catalogue.display_name(kind.id, properties)
     built = {
         "kind": kind.id,
@@ -217,11 +221,11 @@ def _prepare(
         "action": action,
         "properties": properties,
         "properties_children": children,
-        # Never from the client: it does not have them and cannot be trusted
-        # with them.
-        "filters": previous.get("filters"),
+        # Never raw from the client: built from checked conditions, or carried
+        # from the file. A block that is not understood is only ever carried.
+        "filters": filters,
         "filters_first": previous.get("filters_first", kind.filters_first),
-        "extra": previous.get("extra") or {},
+        "extra": extra,
         "order": previous.get("order") or [],
         "properties_order": previous.get("properties_order") or [],
     }
@@ -234,6 +238,111 @@ def _prepare(
         else _now()
     )
     return built
+
+
+def _with_directory_names(conn: DirectoryConnection, item: dict[str, Any]) -> dict[str, Any]:
+    """Conditions picked in the console get their name and SID from the DC."""
+    sent = item.get("targeting")
+    if not isinstance(sent, dict) or not isinstance(sent.get("conditions"), list):
+        return item
+    conditions = targeting.resolve(conn, sent["conditions"])
+    return {**item, "targeting": {**sent, "conditions": conditions}}
+
+
+_NO_OPTIONS = {
+    "stop_on_error": False,
+    "user_context": False,
+    "remove_policy": False,
+    "run_once": False,
+}
+
+
+def _options_and_targeting(
+    kind: ItemKind,
+    half: str,
+    item: dict[str, Any],
+    previous: dict[str, Any],
+    action: str,
+) -> tuple[str | None, dict[str, str], str]:
+    """The ``<Filters>`` block, the item attributes and the action.
+
+    Untouched unless the editor sent ``options`` or ``targeting``: then the
+    file's own spelling of everything else is kept. The options are written
+    as the reference GPO shows them:
+
+    - removal is ``removePolicy="1"`` and makes the action Replace;
+    - the user's security context is ``userContext="1"``, a user-half option;
+    - stopping on error is ``bypassErrors="0"`` (not stopping, "1");
+    - apply once is a filter, ``FilterRunOnce``, and excludes removal.
+
+    An option turned off is written "0" where the file had the attribute — a
+    group states userContext="0" outright — and left out where it had none.
+    """
+    filters = previous.get("filters")
+    extra = dict(previous.get("extra") or {})
+    sent_options = item.get("options")
+    sent_targeting = item.get("targeting")
+    if sent_options is None and sent_targeting is None:
+        return filters, extra, action
+
+    current = targeting.parse(filters)
+    read_options = previous.get("options") or {
+        **_NO_OPTIONS,
+        "run_once": current["run_once"] is not None,
+    }
+    wanted = {**_NO_OPTIONS, **read_options, **(sent_options or {})}
+    wanted = {name: bool(wanted[name]) for name in _NO_OPTIONS}
+
+    if wanted["remove_policy"] and wanted["run_once"]:
+        raise InvalidRequest(
+            "An item is either removed when it no longer applies or applied once.",
+            code="preference_options_conflict",
+            hint="GPMC offers only one of the two at a time.",
+        )
+    if wanted["user_context"] and half == "Machine":
+        raise InvalidRequest(
+            "Only a user-half item can run in the logged-on user's context.",
+            code="preference_user_context_machine",
+        )
+
+    run_once_changed = wanted["run_once"] != (current["run_once"] is not None)
+    if not current["editable"]:
+        if sent_targeting is not None or run_once_changed:
+            raise InvalidRequest(
+                "This item's targeting can only be changed in GPMC.",
+                code="preference_targeting_not_editable",
+                hint="It holds a collection or a filter type this version does not edit.",
+            )
+    else:
+        conditions = (
+            targeting.validate((sent_targeting or {}).get("conditions") or [])
+            if sent_targeting is not None
+            else current["conditions"]
+        )
+        run_once = (
+            (current["run_once"] or targeting.new_run_once_id()) if wanted["run_once"] else None
+        )
+        filters = targeting.render(conditions, run_once)
+
+    if sent_options is not None:
+        _set_option(extra, "removePolicy", wanted["remove_policy"])
+        _set_option(extra, "userContext", wanted["user_context"])
+        if wanted["stop_on_error"]:
+            extra["bypassErrors"] = "0"
+        elif "bypassErrors" in extra or not previous:
+            # GPMC writes it on every item it creates; an old file without it
+            # keeps going without it.
+            extra["bypassErrors"] = "1"
+        if wanted["remove_policy"] and kind.has_action:
+            action = "R"
+    return filters, extra, action
+
+
+def _set_option(extra: dict[str, str], name: str, on: bool) -> None:
+    if on:
+        extra[name] = "1"
+    elif name in extra:
+        extra[name] = "0"
 
 
 def _children(

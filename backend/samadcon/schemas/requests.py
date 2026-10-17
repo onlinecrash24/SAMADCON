@@ -443,10 +443,13 @@ class SetPreferenceItemsRequest(StrictModel):
     policies: the file holds all of them, so reordering, removing and adding
     are one operation.
 
-    What is *not* here is as deliberate: an item carries no filters and no
+    What is *not* here is as deliberate: an item carries no raw filters and no
     unmodelled attributes on the way in. Those are read from the file that is
     already on SYSVOL and carried over by ``uid``, so a rename cannot quietly
-    drop the item-level targeting that decides who a drive is mapped for.
+    drop the item-level targeting that decides who a drive is mapped for. An
+    item may carry ``options`` and ``targeting.conditions``; both are checked
+    and turned into GPMC's spelling in samadcon.gpo.preferences, and targeting
+    that is not fully understood can only be carried, never replaced.
     """
 
     type: str = Field(min_length=1, max_length=32, pattern=r"^[a-z_]+$")
