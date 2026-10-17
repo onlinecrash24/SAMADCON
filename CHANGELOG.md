@@ -14,6 +14,42 @@ release.
 
 ---
 
+## 0.6.16 — 2026-10-17
+
+Samba and Windows domain controllers told apart where the password policy differs.
+
+A tester runs SAMADCON against three classic Windows domains. 0.6.15
+said that a GPO's password and lockout settings have no effect on domain
+accounts, and offered to edit the domain object's values instead. That
+is right on a Samba DC and wrong on a Windows DC: there the DC copies the
+Default Domain Policy onto the domain object, and would overwrite an
+edit made there at its next policy refresh.
+
+SAMADCON now asks the rootDSE for vendorName and vendorVersion at sign-in.
+Samba names itself there ("Samba Team (https://www.samba.org)", measured
+on 4.22.11); a Windows DC sends neither, and Microsoft's list of rootDSE
+attributes has neither.
+
+- Diagnostics > Password policy offers Edit on a Samba DC only. On a
+  Windows DC it says that the DC takes the policy from the Default
+  Domain Policy, and where to change it.
+- The GPO editor's note that these settings do not reach domain accounts
+  is shown on Samba DCs only.
+- The API refuses to write the domain password policy on a Windows DC,
+  before reading or writing anything, with its own translated message.
+- Diagnostics > Overview names the server software: "Samba 4.22.11", or
+  "Windows Server".
+
+If you run SAMADCON against Windows DCs and changed the password policy
+through Diagnostics in 0.6.15: the Default Domain Policy will have set it
+back. Change it in the Default Domain Policy instead.
+
+The Windows side is still to be confirmed against a Windows DC.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.16, :0.6 and :latest.
+
+---
+
 ## 0.6.15 — 2026-10-16
 
 The domain password policy editable, German error hints, and a stale DN after a delete.
