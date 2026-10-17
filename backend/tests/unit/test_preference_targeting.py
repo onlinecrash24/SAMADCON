@@ -404,3 +404,11 @@ def test_a_picked_object_of_the_wrong_kind_is_refused():
         )
     assert caught.value.code == "preference_condition_invalid"
     assert caught.value.context["reason"] == "dn"
+
+
+def test_the_drive_letter_is_picked_from_a_to_z_as_in_gpmc():
+    """A typed letter could be anything; GPMC offers a list."""
+    drive = catalogue.type_for("drives").kind("drive")
+    letter = next(field for field in drive.fields if field.name == "letter")
+    assert letter.kind == "choice"
+    assert letter.choices == ("", *"ABCDEFGHIJKLMNOPQRSTUVWXYZ")
