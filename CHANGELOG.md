@@ -14,6 +14,48 @@ release.
 
 ---
 
+## 0.6.18 — 2026-10-17
+
+The functional level: where it stands, what a raise needs, and the command.
+
+Diagnostics has a new Functional level tab. It shows the domain and forest
+level, the level every DC runs at, the schema version and how far
+samba-tool domain functionalprep has run. For each higher level it lists
+what is still missing, in the order to do it, each with the line or
+command to run on the DC:
+
+- the "ad dc functional level" line in smb.conf of each DC that is below
+  the level, and a restart;
+- samba-tool domain schemaupgrade --schema=2019, before 2016;
+- samba-tool domain functionalprep for the level.
+
+Once nothing is missing, it shows the samba-tool domain level raise command
+for the chosen level, for the domain and the forest together, the domain
+alone, or the forest alone, with a warning that a raise cannot be undone.
+"Check again" reads the state anew after each step.
+
+SAMADCON does not raise the level itself. A Samba DC lets nobody change
+msDS-Behavior-Version over LDAP, and drops the relax control from an LDAP
+request; samba-tool writes it on the DC. This was measured on a throwaway
+Samba 4.22 DC.
+
+What functionalprep left is read from CN=ActiveDirectoryUpdate, with the
+revisions Samba's own code expects. A domain provisioned with Samba 4.22
+already has the 2019 schema and the prep; an older one may not.
+
+On Windows DCs the tab shows the state only.
+
+Also:
+
+- Windows Server 2025 is shown as functional level 10. It was taken for 8
+  and shown as "Unknown (10)".
+- Diagnostics > Overview reads the levels from the directory, so a raise
+  shows without signing in again.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.18, :0.6 and :latest.
+
+---
+
 ## 0.6.17 — 2026-10-17
 
 Common options and item-level targeting for preference items, in a GPMC-like list.
