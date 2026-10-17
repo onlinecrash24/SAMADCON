@@ -981,7 +981,8 @@ export const de = {
     'Auf {controllers}: in der smb.conf im Abschnitt [global] diese Zeile eintragen und Samba neu starten.',
   'fl.step.dcWindows':
     '{controllers} läuft auf einer älteren Windows-Server-Version und muss vorher aktualisiert oder ersetzt werden.',
-  'fl.step.schema': 'Auf dem Schema-Master das Schema auf den Stand von Windows Server 2019 bringen:',
+  'fl.step.schema':
+    'Auf dem Schema-Master das Schema auf den Stand von Windows Server 2019 bringen (objectVersion 88). Eine Funktionsebene 2019 gibt es nicht; mit diesem Schema richtet Samba auch neue Domänen für Ebene 2016 ein:',
   'fl.step.prep':
     'Auf dem Schema-Master die Vorbereitung ausführen. Der Domänenteil verlangt den Infrastruktur-Master; bei einer einzelnen Domäne ist das meist derselbe DC:',
   'fl.scope': 'Was angehoben wird',
@@ -2919,7 +2920,8 @@ export const en: Record<MessageKey, string> = {
     'On {controllers}: add this line to the [global] section of smb.conf and restart Samba.',
   'fl.step.dcWindows':
     '{controllers} runs an older Windows Server version and has to be upgraded or replaced first.',
-  'fl.step.schema': 'On the schema master, bring the schema up to Windows Server 2019:',
+  'fl.step.schema':
+    'On the schema master, bring the schema up to Windows Server 2019 (objectVersion 88). There is no functional level 2019; this is also the schema Samba provisions new domains with for level 2016:',
   'fl.step.prep':
     'On the schema master, run the preparation. Its domain part needs the infrastructure master; in a single domain that is usually the same DC:',
   'fl.scope': 'What to raise',
