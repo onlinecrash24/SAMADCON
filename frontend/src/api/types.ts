@@ -65,6 +65,9 @@ export interface DomainInfo {
   netbios_name: string
   domain_functional_level: number | null
   forest_functional_level: number | null
+  /** The rootDSE's vendorName: Samba names itself, a Windows DC sends none. */
+  dc_vendor?: string | null
+  dc_vendor_version?: string | null
 }
 
 export interface ConnectionTargetInfo {
@@ -717,6 +720,9 @@ export interface DomainSummary {
   forest_level: number | null
   forest_level_name: string | null
   is_forest_root: boolean
+  dc_vendor?: string | null
+  dc_vendor_version?: string | null
+  is_samba?: boolean
 }
 
 export interface DiagnosticsOverview {

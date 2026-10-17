@@ -35,6 +35,11 @@ SCOPE_SUBTREE = 2
 DEFAULT_MAX_RESULTS = 2000
 
 
+def is_samba_vendor(vendor: str | None) -> bool:
+    """Whether a rootDSE vendorName is Samba's. A Windows DC sends none."""
+    return (vendor or "").strip().lower().startswith("samba")
+
+
 @dataclass(frozen=True)
 class DomainInfo:
     """Naming contexts and identity of the domain, read from the rootDSE."""
@@ -49,6 +54,15 @@ class DomainInfo:
     netbios_name: str
     domain_functional_level: int | None
     forest_functional_level: int | None
+    # The rootDSE's vendorName and vendorVersion. Samba publishes them
+    # ("Samba Team (https://www.samba.org)", "4.22.11-Debian-…"); a Windows
+    # DC has neither. What tells the two apart where they behave differently.
+    dc_vendor: str | None = None
+    dc_vendor_version: str | None = None
+
+    @property
+    def is_samba(self) -> bool:
+        return is_samba_vendor(self.dc_vendor)
 
     @property
     def policies_dn(self) -> str:
@@ -471,6 +485,8 @@ def _read_domain_info(samdb: Any, host: str, target: ConnectionTarget) -> Domain
             "dnsHostName",
             "domainFunctionality",
             "forestFunctionality",
+            "vendorName",
+            "vendorVersion",
         ],
     )
     if not len(result):
@@ -503,6 +519,8 @@ def _read_domain_info(samdb: Any, host: str, target: ConnectionTarget) -> Domain
         netbios_name=target.netbios_name,
         domain_functional_level=values.as_int(root, "domainFunctionality"),
         forest_functional_level=values.as_int(root, "forestFunctionality"),
+        dc_vendor=values.as_str(root, "vendorName"),
+        dc_vendor_version=values.as_str(root, "vendorVersion"),
     )
 
 

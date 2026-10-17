@@ -25,8 +25,10 @@ import type {
 } from '../../../api/types'
 import { ErrorMessage, Spinner } from '../../../components/primitives'
 import { ObjectPicker } from '../../directory/ObjectPicker'
+import { isSambaDc } from '../../../dcKind'
 import { useI18n } from '../../../i18n'
 import type { MessageKey } from '../../../i18n/messages'
+import { useSession } from '../../../state/session'
 import { AdvancedAudit } from './AdvancedAudit'
 
 // The Windows editor's order: account policies, local policies, event log,
@@ -54,6 +56,7 @@ export function SecurityTab({
 }) {
   const { t } = useI18n()
   const queryClient = useQueryClient()
+  const samba = isSambaDc(useSession().session?.domain)
 
   const [group, setGroup] = useState('password')
   const [error, setError] = useState<unknown>(null)
@@ -200,7 +203,7 @@ export function SecurityTab({
               {/* A tester set these in the Default Domain Policy, created a
                   user, and was held to the old values: a Samba DC does not
                   copy them onto the domain object, as a Windows DC does. */}
-              {(group === 'password' || group === 'lockout') && (
+              {samba && (group === 'password' || group === 'lockout') && (
                 <div className="alert alert--info">{t('security.sambaDomainPolicyHint')}</div>
               )}
               <PlainSettings

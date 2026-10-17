@@ -1128,6 +1128,10 @@ export const de = {
   'diag.lockoutDurationMinutes': 'Sperrdauer (Minuten)',
   'diag.lockoutWindowMinutes': 'Zähler zurücksetzen nach (Minuten)',
   'diag.policyEdit.button': 'Bearbeiten',
+  'diag.policyWindows':
+    'Dieser Domänencontroller ist ein Windows-DC. Er übernimmt die Kennwortrichtlinie aus der Default Domain Policy – ändern Sie sie dort, unter Sicherheitseinstellungen › Kennwortrichtlinie und Kontosperrung.',
+  'diag.serverSoftware': 'Serversoftware',
+  'diag.serverWindows': 'Windows Server',
   'diag.policyEdit.title': 'Kennwortrichtlinie der Domäne bearbeiten',
   'diag.policyEdit.intro':
     'Diese Werte gelten für alle Domänenkonten. Auf einem Samba-DC werden sie nicht aus der Default Domain Policy übernommen – sie werden hier gesetzt, wie mit samba-tool domain passwordsettings set.',
@@ -1177,6 +1181,10 @@ export const de = {
   'error.server_exists': 'Im Zielstandort existiert bereits ein Server mit diesem Namen.',
   'error.domain_not_found': 'Das Domänenobjekt konnte nicht gelesen werden.',
   'error.no_changes': 'Es gibt nichts zu ändern.',
+  'error.windows_dc_password_policy':
+    'Auf einem Windows-Domänencontroller kommt die Kennwortrichtlinie aus der Default Domain Policy.',
+  'error.windows_dc_password_policy.hint':
+    'Ändern Sie sie in der Default Domain Policy; der DC überträgt sie auf die Domäne.',
   'error.password_age_order':
     'Das maximale Kennwortalter ({max_age} Tage) muss größer sein als das minimale ({min_age} Tage).',
   'error.password_age_order.hint': '0 Tage beim maximalen Alter bedeutet: Kennwörter laufen nie ab.',
@@ -2960,6 +2968,10 @@ export const en: Record<MessageKey, string> = {
   'diag.lockoutDurationMinutes': 'Lockout duration (minutes)',
   'diag.lockoutWindowMinutes': 'Reset counter after (minutes)',
   'diag.policyEdit.button': 'Edit',
+  'diag.policyWindows':
+    'This domain controller is a Windows DC. It takes the password policy from the Default Domain Policy – change it there, under Security settings › Password policy and Account lockout.',
+  'diag.serverSoftware': 'Server software',
+  'diag.serverWindows': 'Windows Server',
   'diag.policyEdit.title': 'Edit the domain password policy',
   'diag.policyEdit.intro':
     'These values apply to every domain account. A Samba DC does not take them from the Default Domain Policy – they are set here, as with samba-tool domain passwordsettings set.',
@@ -3009,6 +3021,10 @@ export const en: Record<MessageKey, string> = {
   'error.server_exists': 'A server with this name already exists in the target site.',
   'error.domain_not_found': 'The domain object could not be read.',
   'error.no_changes': 'There is nothing to change.',
+  'error.windows_dc_password_policy':
+    'On a Windows domain controller the password policy comes from the Default Domain Policy.',
+  'error.windows_dc_password_policy.hint':
+    'Change it in the Default Domain Policy; the DC applies it to the domain.',
   'error.password_age_order':
     'The maximum password age ({max_age} days) must be greater than the minimum ({min_age} days).',
   'error.password_age_order.hint': '0 days as the maximum age means passwords never expire.',

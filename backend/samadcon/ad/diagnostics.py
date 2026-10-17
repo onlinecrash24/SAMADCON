@@ -536,6 +536,10 @@ def domain_facts(conn: DirectoryConnection) -> dict[str, Any]:
         "forest_level_name": level_name(conn.info.forest_functional_level),
         "is_forest_root": (conn.info.root_domain_dn or conn.info.base_dn).lower()
         == conn.info.base_dn.lower(),
+        # Samba names itself in the rootDSE; a Windows DC does not.
+        "dc_vendor": conn.info.dc_vendor,
+        "dc_vendor_version": conn.info.dc_vendor_version,
+        "is_samba": conn.info.is_samba,
     }
 
 

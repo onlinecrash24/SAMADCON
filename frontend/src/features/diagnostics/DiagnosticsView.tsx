@@ -23,12 +23,14 @@ import { Badge, ErrorMessage, Spinner, useDateFormat } from '../../components/pr
 import { useI18n } from '../../i18n'
 import type { MessageKey } from '../../i18n/messages'
 import { useSession } from '../../state/session'
+import { isSambaDc } from '../../dcKind'
 import { PasswordPolicyDialog } from './PasswordPolicyDialog'
 
 type Tab = 'overview' | 'replication' | 'policy' | 'accounts' | 'members'
 
 export function DiagnosticsView() {
   const { t } = useI18n()
+  const samba = isSambaDc(useSession().session?.domain)
   const [tab, setTab] = useState<Tab>('overview')
 
   const overview = useQuery({ queryKey: ['diagnostics'], queryFn: () => api.diagnostics() })
@@ -68,7 +70,9 @@ export function DiagnosticsView() {
       )}
 
       {tab === 'replication' && <ReplicationCard status={data.replication} />}
-      {tab === 'policy' && <PolicyCard policy={data.policy} editable />}
+      {tab === 'policy' && (
+        <PolicyCard policy={data.policy} editable={samba} windowsDc={!samba} />
+      )}
       {tab === 'accounts' && <AccountsCard />}
       {tab === 'members' && <MembersCard />}
     </>
@@ -188,6 +192,14 @@ export function DomainCard({ domain }: { domain: DomainSummary }) {
       <dl className="facts">
         <Fact label={t('diag.netbios')} value={domain.netbios_name} />
         <Fact label={t('diag.connectedDc')} value={domain.connected_dc} />
+        <Fact
+          label={t('diag.serverSoftware')}
+          value={
+            domain.is_samba
+              ? `Samba ${(domain.dc_vendor_version ?? '').split('-')[0]}`.trim()
+              : t('diag.serverWindows')
+          }
+        />
         <Fact label={t('diag.domainLevel')} value={domain.domain_level_name} />
         <Fact label={t('diag.forestLevel')} value={domain.forest_level_name} />
         <Fact
@@ -427,9 +439,12 @@ export function ReplicationCard({ status }: { status: ReplicationStatus }) {
 export function PolicyCard({
   policy,
   editable = false,
+  windowsDc = false,
 }: {
   policy: PasswordPolicy
   editable?: boolean
+  /** A Windows DC takes these from the Default Domain Policy; say so. */
+  windowsDc?: boolean
 }) {
   const { t, tn } = useI18n()
   const [editing, setEditing] = useState(false)
@@ -447,6 +462,7 @@ export function PolicyCard({
           )}
         </div>
         {notice && <p className="muted small">{notice}</p>}
+        {windowsDc && <div className="alert alert--info">{t('diag.policyWindows')}</div>}
         <dl className="facts">
           <Fact label={t('diag.minLength')} value={policy.min_length} />
           <Fact label={t('diag.history')} value={policy.history_length} />

@@ -22,6 +22,9 @@ class Info:
     dc_hostname = "dc1.example.test"
     domain_functional_level = 7
     forest_functional_level = 7
+    dc_vendor = "Samba Team (https://www.samba.org)"
+    dc_vendor_version = "4.22.11"
+    is_samba = True
 
 
 class Conn:

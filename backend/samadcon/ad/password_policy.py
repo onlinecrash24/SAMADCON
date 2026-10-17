@@ -24,7 +24,7 @@ from samadcon.ad.diagnostics import (
     DOMAIN_PASSWORD_STORE_CLEARTEXT,
     password_policy,
 )
-from samadcon.core.errors import InvalidRequest
+from samadcon.core.errors import Conflict, InvalidRequest
 
 TICKS_PER_MINUTE = 60 * 10_000_000
 TICKS_PER_DAY = 24 * 60 * TICKS_PER_MINUTE
@@ -116,6 +116,17 @@ def policy_changes(current: dict[str, Any], request: dict[str, Any]) -> dict[str
 def set_password_policy(conn: DirectoryConnection, **request: Any) -> dict[str, Any]:
     """Replace the asked-for parts of the policy; return what was written and
     the policy as it now reads."""
+    # A Windows DC copies the Default Domain Policy onto these attributes and
+    # would overwrite an edit made here at its next policy refresh — the edit
+    # would seem to work and then quietly not.
+    if not conn.info.is_samba:
+        raise Conflict(
+            "On a Windows domain controller the password policy comes from the "
+            "Default Domain Policy.",
+            code="windows_dc_password_policy",
+            hint="Change it in the Default Domain Policy; the DC applies it to the domain.",
+        )
+
     import ldb
 
     entry = conn.get(conn.info.base_dn, attrs=["pwdProperties", "minPwdAge", "maxPwdAge"])
