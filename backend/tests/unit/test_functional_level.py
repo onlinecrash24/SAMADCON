@@ -1,28 +1,31 @@
-"""Raising the domain and forest functional level, as samba-tool does it.
+"""The domain and forest functional level: where it stands, what a raise
+needs, and the samba-tool command that does it.
 
-The rules are those of ``samba-tool domain level raise`` (Samba 4.22.11,
-python/samba/netcmd/domain/level.py): only upwards, the domain never above
-the weakest DC, the forest never above the domain. What it writes is what it
-writes, in its order. On top of that SAMADCON checks what samba-tool leaves
-to the administrator: that ``functionalprep`` ran, read from the revision it
-leaves on CN=ActiveDirectoryUpdate (forest_update.py and domain_update.py,
-functional_level_to_version), and the schema the 4.19 release notes ask for
-before 2016.
+SAMADCON shows the raise and does not perform it. msDS-Behavior-Version is
+systemOnly; samba-tool writes it on the DC as system. Over LDAP Samba refuses
+it, and relax does not help: rootdse_filter_controls drops a control no
+module registered from an untrusted (LDAP) request, and relax is not
+registered. Measured on a throwaway Samba 4.22 DC, 2026-10-17:
+    relax:0 -> LDAP_CONSTRAINT_VIOLATION, "can only be modified as system"
+    relax:1 -> LDAP_UNAVAILABLE_CRITICAL_EXTENSION, "critical non-registered control"
+
+The readiness checks are what samba-tool leaves to the administrator: every
+DC at the level, functionalprep's revision on CN=ActiveDirectoryUpdate
+(forest_update.py and domain_update.py, functional_level_to_version), and the
+schema the 4.19 release notes ask for before 2016.
 
 Measured on zmb-ad (Samba 4.22.11, 2026-10-17): domain, crossRef, Partitions
 and the one NTDS Settings at 4, nTMixedDomain 0, both revisions 5, schema 69.
+A fresh 4.22 domain, measured on the throwaway DC, comes with schema 88 and
+both revisions at 16.
 """
 
 from __future__ import annotations
 
-import pytest
-
 from samadcon.ad import functional_level as fl
-from samadcon.core.errors import Conflict, InvalidRequest
 
 MEASURED = fl.State(
     is_samba=True,
-    dns_domain="myantispam.local",
     domain_level=4,
     forest_level=4,
     mixed=False,
@@ -49,16 +52,6 @@ READY = fl.State(
 
 def changed(state: fl.State, **fields) -> fl.State:
     return fl.State(**{**state.__dict__, **fields})
-
-
-def raise_(state: fl.State, *, domain=None, forest=None, confirm="myantispam.local"):
-    fl.check_raise(state, domain=domain, forest=forest, confirm=confirm)
-
-
-def refusal(error_type, state: fl.State, **kwargs):
-    with pytest.raises(error_type) as caught:
-        raise_(state, **kwargs)
-    return caught.value
 
 
 # ---------------------------------------------------------------------------
@@ -130,119 +123,6 @@ def test_a_target_says_whether_the_domain_moves_too():
     by_level = {target["level"]: target for target in fl.targets(state)}
     assert by_level[6]["domain"] is False
     assert by_level[7]["domain"] is True
-
-
-# ---------------------------------------------------------------------------
-# What is refused
-# ---------------------------------------------------------------------------
-
-
-def test_a_ready_domain_may_be_raised_to_2016():
-    raise_(READY, domain=7, forest=7)
-
-
-def test_on_a_windows_dc_nothing_is_written():
-    error = refusal(Conflict, changed(READY, is_samba=False), domain=7)
-    assert error.code == "windows_dc_functional_level"
-
-
-def test_nothing_asked_for_is_refused():
-    assert refusal(InvalidRequest, READY).code == "no_changes"
-
-
-def test_the_domain_name_must_be_typed_to_confirm():
-    assert refusal(InvalidRequest, READY, domain=7, confirm="").code == "functional_level_confirm"
-    assert refusal(InvalidRequest, READY, domain=7, confirm="other.local").code == (
-        "functional_level_confirm"
-    )
-    raise_(READY, domain=7, confirm=" MyAntiSpam.Local ")
-
-
-@pytest.mark.parametrize("level", [0, 1, 8, 10, 99])
-def test_levels_samba_does_not_know_are_refused(level):
-    error = refusal(InvalidRequest, READY, domain=level)
-    assert error.code == "functional_level_unknown"
-    assert error.context["level"] == level
-
-
-def test_only_upwards():
-    error = refusal(InvalidRequest, READY, domain=4)
-    assert (error.code, error.context["reason"]) == ("functional_level_not_higher", "domain")
-    error = refusal(InvalidRequest, changed(READY, domain_level=7), forest=3)
-    assert (error.code, error.context["reason"]) == ("functional_level_not_higher", "forest")
-
-
-def test_a_mixed_domain_may_be_raised_to_its_own_level():
-    # samba-tool: "<= level_domain and level_domain_mixed == 0" refuses; a
-    # mixed domain is raised to clear nTMixedDomain.
-    raise_(changed(READY, domain_level=2, forest_level=2, mixed=True), domain=2)
-
-
-def test_the_domain_never_above_the_weakest_dc():
-    state = changed(READY, controllers=(fl.Controller("ZMB-AD", 7), fl.Controller("OLD", 4)))
-    error = refusal(Conflict, state, domain=7)
-    assert error.code == "functional_level_above_dc"
-    assert error.context["controllers"] == "OLD"
-    assert error.context["setting"] == "ad dc functional level = 2016"
-
-
-def test_the_forest_never_above_the_domain():
-    error = refusal(Conflict, READY, forest=7)
-    assert error.code == "functional_level_forest_above_domain"
-    # Raised together, the domain goes first, as in samba-tool.
-    raise_(READY, domain=7, forest=7)
-    # And never above another domain of the forest.
-    error = refusal(Conflict, changed(READY, other_domain_levels=(4,)), domain=7, forest=7)
-    assert error.code == "functional_level_forest_above_domain"
-
-
-def test_without_the_schema_2016_is_refused():
-    error = refusal(Conflict, changed(READY, schema_version=69), domain=7)
-    assert (error.code, error.context["reason"]) == ("functional_level_not_prepared", "schema")
-    assert error.context["command"] == "samba-tool domain schemaupgrade --schema=2019"
-
-
-def test_without_the_prep_the_raise_is_refused():
-    error = refusal(Conflict, changed(READY, domain_revision=5), domain=7)
-    assert (error.code, error.context["reason"]) == ("functional_level_not_prepared", "prep")
-    assert error.context["command"] == "samba-tool domain functionalprep --function-level=2016"
-
-
-def test_the_measured_domain_is_refused_for_2016_because_of_its_dc_first():
-    assert refusal(Conflict, MEASURED, domain=7).code == "functional_level_above_dc"
-
-
-# ---------------------------------------------------------------------------
-# What is written
-# ---------------------------------------------------------------------------
-
-
-def test_the_domain_is_written_on_its_object_and_its_cross_ref():
-    assert fl.writes(READY, domain=7, forest=None) == [
-        ("domain", "msDS-Behavior-Version", "7"),
-        ("crossref", "msDS-Behavior-Version", "7"),
-    ]
-
-
-def test_the_forest_is_written_on_partitions_after_the_domain():
-    assert fl.writes(READY, domain=7, forest=7) == [
-        ("domain", "msDS-Behavior-Version", "7"),
-        ("crossref", "msDS-Behavior-Version", "7"),
-        ("partitions", "msDS-Behavior-Version", "7"),
-    ]
-    assert fl.writes(changed(READY, domain_level=7), domain=None, forest=7) == [
-        ("partitions", "msDS-Behavior-Version", "7"),
-    ]
-
-
-def test_a_mixed_domain_is_made_native_first():
-    state = changed(READY, domain_level=0, forest_level=0, mixed=True)
-    assert fl.writes(state, domain=2, forest=None) == [
-        ("domain", "nTMixedDomain", "0"),
-        ("crossref", "nTMixedDomain", "0"),
-        ("domain", "msDS-Behavior-Version", "2"),
-        ("crossref", "msDS-Behavior-Version", "2"),
-    ]
 
 
 # ---------------------------------------------------------------------------
@@ -320,76 +200,50 @@ def test_a_domain_never_prepared_reads_as_revision_zero():
 
 
 # ---------------------------------------------------------------------------
-# Writing it
+# The command for the DC
 # ---------------------------------------------------------------------------
 
-READY_OBJECTS = {
-    **MEASURED_OBJECTS,
-    NTDS: {"distinguishedName": [NTDS], "msDS-Behavior-Version": ["7"]},
-    f"CN=ActiveDirectoryUpdate,CN=ForestUpdates,{CONFIG}": {"revision": ["16"]},
-    f"CN=ActiveDirectoryUpdate,CN=DomainUpdates,CN=System,{BASE}": {"revision": ["16"]},
-    SCHEMA: {"objectVersion": ["88"]},
-}
+
+def commands(state: fl.State, level: int) -> dict[str, str]:
+    return {entry["scope"]: entry["command"] for entry in fl.raise_commands(state, level)}
 
 
-class Writable(Directory):
-    def __init__(self, objects, *, cross_ref_unwilling=False):
-        super().__init__(objects)
-        self.modified = []
-        self.controls = []
-        self.cross_ref_unwilling = cross_ref_unwilling
-
-    @property
-    def samdb(self):
-        import ldb
-
-        return ldb.Ldb()
-
-    def modify(self, message, controls=None):
-        from samadcon.ad import values
-
-        dn = str(message.dn)
-        # keys(), not iteration: what a pyldb Message iterates over has varied.
-        names = [name for name in message.keys() if name != "dn"]  # noqa: SIM118
-        changes = {name: values.to_text(message[name][0]) for name in names}
-        if self.cross_ref_unwilling and dn.startswith("CN=MYANTISPAM,"):
-            # What connection.translate makes of LDB_ERR_UNWILLING_TO_PERFORM.
-            raise InvalidRequest("The directory server refused it.", code="unwilling_to_perform")
-        self.modified.append((dn, changes))
-        self.controls.append(controls)
+def test_while_the_domain_is_below_both_or_the_domain_alone_are_offered():
+    assert commands(READY, 7) == {
+        "both": "samba-tool domain level raise --domain-level=2016 --forest-level=2016",
+        "domain": "samba-tool domain level raise --domain-level=2016",
+    }
+    assert [entry["scope"] for entry in fl.raise_commands(READY, 7)] == ["both", "domain"]
 
 
-def test_raising_writes_what_samba_tool_writes_where_it_writes_it():
-    pytest.importorskip("ldb")
-    conn = Writable(READY_OBJECTS)
-    fl.raise_levels(conn, domain_level=7, forest_level=7, confirm="myantispam.local")
-    assert [(dn.lower(), changes) for dn, changes in conn.modified] == [
-        (BASE.lower(), {"msDS-Behavior-Version": "7"}),
-        (f"CN=MYANTISPAM,CN=Partitions,{CONFIG}".lower(), {"msDS-Behavior-Version": "7"}),
-        (f"CN=Partitions,{CONFIG}".lower(), {"msDS-Behavior-Version": "7"}),
-    ]
+def test_once_the_domain_is_there_only_the_forest_is_offered():
+    # samba-tool refuses a forest above the domain.
+    assert commands(changed(READY, domain_level=7), 7) == {
+        "forest": "samba-tool domain level raise --forest-level=2016",
+    }
 
 
-def test_a_cross_ref_the_server_will_not_take_is_passed_over_as_samba_tool_does():
-    pytest.importorskip("ldb")
-    conn = Writable(READY_OBJECTS, cross_ref_unwilling=True)
-    fl.raise_levels(conn, domain_level=7, forest_level=None, confirm="myantispam.local")
-    assert [dn.lower() for dn, _ in conn.modified] == [BASE.lower()]
+def test_the_samba_tool_spelling_of_the_level_is_used():
+    assert commands(changed(READY, controllers=(fl.Controller("ZMB-AD", 6),)), 6)["domain"] == (
+        "samba-tool domain level raise --domain-level=2012_R2"
+    )
 
 
-def test_a_refused_raise_writes_nothing():
-    conn = Writable(MEASURED_OBJECTS)
-    with pytest.raises(Conflict):
-        fl.raise_levels(conn, domain_level=7, forest_level=None, confirm="myantispam.local")
-    assert conn.modified == []
+def test_the_forest_is_not_offered_above_another_domain_of_the_forest():
+    assert commands(changed(READY, other_domain_levels=(4,)), 7) == {
+        "domain": "samba-tool domain level raise --domain-level=2016",
+    }
 
 
-def test_every_write_carries_the_relax_control():
-    """msDS-Behavior-Version is systemOnly. samba-tool writes it on the DC,
-    as system; over LDAP Samba refuses it without relax (objectclass_attrs.c),
-    measured on the throwaway DC: LDAP_CONSTRAINT_VIOLATION, "can only be
-    modified as system"."""
-    pytest.importorskip("ldb")
-    conn = Writable(READY_OBJECTS)
-    fl.raise_levels(conn, domain_level=7, forest_level=7, confirm="myantispam.local")
-    assert conn.controls == [["relax:0"]] * 3
+def test_there_is_no_samba_tool_command_for_a_windows_dc():
+    assert fl.raise_commands(changed(READY, is_samba=False), 7) == []
+
+
+def test_each_target_carries_its_commands():
+    by_level = {target["level"]: target for target in fl.targets(READY)}
+    assert by_level[7]["raise"] == fl.raise_commands(READY, 7)
+
+
+def test_samadcon_has_no_way_to_write_the_level():
+    """Samba refuses it over LDAP; a route that always fails is not offered."""
+    assert not hasattr(fl, "raise_levels")

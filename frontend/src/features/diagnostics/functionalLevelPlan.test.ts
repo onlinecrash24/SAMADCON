@@ -1,62 +1,34 @@
 import { describe, expect, it } from 'vitest'
 
-import type { FunctionalLevelState } from '../../api/types'
-import { confirmMatches, raisePayload, scopesFor } from './functionalLevelPlan'
+import type { FunctionalLevelTarget } from '../../api/types'
+import { chosenRaise } from './functionalLevelPlan'
 
-// zmb-ad as measured: domain and forest at 2008 R2.
-const state = (domain_level: number, forest_level: number): FunctionalLevelState => ({
-  is_samba: true,
-  domain_level,
-  domain_level_name: '',
-  forest_level,
-  forest_level_name: '',
-  mixed: false,
-  controllers: [],
-  forest_revision: 5,
-  domain_revision: 5,
-  schema_version: 69,
-  targets: [],
+const target = (raise: FunctionalLevelTarget['raise']): FunctionalLevelTarget => ({
+  level: 7,
+  name: 'Windows Server 2016',
+  domain: true,
+  missing: [],
+  raise,
 })
 
-describe('what a raise may cover', () => {
-  it('offers domain and forest together, or the domain alone, while the domain is below', () => {
-    expect(scopesFor(state(4, 4), 7)).toEqual(['both', 'domain'])
+const BOTH = {
+  scope: 'both' as const,
+  command: 'samba-tool domain level raise --domain-level=2016 --forest-level=2016',
+}
+const DOMAIN = { scope: 'domain' as const, command: 'samba-tool domain level raise --domain-level=2016' }
+
+describe('the command shown for the DC', () => {
+  it('is the one for the chosen scope', () => {
+    expect(chosenRaise(target([BOTH, DOMAIN]), 'domain')).toBe(DOMAIN)
   })
 
-  it('offers only the forest once the domain is there', () => {
-    // samba-tool refuses a forest above the domain, so "forest alone" only
-    // exists when the domain has already been raised.
-    expect(scopesFor(state(7, 4), 7)).toEqual(['forest'])
-  })
-})
-
-describe('what is sent', () => {
-  it('sends both levels for both', () => {
-    expect(raisePayload(state(4, 4), 7, 'both')).toEqual({ domain_level: 7, forest_level: 7 })
+  it('falls back to the first the server offers when the choice does not fit', () => {
+    // After switching to a level where only the forest can move, a "both"
+    // left over from before must not show a command for something else.
+    expect(chosenRaise(target([BOTH, DOMAIN]), 'forest')).toBe(BOTH)
   })
 
-  it('sends the domain alone', () => {
-    expect(raisePayload(state(4, 4), 6, 'domain')).toEqual({ domain_level: 6, forest_level: null })
-  })
-
-  it('sends the forest alone', () => {
-    expect(raisePayload(state(7, 4), 7, 'forest')).toEqual({ domain_level: null, forest_level: 7 })
-  })
-
-  it('sends nothing for a choice that does not fit', () => {
-    expect(raisePayload(state(7, 4), 7, 'domain')).toBeNull()
-    expect(raisePayload(state(4, 4), 7, 'forest')).toBeNull()
-    expect(raisePayload(state(7, 7), 7, 'both')).toBeNull()
-  })
-})
-
-describe('the confirmation', () => {
-  it('is the domain name, in any case, with stray spaces', () => {
-    expect(confirmMatches(' MyAntiSpam.Local ', 'myantispam.local')).toBe(true)
-  })
-
-  it('is nothing else', () => {
-    expect(confirmMatches('', 'myantispam.local')).toBe(false)
-    expect(confirmMatches('myantispam', 'myantispam.local')).toBe(false)
+  it('is none on a Windows DC, where samba-tool has nothing to say', () => {
+    expect(chosenRaise(target([]), 'both')).toBeNull()
   })
 })
