@@ -1333,3 +1333,6 @@ fieldset[disabled] { opacity: 0.6; }
 
 /* The targeting marker beside a preference item's name in the list. */
 .pref__targeted { margin-left: 8px; font-size: 0.75em; vertical-align: middle; }
+/* Rows are picked and opened, as in GPMC, not read as text: a double-click
+   that opens an item should not leave a word of it highlighted behind. */
+.pref__list tbody tr { user-select: none; cursor: default; }

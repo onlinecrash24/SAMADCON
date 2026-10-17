@@ -55,6 +55,7 @@ import {
   withItem,
   without,
 } from './preferenceList'
+import { rowCommand } from './rowKeys'
 import { OptionsEditor, TargetingEditor } from './TargetingEditor'
 
 const HALVES = ['Machine', 'User'] as const
@@ -256,7 +257,7 @@ export function PreferencesTab({
             <p className="muted">{t('pref.none')}</p>
           ) : (
             <div className="table-wrap">
-              <table className="table table--compact">
+              <table className="table table--compact pref__list">
                 <thead>
                   <tr>
                     <th>{t('pref.column.name')}</th>
@@ -279,13 +280,10 @@ export function PreferencesTab({
                         rowMenu(index, { x: event.clientX, y: event.clientY })
                       }}
                       onKeyDown={(event) => {
-                        if (event.key === 'Enter') open(index)
-                        else if (event.key === 'Delete') setDeleting(index)
-                        else if ((event.shiftKey && event.key === 'F10') || event.key === 'ContextMenu') {
-                          event.preventDefault()
-                          rowMenu(index, anchorOf(event.currentTarget))
-                        } else return
-                        event.stopPropagation()
+                        const command = rowCommand(event)
+                        if (command === 'open') open(index)
+                        else if (command === 'delete') setDeleting(index)
+                        else if (command === 'menu') rowMenu(index, anchorOf(event.currentTarget))
                       }}
                     >
                       <td>
