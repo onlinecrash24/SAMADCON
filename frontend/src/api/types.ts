@@ -651,12 +651,20 @@ export type FunctionalLevelStep =
   | { step: 'schema'; command: string }
   | { step: 'prep'; command: string }
 
+/** A samba-tool command that raises to a level, run on the DC. */
+export interface FunctionalLevelRaise {
+  scope: 'both' | 'domain' | 'forest'
+  command: string
+}
+
 export interface FunctionalLevelTarget {
   level: number
   name: string
   /** Whether the domain would move too, or only the forest. */
   domain: boolean
   missing: FunctionalLevelStep[]
+  /** Empty on a Windows DC. */
+  raise: FunctionalLevelRaise[]
 }
 
 export interface FunctionalLevelState {

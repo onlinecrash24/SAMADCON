@@ -70,7 +70,7 @@ export function DiagnosticsView() {
         </div>
       )}
 
-      {tab === 'levels' && <FunctionalLevelCard dnsDomain={data.domain.dns_domain} />}
+      {tab === 'levels' && <FunctionalLevelCard />}
       {tab === 'replication' && <ReplicationCard status={data.replication} />}
       {tab === 'policy' && (
         <PolicyCard policy={data.policy} editable={samba} windowsDc={!samba} />

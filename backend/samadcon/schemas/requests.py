@@ -280,19 +280,6 @@ class PasswordPolicyRequest(StrictModel):
     lockout_window_minutes: int | None = None
 
 
-class FunctionalLevelRequest(StrictModel):
-    """Raise the domain and/or the forest; a level left out stays as it is.
-
-    *confirm* is the domain's DNS name, typed by the person raising it; a
-    raise cannot be undone. The rules are checked in
-    samadcon.ad.functional_level, with codes the console translates.
-    """
-
-    domain_level: int | None = None
-    forest_level: int | None = None
-    confirm: str = Field(default="", max_length=255)
-
-
 class UpnSuffixesRequest(StrictModel):
     """The hand-added UPN suffixes, in full; the list replaces what is there."""
 

@@ -1,15 +1,16 @@
 """The domain and forest functional level: where it stands, what a raise
-needs, and the raise itself.
+needs, and the samba-tool command that does it.
 
-Raising is ``samba-tool domain level raise`` (Samba 4.22.11,
-python/samba/netcmd/domain/level.py): the same rules — only upwards, the
-domain never above the weakest DC, the forest never above the domain — and
-the same writes in the same order. It cannot be undone; nothing lowers a
-level again. One difference: samba-tool writes on the DC, as system; this
-writes over LDAP, which for a systemOnly attribute takes the relax control.
+SAMADCON shows the raise and does not perform it. msDS-Behavior-Version is
+systemOnly; ``samba-tool domain level raise`` writes it on the DC, as system.
+Over LDAP a Samba DC refuses it to everyone, and the relax control does not
+help: rootdse_filter_controls (source4/dsdb/samdb/ldb_modules/rootdse.c)
+drops a control no module registered from an LDAP request, and relax is not
+registered. Measured on a throwaway Samba 4.22 DC: with relax:0 the write
+fails as without it, with relax:1 as a critical non-registered control.
 
-samba-tool leaves the rest to the administrator. Here it is checked, because
-a console that raises a level should know whether the domain is ready:
+What samba-tool leaves to the administrator is checked here, so that the
+command is shown only once it will work:
 
 - Every DC's NTDS Settings carries the level it runs at. A Samba DC writes
   its ``ad dc functional level`` from smb.conf there when it starts, and
@@ -19,11 +20,14 @@ a console that raises a level should know whether the domain is ready:
   CN=ActiveDirectoryUpdate under ForestUpdates and DomainUpdates
   (forest_update.py and domain_update.py, functional_level_to_version).
 - The 4.19 release notes ask for ``schemaupgrade --schema=2019`` before
-  2016; that schema is objectVersion 88.
+  2016; that schema is objectVersion 88. A domain provisioned with 4.22
+  already has it, and both revisions at 16.
+- samba-tool's own rules (python/samba/netcmd/domain/level.py): only
+  upwards, the domain never above the weakest DC, the forest never above
+  the domain.
 
-On a Windows DC this is shown, not written. The prep and the schema come with
-the Windows Server version a DC is installed with, and Windows has its own
-tools for the raise; SAMADCON has not been measured against them.
+On a Windows DC the state is shown; the prep and the schema come with the
+Windows Server version a DC is installed with, and Windows has its own tools.
 """
 
 from __future__ import annotations
@@ -34,7 +38,6 @@ from typing import Any
 from samadcon.ad import values
 from samadcon.ad.connection import SCOPE_ONELEVEL, SCOPE_SUBTREE, DirectoryConnection
 from samadcon.ad.diagnostics import _server_of_ntds, level_name
-from samadcon.core.errors import Conflict, InvalidRequest, SamadconError
 
 # The levels samba-tool accepts, by their smb.conf / samba-tool spelling.
 SAMBA_LEVELS: dict[int, str] = {
@@ -54,10 +57,6 @@ DOMAIN_PREP: dict[int, int] = {3: 3, 4: 5, 5: 9, 6: 10, 7: 16}
 
 SCHEMA_2019 = 88
 
-# msDS-Behavior-Version is systemOnly. Over LDAP, Samba's objectclass_attrs
-# refuses it ("can only be modified as system") unless the request carries
-# relax. Measured on a throwaway 4.22 DC: without it, LDAP_CONSTRAINT_VIOLATION.
-RELAX = ["relax:0"]
 LEVEL_2016 = 7
 
 LEVEL = "msDS-Behavior-Version"
@@ -74,7 +73,6 @@ class Controller:
 @dataclass(frozen=True)
 class State:
     is_samba: bool
-    dns_domain: str
     domain_level: int
     forest_level: int
     mixed: bool
@@ -146,7 +144,6 @@ def read_state(conn: DirectoryConnection) -> State:
 
     return State(
         is_samba=info.is_samba,
-        dns_domain=info.dns_domain,
         domain_level=values.as_int(domain, LEVEL, 0) or 0,
         forest_level=values.as_int(partitions, LEVEL, 0) or 0,
         mixed=(values.as_int(domain, MIXED, 0) or 0) != 0,
@@ -211,6 +208,7 @@ def targets(state: State) -> list[dict[str, Any]]:
             "name": level_name(level),
             "domain": level > state.domain_level,
             "missing": missing(state, level),
+            "raise": raise_commands(state, level),
         }
         for level in known
         if level > state.forest_level
@@ -218,93 +216,32 @@ def targets(state: State) -> list[dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
-# Raising
+# The command for the DC
 # ---------------------------------------------------------------------------
 
 
-def check_raise(state: State, *, domain: int | None, forest: int | None, confirm: str) -> None:
-    """Refuse a raise samba-tool would refuse, or that the domain is not ready for."""
-    if not state.is_samba:
-        raise Conflict(
-            "SAMADCON raises the functional level on Samba domain controllers only.",
-            code="windows_dc_functional_level",
-            hint="On Windows, raise it with Active Directory Domains and Trusts or "
-            "Set-ADDomainMode and Set-ADForestMode.",
-        )
-    if domain is None and forest is None:
-        raise InvalidRequest("Nothing to change.", code="no_changes")
-    if confirm.strip().lower() != state.dns_domain.lower():
-        raise InvalidRequest(
-            "Type the domain's name to confirm; a raise cannot be undone.",
-            code="functional_level_confirm",
-            context={"domain": state.dns_domain},
-        )
+def raise_commands(state: State, level: int) -> list[dict[str, str]]:
+    """The samba-tool commands that raise to *level*, one per scope that
+    samba-tool would accept: domain and forest together or the domain alone
+    while the domain is below, the forest alone once it is not."""
+    if not state.is_samba or level not in SAMBA_LEVELS:
+        return []
+    name = SAMBA_LEVELS[level]
+    raise_ = "samba-tool domain level raise"
+    forest_fits = all(level <= other for other in state.other_domain_levels)
 
-    for level in (domain, forest):
-        if level is not None and level not in SAMBA_LEVELS:
-            raise InvalidRequest(
-                "Samba does not know this functional level.",
-                code="functional_level_unknown",
-                context={"level": level},
+    out: list[dict[str, str]] = []
+    if level > state.domain_level:
+        if forest_fits:
+            out.append(
+                {
+                    "scope": "both",
+                    "command": f"{raise_} --domain-level={name} --forest-level={name}",
+                }
             )
-
-    if domain is not None and domain <= state.domain_level and not state.mixed:
-        raise InvalidRequest(
-            "A functional level can only be raised.",
-            code="functional_level_not_higher",
-            context={"reason": "domain", "current": level_name(state.domain_level)},
-        )
-    if forest is not None and forest <= state.forest_level:
-        raise InvalidRequest(
-            "A functional level can only be raised.",
-            code="functional_level_not_higher",
-            context={"reason": "forest", "current": level_name(state.forest_level)},
-        )
-
-    # The domain goes first when both are raised, as in samba-tool.
-    domain_after = domain if domain is not None else state.domain_level
-    if forest is not None and forest > min((domain_after, *state.other_domain_levels)):
-        raise Conflict(
-            "The forest cannot be raised above a domain of the forest.",
-            code="functional_level_forest_above_domain",
-            context={"domain": level_name(domain_after)},
-        )
-
-    target = max(level for level in (domain, forest) if level is not None)
-    steps = {step["step"]: step for step in missing(state, target)}
-    if "dc_level" in steps:
-        raise Conflict(
-            "A domain controller does not run at this level yet.",
-            code="functional_level_above_dc",
-            context={
-                "controllers": ", ".join(steps["dc_level"]["controllers"]),
-                "setting": steps["dc_level"]["setting"],
-                "level": level_name(target),
-            },
-        )
-    for reason in ("schema", "prep"):
-        if reason in steps:
-            raise Conflict(
-                "The domain is not prepared for this level.",
-                code="functional_level_not_prepared",
-                context={
-                    "reason": reason,
-                    "command": steps[reason]["command"],
-                    "level": level_name(target),
-                },
-            )
-
-
-def writes(state: State, *, domain: int | None, forest: int | None) -> list[tuple[str, str, str]]:
-    """(object, attribute, value) in samba-tool's order: the domain object,
-    then its crossRef, then CN=Partitions for the forest."""
-    out: list[tuple[str, str, str]] = []
-    if domain is not None:
-        if state.mixed:
-            out += [("domain", MIXED, "0"), ("crossref", MIXED, "0")]
-        out += [("domain", LEVEL, str(domain)), ("crossref", LEVEL, str(domain))]
-    if forest is not None:
-        out.append(("partitions", LEVEL, str(forest)))
+        out.append({"scope": "domain", "command": f"{raise_} --domain-level={name}"})
+    elif level > state.forest_level and forest_fits:
+        out.append({"scope": "forest", "command": f"{raise_} --forest-level={name}"})
     return out
 
 
@@ -326,44 +263,3 @@ def overview(conn: DirectoryConnection) -> dict[str, Any]:
         "schema_version": state.schema_version,
         "targets": targets(state),
     }
-
-
-def raise_levels(
-    conn: DirectoryConnection,
-    *,
-    domain_level: int | None = None,
-    forest_level: int | None = None,
-    confirm: str = "",
-) -> dict[str, Any]:
-    """Raise the domain and/or the forest; return what was written and the
-    levels as they now read."""
-    state = read_state(conn)
-    check_raise(state, domain=domain_level, forest=forest_level, confirm=confirm)
-
-    import ldb
-
-    own = [entry for entry in _cross_refs(conn) if _is_own(conn, entry)]
-    targets_dn = {
-        "domain": conn.info.base_dn,
-        "crossref": _dn(own[0]) if own else None,
-        "partitions": f"CN=Partitions,{conn.info.config_dn}",
-    }
-
-    applied: list[dict[str, str]] = []
-    for target, attribute, value in writes(state, domain=domain_level, forest=forest_level):
-        dn = targets_dn[target]
-        if dn is None:
-            continue
-        message = ldb.Message()
-        message.dn = ldb.Dn(conn.samdb, dn)
-        message[attribute] = ldb.MessageElement(value, ldb.FLAG_MOD_REPLACE, attribute)
-        try:
-            conn.modify(message, controls=RELAX)
-        except SamadconError as exc:
-            # samba-tool passes over a crossRef the server will not take.
-            if target == "crossref" and exc.code == "unwilling_to_perform":
-                continue
-            raise
-        applied.append({"dn": dn, "attribute": attribute, "value": value})
-
-    return {"applied": applied, "levels": overview(conn)}
