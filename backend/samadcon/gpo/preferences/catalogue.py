@@ -248,7 +248,9 @@ TYPES: dict[str, PreferenceType] = {
                     Field("label"),
                     Field("persistent", "bool", "1"),
                     Field("useLetter", "bool", "1"),
-                    Field("letter"),
+                    # A list rather than a text box, as in GPMC: a typed
+                    # letter could be anything.
+                    Field("letter", "choice", "", ("", *"ABCDEFGHIJKLMNOPQRSTUVWXYZ")),
                 ),
             ),
         ),

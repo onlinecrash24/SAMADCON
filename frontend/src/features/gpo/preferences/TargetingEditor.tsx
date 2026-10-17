@@ -133,7 +133,7 @@ export function TargetingEditor({
             <tbody>
               {conditions.map((condition, index) => (
                 <tr key={`${condition.type}-${condition.name}-${index}`}>
-                  <td className="table__cell--narrow">
+                  <td className="targeting__join">
                     {index === 0 ? null : (
                       <select
                         value={condition.bool}

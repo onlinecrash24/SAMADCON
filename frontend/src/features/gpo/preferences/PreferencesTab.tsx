@@ -43,6 +43,7 @@ import { useI18n } from '../../../i18n'
 import { useSession } from '../../../state/session'
 import { ObjectPicker } from '../../directory/ObjectPicker'
 import type { MessageKey } from '../../../i18n/messages'
+import { choiceLabel, choicesWithCurrent } from './fieldChoices'
 import { FIRST_TYPE, type PreferenceArea, typesIn } from './preferenceAreas'
 import { NO_OPTIONS } from './preferenceOptions'
 import { OptionsEditor, TargetingEditor } from './TargetingEditor'
@@ -504,13 +505,9 @@ function FieldInput({
       <label className="field">
         <span className="field__label">{label}</span>
         <select value={value} onChange={(event) => onChange(event.target.value)}>
-          {field.choices.map((choice) => (
+          {choicesWithCurrent(field.choices, value).map((choice) => (
             <option key={choice} value={choice}>
-              {/* Hives and registry types are spelled the way the registry
-                  spells them; the rest get a word. */}
-              {choice.startsWith('HKEY_') || choice.startsWith('REG_')
-                ? choice
-                : t(`pref.choice.${choice}` as MessageKey)}
+              {choiceLabel(field.name, choice, (key) => t(key as MessageKey))}
             </option>
           ))}
         </select>

@@ -1106,6 +1106,9 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 .table__sub { line-height: 1.25; }
 .table--compact tbody tr:hover { background: var(--hover); }
 .table__cell--narrow { width: 1%; white-space: nowrap; }
+/* UND/ODER in the targeting list: room for the word and the arrow. */
+.targeting__join { width: 7.5rem; }
+.targeting__join select { width: 100%; min-width: 6.5rem; }
 /* A column holding an input. Wide enough for a select's longest label and a
    unit beside a number; the name column keeps whatever is left. */
 .table__cell--value { width: 16rem; }
