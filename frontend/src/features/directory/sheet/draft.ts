@@ -27,6 +27,8 @@ export interface SheetBase {
   /** ISO timestamp, or null for "never". Undefined when the type has none. */
   accountExpires?: string | null
   mustChangePassword?: boolean
+  /** Read from the ACL; undefined when it could not be read. */
+  cannotChangePassword?: boolean
   deleteProtected?: boolean
   /** Groups only. */
   scope?: string | null
@@ -63,6 +65,7 @@ export interface Draft {
   /** yyyy-mm-dd, or '' for "never". Absent until touched. */
   accountExpires?: string
   mustChangePassword?: boolean
+  cannotChangePassword?: boolean
   /** ADUC's "Unlock account" box: an action, queued like everything else. */
   unlock?: boolean
   deleteProtected?: boolean
@@ -104,6 +107,7 @@ export interface Changes {
   /** ISO timestamp for the end of the chosen day, or null for "never". */
   accountExpires?: string | null
   mustChangePassword?: boolean
+  cannotChangePassword?: boolean
   unlock?: boolean
   deleteProtected?: boolean
   scope?: string
@@ -187,6 +191,12 @@ export function changesOf(draft: Draft, base: SheetBase): Changes {
   if (draft.mustChangePassword !== undefined && draft.mustChangePassword !== Boolean(base.mustChangePassword)) {
     out.mustChangePassword = draft.mustChangePassword
   }
+  if (
+    draft.cannotChangePassword !== undefined &&
+    draft.cannotChangePassword !== Boolean(base.cannotChangePassword)
+  ) {
+    out.cannotChangePassword = draft.cannotChangePassword
+  }
   if (draft.unlock) out.unlock = true
   if (draft.deleteProtected !== undefined && draft.deleteProtected !== Boolean(base.deleteProtected)) {
     out.deleteProtected = draft.deleteProtected
@@ -213,6 +223,7 @@ export function countChanges(changes: Changes): number {
     Object.keys(changes.flags ?? {}).length +
     (changes.accountExpires !== undefined ? 1 : 0) +
     (changes.mustChangePassword !== undefined ? 1 : 0) +
+    (changes.cannotChangePassword !== undefined ? 1 : 0) +
     (changes.unlock ? 1 : 0) +
     (changes.deleteProtected !== undefined ? 1 : 0) +
     (changes.scope !== undefined ? 1 : 0) +
@@ -298,6 +309,22 @@ export function withRawAttribute(draft: Draft, name: string, before: string[], a
 }
 
 /**
+ * The order "must change" and "cannot change" are written in. The server
+ * refuses either while the other is set — as ADUC refuses to save both — so
+ * switching from one to the other clears before it sets.
+ */
+export function passwordSteps(
+  changes: Pick<Changes, 'mustChangePassword' | 'cannotChangePassword'>,
+): ('mustChangePassword' | 'cannotChangePassword')[] {
+  const steps: ('mustChangePassword' | 'cannotChangePassword')[] = []
+  if (changes.mustChangePassword === false) steps.push('mustChangePassword')
+  if (changes.cannotChangePassword === false) steps.push('cannotChangePassword')
+  if (changes.mustChangePassword === true) steps.push('mustChangePassword')
+  if (changes.cannotChangePassword === true) steps.push('cannotChangePassword')
+  return steps
+}
+
+/**
  * The draft after part of it was applied: those parts are dropped, the rest
  * stays. Apply writes in steps, and a step that failed leaves everything
  * after it untouched; what the person typed there must not be lost.
@@ -308,6 +335,7 @@ export type Step =
   | 'acl'
   | 'accountExpires'
   | 'mustChangePassword'
+  | 'cannotChangePassword'
   | 'unlock'
   | 'deleteProtected'
   | 'group'
@@ -330,6 +358,11 @@ export function withoutApplied(draft: Draft, applied: Step[]): Draft {
       }
       case 'mustChangePassword': {
         const { mustChangePassword: _drop, ...rest } = next
+        next = rest as Draft
+        break
+      }
+      case 'cannotChangePassword': {
+        const { cannotChangePassword: _drop, ...rest } = next
         next = rest as Draft
         break
       }

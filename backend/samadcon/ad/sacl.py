@@ -55,9 +55,6 @@ def _raw_descriptor(conn: DirectoryConnection, dn: str) -> bytes | None:
 
 def read_descriptor(conn: DirectoryConnection, dn: str) -> Any:
     """Return the object's nTSecurityDescriptor as a samba structure."""
-    from samba.dcerpc import security
-    from samba.ndr import ndr_unpack
-
     raw = _raw_descriptor(conn, dn)
     if raw is None:
         raise SamadconError(
@@ -66,6 +63,9 @@ def read_descriptor(conn: DirectoryConnection, dn: str) -> Any:
             status_code=403,
             hint="Reading an ACL requires READ_CONTROL on the object.",
         )
+    from samba.dcerpc import security
+    from samba.ndr import ndr_unpack
+
     return ndr_unpack(security.descriptor, raw)
 
 

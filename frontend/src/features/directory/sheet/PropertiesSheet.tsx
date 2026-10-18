@@ -23,6 +23,7 @@ import {
   EMPTY_DRAFT,
   changesOf,
   countChanges,
+  passwordSteps,
   withoutApplied,
   type Changes,
   type Draft,
@@ -104,6 +105,9 @@ function baseOf(object: DirectoryObject, detail: Detail, deleteProtected: boolea
     const user = detail as UserDetail
     base.accountExpires = user.status.account_expires
     base.mustChangePassword = user.status.must_change_password
+    if (user.status.cannot_change_password != null) {
+      base.cannotChangePassword = user.status.cannot_change_password
+    }
   }
   if (object.type === 'group' && 'scope' in detail) {
     const group = detail as GroupDetail
@@ -250,10 +254,14 @@ export function PropertiesSheet({
       if (what.accountExpires !== undefined) {
         await run('accountExpires', () => api.setExpiry(object.dn, what.accountExpires ?? null))
       }
-      if (what.mustChangePassword !== undefined) {
-        await run('mustChangePassword', () =>
-          api.setMustChangePassword(object.dn, what.mustChangePassword!),
-        )
+      // Clearing before setting: the server refuses either option while the
+      // other is set, as ADUC refuses to save both.
+      for (const step of passwordSteps(what)) {
+        if (step === 'mustChangePassword') {
+          await run(step, () => api.setMustChangePassword(object.dn, what.mustChangePassword!))
+        } else {
+          await run(step, () => api.setCannotChangePassword(object.dn, what.cannotChangePassword!))
+        }
       }
       if (what.unlock) {
         await run('unlock', () => api.unlock(object.dn))

@@ -135,6 +135,10 @@ class MustChangePasswordRequest(StrictModel):
     must_change: bool
 
 
+class CannotChangePasswordRequest(StrictModel):
+    cannot_change: bool
+
+
 class CertificateUploadRequest(StrictModel):
     """One certificate, DER or PEM, as base64. 64 KiB decoded is more than any."""
 

@@ -20,6 +20,7 @@ export const de = {
   'sheet.step.group': 'Gruppenbereich und -typ',
   'sheet.step.accountExpires': 'Konto läuft ab',
   'sheet.step.mustChangePassword': 'Kennwort bei nächster Anmeldung ändern',
+  'sheet.step.cannotChangePassword': 'Benutzer kann Kennwort nicht ändern',
   'sheet.step.unlock': 'Kontosperrung aufheben',
   'sheet.step.deleteProtected': 'Schutz vor zufälligem Löschen',
   'sheet.step.memberAdd': 'Mitgliedschaften hinzufügen',
@@ -902,6 +903,10 @@ export const de = {
 
   'flag.account_disabled': 'Konto ist deaktiviert',
   'flag.password_never_expires': 'Kennwort läuft nie ab',
+  'user.cannotChangePassword': 'Benutzer kann Kennwort nicht ändern',
+  'user.cannotChangeUnknown': 'nicht lesbar: die Berechtigungen des Kontos sind für Sie nicht sichtbar',
+  'user.mustAndCannot':
+    'Die zwei Optionen „Benutzer muss Kennwort bei der nächsten Anmeldung ändern“ und „Benutzer kann Kennwort nicht ändern“ dürfen nicht zusammen für denselben Benutzer ausgewählt werden.',
   'user.aes128': 'Dieses Konto unterstützt Kerberos-AES-128-Bit-Verschlüsselung',
   'user.aes256': 'Dieses Konto unterstützt Kerberos-AES-256-Bit-Verschlüsselung',
   'flag.password_not_required': 'Kein Kennwort erforderlich',
@@ -1265,6 +1270,9 @@ export const de = {
   'error.password_age_order':
     'Das maximale Kennwortalter ({max_age} Tage) muss größer sein als das minimale ({min_age} Tage).',
   'error.password_age_order.hint': '0 Tage beim maximalen Alter bedeutet: Kennwörter laufen nie ab.',
+  'error.must_change_with_cannot_change':
+    'Die zwei Optionen „Benutzer muss Kennwort bei der nächsten Anmeldung ändern“ und „Benutzer kann Kennwort nicht ändern“ dürfen nicht zusammen für denselben Benutzer ausgewählt werden.',
+  'error.must_change_with_cannot_change.hint': 'Eine der beiden Optionen abwählen; ADUC speichert sie ebenfalls nicht zusammen.',
   'error.lockout_reset_exceeds_duration':
     '„Kontosperrungszähler zurücksetzen nach“ ({reset} Minuten) darf nicht länger sein als die Kontosperrdauer ({duration} Minuten).',
   'error.lockout_reset_exceeds_duration.hint':
@@ -2028,6 +2036,7 @@ export const en: Record<MessageKey, string> = {
   'sheet.step.group': 'group scope and type',
   'sheet.step.accountExpires': 'account expiry',
   'sheet.step.mustChangePassword': 'must change password at next logon',
+  'sheet.step.cannotChangePassword': 'user cannot change password',
   'sheet.step.unlock': 'unlock account',
   'sheet.step.deleteProtected': 'protection from accidental deletion',
   'sheet.step.memberAdd': 'adding memberships',
@@ -2897,6 +2906,10 @@ export const en: Record<MessageKey, string> = {
 
   'flag.account_disabled': 'Account is disabled',
   'flag.password_never_expires': 'Password never expires',
+  'user.cannotChangePassword': 'User cannot change password',
+  'user.cannotChangeUnknown': "not readable: the account's permissions are not visible to you",
+  'user.mustAndCannot':
+    'The two options "User must change password at next logon" and "User cannot change password" cannot both be selected for the same user.',
   'user.aes128': 'This account supports Kerberos AES 128 bit encryption',
   'user.aes256': 'This account supports Kerberos AES 256 bit encryption',
   'flag.password_not_required': 'Password not required',
@@ -3260,6 +3273,9 @@ export const en: Record<MessageKey, string> = {
   'error.password_age_order':
     'The maximum password age ({max_age} days) must be greater than the minimum ({min_age} days).',
   'error.password_age_order.hint': '0 days as the maximum age means passwords never expire.',
+  'error.must_change_with_cannot_change':
+    'The two options "User must change password at next logon" and "User cannot change password" cannot both be selected for the same user.',
+  'error.must_change_with_cannot_change.hint': 'Clear one of the two; ADUC does not save them together either.',
   'error.lockout_reset_exceeds_duration':
     '"Reset account lockout counter after" ({reset} minutes) must not be longer than the lockout duration ({duration} minutes).',
   'error.lockout_reset_exceeds_duration.hint':

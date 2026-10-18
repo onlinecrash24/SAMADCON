@@ -12,6 +12,7 @@ from samadcon.api.common import Audit, DnQuery, note_confirmation
 from samadcon.auth.deps import CurrentSession, VerifiedSession, VerifiedWorker, Worker
 from samadcon.schemas.requests import (
     AccountExpiryRequest,
+    CannotChangePasswordRequest,
     CertificateRemoveRequest,
     CertificateUploadRequest,
     CopyUserRequest,
@@ -215,6 +216,28 @@ async def must_change_password(
             label="user.must_change_password",
         )
     return {"dn": dn, "must_change_password": payload.must_change}
+
+
+@router.post("/cannot-change-password")
+async def cannot_change_password(
+    payload: CannotChangePasswordRequest,
+    worker: VerifiedWorker,
+    session: VerifiedSession,
+    audit: Audit,
+    dn: DnQuery,
+) -> dict[str, Any]:
+    """ADUC's "User cannot change password": deny entries on the Change
+    Password right for SELF and Everyone, as ADUC writes them."""
+    with audit.operation("user.cannot_change_password", target=dn, value=payload.cannot_change):
+        await ad_write(
+            worker,
+            session,
+            users.set_cannot_change_password,
+            dn,
+            payload.cannot_change,
+            label="user.cannot_change_password",
+        )
+    return {"dn": dn, "cannot_change_password": payload.cannot_change}
 
 
 @router.post("/unlock")

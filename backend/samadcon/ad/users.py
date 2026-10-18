@@ -16,10 +16,10 @@ import re
 from datetime import UTC, datetime
 from typing import Any
 
-from samadcon.ad import uac, values
+from samadcon.ad import sacl, uac, values
 from samadcon.ad.connection import SCOPE_SUBTREE, DirectoryConnection
 from samadcon.ad.directory import summarize
-from samadcon.core.errors import Conflict, InvalidRequest, NotFound
+from samadcon.core.errors import Conflict, InvalidRequest, NotFound, SamadconError
 
 # API field -> LDAP attribute. Used for both reading and writing, so the two
 # directions cannot drift apart.
@@ -222,6 +222,9 @@ def _render_user(conn: DirectoryConnection, entry: Any) -> dict[str, Any]:
             "bad_password_time": values.as_filetime(entry, "badPasswordTime"),
             # pwdLastSet == 0 is AD's way of saying "must change at next logon".
             "must_change_password": pwd_last_set_raw == 0,
+            # In the ACL, not in userAccountControl; None when the ACL
+            # cannot be read with this account.
+            "cannot_change_password": _cannot_change_or_none(conn, dn),
             "password_last_set": values.filetime_to_datetime(pwd_last_set_raw),
             "password_expires": values.as_filetime(
                 entry, "msDS-UserPasswordExpiryTimeComputed"
@@ -345,7 +348,7 @@ def create_user(
 
     try:
         if password:
-            set_password(conn, dn, password, must_change=must_change_password)
+            set_password(conn, dn, password, must_change=must_change_password, check_acl=False)
 
         target_uac = uac.NORMAL_ACCOUNT
         if flags:
@@ -824,8 +827,12 @@ def set_password(
     password: str,
     *,
     must_change: bool = False,
+    check_acl: bool = True,
 ) -> None:
     """Administrative password reset.
+
+    *check_acl* is False only for an account created a moment ago, whose ACL
+    is the default and cannot hold "User cannot change password".
 
     Written as a message, like every other change in this module. It used to be
     a string of LDIF with the DN interpolated into it, and a DN carrying a line
@@ -840,7 +847,7 @@ def set_password(
         raise InvalidRequest("The password is empty.", code="empty_password")
     # Before the password is set: refused after, the reset would be half done.
     if must_change:
-        _ensure_can_force_change(conn, dn)
+        _ensure_can_force_change(conn, dn, check_acl=check_acl)
 
     import ldb
 
@@ -853,7 +860,8 @@ def set_password(
     )
     conn.modify(message)
 
-    set_must_change_password(conn, dn, must_change)
+    # Checked above, before the password was written.
+    _write_must_change(conn, dn, must_change)
 
 
 def _refuse_must_change_and_never_expires(must_change: bool, never_expires: bool) -> None:
@@ -869,8 +877,11 @@ def _refuse_must_change_and_never_expires(must_change: bool, never_expires: bool
         )
 
 
-def _ensure_can_force_change(conn: DirectoryConnection, dn: str) -> None:
-    """Refuse "must change" on an account whose password never expires."""
+def _ensure_can_force_change(
+    conn: DirectoryConnection, dn: str, *, check_acl: bool = True
+) -> None:
+    """Refuse "must change" on an account whose password never expires, or
+    that cannot change its password."""
     entry = conn.get(dn, attrs=["userAccountControl"])
     current = values.as_int(entry, "userAccountControl", 0) or 0
     if current & uac.DONT_EXPIRE_PASSWD:
@@ -880,6 +891,106 @@ def _ensure_can_force_change(conn: DirectoryConnection, dn: str) -> None:
             code="must_change_with_never_expires",
             hint='Clear "Password never expires" first.',
         )
+    if check_acl and cannot_change_password(conn, dn):
+        raise _must_and_cannot()
+
+
+# ---------------------------------------------------------------------------
+# "User cannot change password"
+#
+# Not a bit of userAccountControl: KB 305144 says PASSWD_CANT_CHANGE cannot be
+# set there, and ADUC leaves it alone. ADUC turns the allow entries for SELF
+# and Everyone on the "Change Password" right into denies. Measured on zmb-ad
+# with ADUC on WIN11-PVE (tests/unit/test_cannot_change_password.py). Clearing
+# it there left Everyone twice and SELF missing; here it restores both, once.
+# ---------------------------------------------------------------------------
+
+CHANGE_PASSWORD_RIGHT = "ab721a53-1e2f-11d0-9819-00aa0040529b"
+_CANNOT_CHANGE_TRUSTEES = ("PS", "WD")  # SELF, Everyone — in ADUC's order
+
+
+def _change_password_ace(kind: str, trustee: str) -> str:
+    return f"({kind};;CR;{CHANGE_PASSWORD_RIGHT};;{trustee})"
+
+
+def _is_change_password_entry(ace: str, domain_sid: str | None) -> bool:
+    """An explicit allow or deny of the right for SELF or Everyone."""
+    return any(
+        sacl.same_ace(ace, _change_password_ace(kind, trustee), domain_sid)
+        for kind in ("OA", "OD")
+        for trustee in _CANNOT_CHANGE_TRUSTEES
+    )
+
+
+def cannot_change_in(aces: list[str], domain_sid: str | None) -> bool:
+    """Whether the ACL says the user cannot change the password, as ADUC reads it."""
+    return any(
+        sacl.same_ace(ace, _change_password_ace("OD", trustee), domain_sid)
+        for ace in aces
+        for trustee in _CANNOT_CHANGE_TRUSTEES
+    )
+
+
+def with_cannot_change(aces: list[str], value: bool, domain_sid: str | None) -> list[str]:
+    """The DACL entries with the option set or cleared.
+
+    Every explicit entry of the right for SELF and Everyone goes, and the two
+    the option stands for come back: denies ahead of the allows, or allows
+    ahead of the inherited entries. Inherited entries are left as they are.
+    An ACL that already says it, once each, is returned unchanged.
+    """
+    wanted = [
+        _change_password_ace("OD" if value else "OA", trustee)
+        for trustee in _CANNOT_CHANGE_TRUSTEES
+    ]
+    present = [ace for ace in aces if _is_change_password_entry(ace, domain_sid)]
+    if len(present) == len(wanted) and all(
+        any(sacl.same_ace(ace, want, domain_sid) for ace in present) for want in wanted
+    ):
+        return list(aces)
+
+    kept = [ace for ace in aces if not _is_change_password_entry(ace, domain_sid)]
+    if value:
+        at = next(
+            (i for i, ace in enumerate(kept) if ace.startswith(("(A;", "(OA;"))), len(kept)
+        )
+    else:
+        at = next((i for i, ace in enumerate(kept) if sacl.is_inherited_ace(ace)), len(kept))
+    return kept[:at] + wanted + kept[at:]
+
+
+def cannot_change_password(conn: DirectoryConnection, dn: str) -> bool:
+    _, aces, _ = sacl._split_dacl(sacl.read_sddl(conn, dn))
+    return cannot_change_in(aces, sacl._domain_sid_text(conn))
+
+
+def _cannot_change_or_none(conn: DirectoryConnection, dn: str) -> bool | None:
+    try:
+        return cannot_change_password(conn, dn)
+    except SamadconError:
+        return None
+
+
+def _must_and_cannot() -> Conflict:
+    return Conflict(
+        '"User must change password at next logon" and "User cannot change password" '
+        "cannot both be selected for the same user.",
+        code="must_change_with_cannot_change",
+        hint="Clear one of the two; ADUC refuses to save them together.",
+    )
+
+
+def set_cannot_change_password(conn: DirectoryConnection, dn: str, value: bool) -> None:
+    """Set or clear "User cannot change password", in one write to the DACL."""
+    if value:
+        entry = conn.get(dn, attrs=["pwdLastSet"])
+        if values.as_int(entry, "pwdLastSet") == 0:
+            raise _must_and_cannot()
+
+    prefix, aces, suffix = sacl._split_dacl(sacl.read_sddl(conn, dn))
+    updated = with_cannot_change(aces, value, sacl._domain_sid_text(conn))
+    if updated != aces:
+        sacl.write_sddl(conn, dn, prefix + "".join(updated) + suffix)
 
 
 def copied_flags(
@@ -914,7 +1025,10 @@ def set_must_change_password(conn: DirectoryConnection, dn: str, must_change: bo
     """
     if must_change:
         _ensure_can_force_change(conn, dn)
+    _write_must_change(conn, dn, must_change)
 
+
+def _write_must_change(conn: DirectoryConnection, dn: str, must_change: bool) -> None:
     import ldb
 
     message = ldb.Message()

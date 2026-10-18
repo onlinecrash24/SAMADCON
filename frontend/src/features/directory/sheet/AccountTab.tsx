@@ -41,6 +41,9 @@ export function AccountTab({ user }: { user: UserDetail }) {
   const never = expiry === ''
   const mustChange = draft.mustChangePassword ?? user.status.must_change_password
   const options = { mustChange, neverExpires: flag('password_never_expires') }
+  // In the ACL rather than userAccountControl; null when it could not be read.
+  const cannotKnown = user.status.cannot_change_password != null
+  const cannotChange = draft.cannotChangePassword ?? user.status.cannot_change_password ?? false
   // Which box the last tick cleared, to say why it moved — ADUC says it in a
   // message box; here it is a line under the options.
   const [cleared, setCleared] = useState<PasswordOption | null>(null)
@@ -102,6 +105,18 @@ export function AccountTab({ user }: { user: UserDetail }) {
           />
           <span>{t('dialog.passwordMustChange')}</span>
         </label>
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={cannotChange}
+            disabled={busy || !cannotKnown}
+            onChange={(event) => setDraft((d) => ({ ...d, cannotChangePassword: event.target.checked }))}
+          />
+          <span>
+            {t('user.cannotChangePassword')}
+            {!cannotKnown && <span className="muted small"> — {t('user.cannotChangeUnknown')}</span>}
+          </span>
+        </label>
         {ACCOUNT_FLAGS.filter((name) => name in user.flags).map((name) => (
           <label className="checkbox" key={name}>
             <input
@@ -139,6 +154,10 @@ export function AccountTab({ user }: { user: UserDetail }) {
           </p>
         )}
         {bothSet(options) && <div className="alert alert--warning">{t('user.passwordOptionsBoth')}</div>}
+        {mustChange && cannotChange && (
+          // ADUC lets both stay ticked and refuses on OK; this says so before.
+          <div className="alert alert--warning">{t('user.mustAndCannot')}</div>
+        )}
       </fieldset>
 
       <fieldset className="radio-group radio-group--block">

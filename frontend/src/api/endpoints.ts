@@ -288,6 +288,11 @@ export const api = {
     http.post<{ dn: string; primary_group: string }>(`/users/primary-group?dn=${dnParam(dn)}`, {
       group_dn: groupDn,
     }),
+  setCannotChangePassword: (dn: string, cannotChange: boolean) =>
+    http.post<{ dn: string; cannot_change_password: boolean }>(
+      `/users/cannot-change-password?dn=${dnParam(dn)}`,
+      { cannot_change: cannotChange },
+    ),
   setMustChangePassword: (dn: string, mustChange: boolean) =>
     http.post<{ dn: string }>(`/users/must-change-password?dn=${dnParam(dn)}`, {
       must_change: mustChange,

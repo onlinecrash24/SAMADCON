@@ -206,6 +206,8 @@ export interface AccountStatus {
   bad_password_count: number
   bad_password_time: string | null
   must_change_password: boolean
+  /** From the ACL (deny on "Change Password" for SELF and Everyone); null if unreadable. */
+  cannot_change_password?: boolean | null
   password_last_set: string | null
   password_expires: string | null
   account_expires: string | null
