@@ -14,6 +14,29 @@ release.
 
 ---
 
+## 0.6.21 — 2026-10-18
+
+Three fixes in how permissions are read and compared.
+
+- A permission that already exists is now recognised when it is added
+  again. SAMADCON writes an entry with a hex mask and the trustee's full
+  SID; Samba hands the ACL back with right letters and SID aliases, for
+  example (A;;RP;;;DA). The two were compared as text, so the same
+  permission could be added twice. Entries are now compared by what they
+  mean: the rights as a mask, the trustee as a SID, GUIDs without braces or
+  case, and the flags in any order. An entry that cannot be taken apart,
+  such as a conditional one, is still compared as text.
+- Resolved account names (SIDs) have a cache of their own. They used to
+  share the schema cache, which holds 32 entries, so a larger ACL pushed
+  the schema out and every SID was looked up again for the next one.
+- Permissions are read with an explicit sd_flags control (owner, group
+  and DACL), instead of whatever the server returns by default for the
+  account.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.21, :0.6 and :latest.
+
+---
+
 ## 0.6.20 — 2026-10-18
 
 A way to support SAMADCON: Buy Me a Coffee.
