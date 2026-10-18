@@ -14,6 +14,35 @@ release.
 
 ---
 
+## 0.6.22 — 2026-10-18
+
+"Must change password" and "Password never expires" exclude each other.
+
+A tester ticked "User must change password at next logon", saved it with
+"Password never expires", and reopened the account with both ticked. A
+copy of a template whose password never expires came out the same way.
+ADUC does not allow the pair: ticking one clears the other.
+
+- Account tab: ticking one clears the other, and the sentence ADUC shows
+  for it appears under the options. An account that already has both says
+  so and asks for one to be cleared.
+- Copy: the dialog now shows "Password never expires", set as the
+  template has it, as ADUC's copy wizard does. If it is set, "must change"
+  starts cleared, and the two exclude each other.
+- Reset password: on an account whose password never expires, "must
+  change" is cleared and locked, with the reason beside it.
+- The server refuses the pair when an account is created or copied, when
+  "must change" is set, and when a password is reset with it, before
+  anything is written. A reset is no longer left half done with the
+  password changed and the option refused.
+- A copy through the API that does not say whether the password never
+  expires: an asked-for "must change" wins over the template's "never
+  expires". A password handed to someone should be replaced.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.22, :0.6 and :latest.
+
+---
+
 ## 0.6.21 — 2026-10-18
 
 Three fixes in how permissions are read and compared.
