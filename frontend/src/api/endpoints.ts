@@ -230,6 +230,8 @@ export const api = {
       password?: string
       generate_password?: boolean
       must_change_password?: boolean
+      /** Left out: as the template has it. */
+      password_never_expires?: boolean
       enabled?: boolean
       attributes?: Record<string, string>
       groups?: string[]

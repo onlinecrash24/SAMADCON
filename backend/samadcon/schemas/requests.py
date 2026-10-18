@@ -109,6 +109,8 @@ class CopyUserRequest(StrictModel):
     enabled: bool = True
     attributes: dict[str, Any] = Field(default_factory=dict)
     groups: list[str] | None = Field(default=None, max_length=1000)
+    # None: as the template has it.
+    password_never_expires: bool | None = None
 
     @model_validator(mode="after")
     def _one_password(self) -> CopyUserRequest:

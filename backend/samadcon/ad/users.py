@@ -272,8 +272,6 @@ def create_user(
     *raw_attributes* are written as given, at creation — for values a copy
     carries over that have no field of their own, such as logon hours.
     """
-    import ldb
-
     sam = sam_account_name.strip()
     if not sam:
         raise InvalidRequest("The logon name is missing.", code="missing_sam_account_name")
@@ -285,12 +283,17 @@ def create_user(
             code="sam_account_name_too_long",
             context={"limit": 20},
         )
+    _refuse_must_change_and_never_expires(
+        must_change_password, bool((flags or {}).get("password_never_expires"))
+    )
     if enabled and not password:
         raise InvalidRequest(
             "An enabled account needs a password.",
             code="password_required",
             hint="Either supply a password or create the account disabled.",
         )
+
+    import ldb
 
     if not conn.exists(parent_dn):
         raise NotFound("The target container does not exist.", context={"dn": parent_dn})
@@ -475,6 +478,7 @@ def copy_user(
     must_change_password: bool = True,
     enabled: bool = True,
     groups: list[str] | None = None,
+    password_never_expires: bool | None = None,
 ) -> dict[str, Any]:
     """Create an account from a template account — ADUC's "Copy…".
 
@@ -528,11 +532,7 @@ def copy_user(
     fields.update(attributes or {})
 
     template_uac = values.as_int(template, "userAccountControl", 0) or 0
-    flags = {
-        name: True
-        for name, bit in uac.EDITABLE_FLAGS.items()
-        if name != "account_disabled" and template_uac & bit
-    }
+    flags = copied_flags(template_uac, password_never_expires, must_change_password)
 
     raw: dict[str, bytes | str] = {}
     logon_hours = values.as_bytes(template, "logonHours")
@@ -831,10 +831,13 @@ def set_password(
     connection here is one: LDAP with the Kerberos session key and sign-and-seal
     required, or LDAPS.
     """
-    import ldb
-
     if not password:
         raise InvalidRequest("The password is empty.", code="empty_password")
+    # Before the password is set: refused after, the reset would be half done.
+    if must_change:
+        _ensure_can_force_change(conn, dn)
+
+    import ldb
 
     message = ldb.Message()
     message.dn = ldb.Dn(conn.samdb, dn)
@@ -848,12 +851,65 @@ def set_password(
     set_must_change_password(conn, dn, must_change)
 
 
+def _refuse_must_change_and_never_expires(must_change: bool, never_expires: bool) -> None:
+    """ADUC's rule: "must change at next logon" and "password never expires"
+    exclude each other — ticking one clears the other. A tester saved both
+    here and reopened the account with both ticked."""
+    if must_change and never_expires:
+        raise InvalidRequest(
+            '"Must change password at next logon" and "Password never expires" '
+            "exclude each other.",
+            code="must_change_with_never_expires",
+            hint='Clear one of them; ADUC clears "must change" when "never expires" is ticked.',
+        )
+
+
+def _ensure_can_force_change(conn: DirectoryConnection, dn: str) -> None:
+    """Refuse "must change" on an account whose password never expires."""
+    entry = conn.get(dn, attrs=["userAccountControl"])
+    current = values.as_int(entry, "userAccountControl", 0) or 0
+    if current & uac.DONT_EXPIRE_PASSWD:
+        raise Conflict(
+            '"Must change password at next logon" and "Password never expires" '
+            "exclude each other.",
+            code="must_change_with_never_expires",
+            hint='Clear "Password never expires" first.',
+        )
+
+
+def copied_flags(
+    template_uac: int, password_never_expires: bool | None, must_change: bool = False
+) -> dict[str, bool]:
+    """The account options a copy takes from its template.
+
+    Everything the template has set, except being disabled, which the copy
+    dialog decides. *password_never_expires* overrides the template's when
+    given: the dialog shows it, as ADUC's copy wizard does, because it
+    excludes "must change at next logon". Not given, a "must change" the
+    caller asked for wins over the template's "never expires" — a password
+    handed to someone, generated or typed, is one they should replace.
+    """
+    flags = {
+        name: True
+        for name, bit in uac.EDITABLE_FLAGS.items()
+        if name != "account_disabled" and template_uac & bit
+    }
+    if password_never_expires is not None:
+        flags["password_never_expires"] = password_never_expires
+    elif must_change:
+        flags.pop("password_never_expires", None)
+    return flags
+
+
 def set_must_change_password(conn: DirectoryConnection, dn: str, must_change: bool) -> None:
     """Toggle "user must change password at next logon".
 
     ``pwdLastSet = 0`` forces a change; ``-1`` tells the DC to stamp the
     current time. Any other value is rejected by AD.
     """
+    if must_change:
+        _ensure_can_force_change(conn, dn)
+
     import ldb
 
     message = ldb.Message()

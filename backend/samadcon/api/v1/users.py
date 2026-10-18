@@ -126,6 +126,7 @@ async def copy_user(
             must_change_password=payload.must_change_password,
             enabled=payload.enabled,
             groups=payload.groups,
+            password_never_expires=payload.password_never_expires,
             label="user.copy",
         )
         record["target"] = result["user"]["dn"]

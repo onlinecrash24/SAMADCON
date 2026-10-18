@@ -469,6 +469,14 @@ export const de = {
   'dialog.deleteRecursive': 'Enthaltene Objekte mit löschen',
   'dialog.passwordTitle': 'Kennwort zurücksetzen',
   'dialog.passwordMustChange': 'Benutzer muss Kennwort bei nächster Anmeldung ändern',
+  'dialog.mustChangeBlocked':
+    'Nicht möglich, solange für das Konto „Kennwort läuft nie ab“ gesetzt ist; die beiden Optionen schließen sich aus.',
+  'user.clearedMustChange':
+    'Sie haben die Option „Kennwort läuft nie ab“ ausgewählt. Der Benutzer muss daher sein Kennwort bei der nächsten Anmeldung nicht ändern.',
+  'user.clearedNeverExpires':
+    'Sie haben die Option „Benutzer muss Kennwort bei nächster Anmeldung ändern“ ausgewählt. „Kennwort läuft nie ab“ wurde daher abgewählt.',
+  'user.passwordOptionsBoth':
+    'Beide Optionen sind gesetzt, obwohl sie sich ausschließen. Bitte eine davon abwählen.',
   'dialog.passwordMustChangeHint':
     'Bis zur Änderung stellt das KDC kein Ticket aus: Anmeldungen an SAMADCON oder anderen Kerberos-Diensten schlagen fehl. Die Änderung muss an einem Domänen-Client erfolgen.',
   'dialog.moveHint':
@@ -1250,6 +1258,10 @@ export const de = {
   'error.password_age_order':
     'Das maximale Kennwortalter ({max_age} Tage) muss größer sein als das minimale ({min_age} Tage).',
   'error.password_age_order.hint': '0 Tage beim maximalen Alter bedeutet: Kennwörter laufen nie ab.',
+  'error.must_change_with_never_expires':
+    '„Benutzer muss Kennwort bei nächster Anmeldung ändern“ und „Kennwort läuft nie ab“ schließen sich aus.',
+  'error.must_change_with_never_expires.hint':
+    'Eine der beiden Optionen abwählen; ADUC wählt „muss ändern“ ab, sobald „läuft nie ab“ gesetzt wird.',
   'error.acl_expected_missing':
     'Die Berechtigungen, gegen die die Änderungen vorgenommen wurden, fehlen in der Anfrage.',
   'error.acl_expected_missing.hint': 'Fenster schließen, neu öffnen und die Änderungen noch einmal vornehmen.',
@@ -2441,6 +2453,14 @@ export const en: Record<MessageKey, string> = {
   'dialog.deleteRecursive': 'Delete contained objects as well',
   'dialog.passwordTitle': 'Reset password',
   'dialog.passwordMustChange': 'User must change password at next logon',
+  'dialog.mustChangeBlocked':
+    'Not possible while "Password never expires" is set for the account; the two options exclude each other.',
+  'user.clearedMustChange':
+    'You have selected "Password never expires". The user will not be required to change the password at next logon.',
+  'user.clearedNeverExpires':
+    'You have selected "User must change password at next logon". "Password never expires" was therefore cleared.',
+  'user.passwordOptionsBoth':
+    'Both options are set, although they exclude each other. Please clear one of them.',
   'dialog.passwordMustChangeHint':
     'Until it is changed the KDC issues no ticket: signing in to SAMADCON or any other Kerberos service will fail. The change has to happen on a domain-joined client.',
   'dialog.moveHint':
@@ -3212,6 +3232,10 @@ export const en: Record<MessageKey, string> = {
   'error.password_age_order':
     'The maximum password age ({max_age} days) must be greater than the minimum ({min_age} days).',
   'error.password_age_order.hint': '0 days as the maximum age means passwords never expire.',
+  'error.must_change_with_never_expires':
+    '"User must change password at next logon" and "Password never expires" exclude each other.',
+  'error.must_change_with_never_expires.hint':
+    'Clear one of the two; ADUC clears "must change" as soon as "never expires" is set.',
   'error.acl_expected_missing':
     'The request lacks the permissions the changes were made against.',
   'error.acl_expected_missing.hint': 'Close the window, open it again and make the changes once more.',

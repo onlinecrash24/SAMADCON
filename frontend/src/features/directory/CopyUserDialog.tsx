@@ -27,6 +27,7 @@ import {
 import { nameFromDn, parentDn } from '../../dn'
 import { useI18n } from '../../i18n'
 import { requestedGroups } from './copyUser'
+import { choosePasswordOption, type PasswordOption, type PasswordOptions } from './passwordOptions'
 
 export function CopyUserDialog({
   template,
@@ -49,7 +50,11 @@ export function CopyUserDialog({
   })
   const [generate, setGenerate] = useState(true)
   const [password, setPassword] = useState('')
-  const [mustChange, setMustChange] = useState(true)
+  // As ADUC's copy wizard: "never expires" as the template has it, and
+  // "must change" ticked unless that excludes it.
+  const [options, setOptions] = useState<PasswordOptions>({ mustChange: true, neverExpires: false })
+  const [optionsTouched, setOptionsTouched] = useState(false)
+  const [cleared, setCleared] = useState<PasswordOption | null>(null)
   const [enabled, setEnabled] = useState(true)
   const [leftOut, setLeftOut] = useState<Set<string>>(new Set())
   const [error, setError] = useState<unknown>(null)
@@ -70,6 +75,19 @@ export function CopyUserDialog({
     setForm((current) => (current.upnSuffix ? current : { ...current, upnSuffix: suffix }))
   }, [templateUpn, setForm])
 
+  const templateNeverExpires = source.data?.flags?.password_never_expires
+  useEffect(() => {
+    if (optionsTouched || templateNeverExpires === undefined) return
+    setOptions({ mustChange: !templateNeverExpires, neverExpires: templateNeverExpires })
+  }, [templateNeverExpires, optionsTouched])
+
+  const choose = (which: PasswordOption, value: boolean) => {
+    const { next, cleared: other } = choosePasswordOption(options, which, value)
+    setOptionsTouched(true)
+    setOptions(next)
+    setCleared(other)
+  }
+
   const templateGroups = offered.data?.groups ?? []
   const groups = templateGroups.map((group) => group.dn)
 
@@ -81,7 +99,8 @@ export function CopyUserDialog({
         parent_dn: target,
         attributes: identity.attributes,
         ...(generate ? { generate_password: true } : { password: password || undefined }),
-        must_change_password: mustChange,
+        must_change_password: options.mustChange,
+        password_never_expires: options.neverExpires,
         enabled,
         groups: requestedGroups(groups, leftOut),
       }),
@@ -217,9 +236,26 @@ export function CopyUserDialog({
           )}
         </fieldset>
         <label className="checkbox">
-          <input type="checkbox" checked={mustChange} onChange={(e) => setMustChange(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={options.mustChange}
+            onChange={(e) => choose('mustChange', e.target.checked)}
+          />
           <span>{t('dialog.passwordMustChange')}</span>
         </label>
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={options.neverExpires}
+            onChange={(e) => choose('neverExpires', e.target.checked)}
+          />
+          <span>{t('flag.password_never_expires')}</span>
+        </label>
+        {cleared && (
+          <p className="muted small">
+            {t(cleared === 'mustChange' ? 'user.clearedMustChange' : 'user.clearedNeverExpires')}
+          </p>
+        )}
         <label className="checkbox">
           <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
           <span>{t('user.status.active')}</span>

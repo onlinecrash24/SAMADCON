@@ -541,11 +541,15 @@ export function PasswordDialog({ dn, onClose, onDone }: DialogProps & { dn: stri
   const { error, setError, pending, run } = useSubmit(onDone, onClose)
   const [password, setPassword] = useState('')
   const [mustChange, setMustChange] = useState(true)
+  // "Must change" and "Password never expires" exclude each other, as in
+  // ADUC; on such an account the box stays clear and says why.
+  const account = useQuery({ queryKey: ['password-dialog-user', dn], queryFn: () => api.user(dn) })
+  const neverExpires = account.data?.flags?.password_never_expires === true
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
     void run(async () => {
-      await api.setPassword(dn, password, mustChange)
+      await api.setPassword(dn, password, mustChange && !neverExpires)
       return t('status.passwordSet')
     })
   }
@@ -579,11 +583,13 @@ export function PasswordDialog({ dn, onClose, onDone }: DialogProps & { dn: stri
         <label className="checkbox">
           <input
             type="checkbox"
-            checked={mustChange}
+            checked={mustChange && !neverExpires}
+            disabled={neverExpires}
             onChange={(e) => setMustChange(e.target.checked)}
           />
           <span>{t('dialog.passwordMustChange')}</span>
         </label>
+        {neverExpires && <p className="muted small">{t('dialog.mustChangeBlocked')}</p>}
       </form>
     </Modal>
   )

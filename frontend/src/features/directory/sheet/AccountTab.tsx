@@ -1,8 +1,11 @@
+import { useState } from 'react'
+
 import type { UserDetail } from '../../../api/types'
 import { Badge, Field, TextRow, useDateFormat } from '../../../components/primitives'
 import { useI18n } from '../../../i18n'
 import type { MessageKey } from '../../../i18n/messages'
 import { ACCOUNT_FLAGS, DANGEROUS_FLAGS, FIELDS } from '../fieldDefs'
+import { bothSet, choosePasswordOption, type PasswordOption } from '../passwordOptions'
 import { toDateInput } from './draft'
 import { FieldInput } from './FieldInput'
 import { useSheet } from './SheetContext'
@@ -24,6 +27,20 @@ export function AccountTab({ user }: { user: UserDetail }) {
   const expiry = draft.accountExpires ?? toDateInput(user.status.account_expires)
   const never = expiry === ''
   const mustChange = draft.mustChangePassword ?? user.status.must_change_password
+  const options = { mustChange, neverExpires: flag('password_never_expires') }
+  // Which box the last tick cleared, to say why it moved — ADUC says it in a
+  // message box; here it is a line under the options.
+  const [cleared, setCleared] = useState<PasswordOption | null>(null)
+
+  const choose = (which: PasswordOption, value: boolean) => {
+    const { next, cleared: other } = choosePasswordOption(options, which, value)
+    setCleared(other)
+    setDraft((d) => ({
+      ...d,
+      mustChangePassword: next.mustChange,
+      flags: { ...d.flags, password_never_expires: next.neverExpires },
+    }))
+  }
 
   return (
     <>
@@ -53,7 +70,7 @@ export function AccountTab({ user }: { user: UserDetail }) {
             type="checkbox"
             checked={mustChange}
             disabled={busy}
-            onChange={(event) => setDraft((d) => ({ ...d, mustChangePassword: event.target.checked }))}
+            onChange={(event) => choose('mustChange', event.target.checked)}
           />
           <span>{t('dialog.passwordMustChange')}</span>
         </label>
@@ -63,7 +80,11 @@ export function AccountTab({ user }: { user: UserDetail }) {
               type="checkbox"
               checked={flag(name)}
               disabled={busy}
-              onChange={(event) => setFlag(name, event.target.checked)}
+              onChange={(event) =>
+                name === 'password_never_expires'
+                  ? choose('neverExpires', event.target.checked)
+                  : setFlag(name, event.target.checked)
+              }
             />
             <span>
               {t(`flag.${name}` as MessageKey)}
@@ -73,6 +94,12 @@ export function AccountTab({ user }: { user: UserDetail }) {
             </span>
           </label>
         ))}
+        {cleared && (
+          <p className="muted small">
+            {t(cleared === 'mustChange' ? 'user.clearedMustChange' : 'user.clearedNeverExpires')}
+          </p>
+        )}
+        {bothSet(options) && <div className="alert alert--warning">{t('user.passwordOptionsBoth')}</div>}
       </fieldset>
 
       <fieldset className="radio-group radio-group--block">
