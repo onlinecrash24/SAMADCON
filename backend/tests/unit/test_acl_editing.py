@@ -193,13 +193,14 @@ def test_a_missing_trustee_is_refused():
 @pytest.fixture
 def fake_acl(monkeypatch: pytest.MonkeyPatch):
     """Replaces the Samba round trip with in-memory SDDL."""
-    state = {"sddl": SDDL, "written": None}
+    state = {"sddl": SDDL, "written": None, "writes": 0}
 
     monkeypatch.setattr(sacl, "read_sddl", lambda conn, dn: state["sddl"])
 
     def write(conn, dn, sddl):
         state["written"] = sddl
         state["sddl"] = sddl
+        state["writes"] += 1
 
     monkeypatch.setattr(sacl, "write_sddl", write)
     return state
@@ -275,6 +276,105 @@ def test_removal_leaves_the_rest_untouched(fake_acl):
     sacl.remove_ace(None, "CN=x", index=0)
     prefix_after, _, suffix_after = sacl._split_dacl(fake_acl["written"])
     assert (prefix_after, suffix_after) == (prefix_before, suffix_before)
+
+
+# ---------------------------------------------------------------------------
+# Several changes, one write
+#
+# The property sheet's Security tab queues its changes until OK or Apply, as
+# ADUC's does; a tester found it writing the moment an entry was removed.
+# What is queued is then written in one go: one read, one check against what
+# the sheet saw, one write — a delegation of three entries no longer leaves
+# two behind when the third fails.
+# ---------------------------------------------------------------------------
+
+NEW_ALLOW = "(A;;0x00000010;;;S-1-5-21-9-9-9-1234)"
+NEW_DENY = "(D;;0x00010000;;;S-1-5-21-9-9-9-1234)"
+
+
+def test_queued_changes_are_written_once(fake_acl):
+    sacl.change_acl(None, "CN=x", remove=[0], add=[NEW_ALLOW], expected_sddl=SDDL)
+    assert fake_acl["writes"] == 1
+    _, aces, _ = sacl._split_dacl(fake_acl["written"])
+    assert "(D;;SDDT;;;WD)" not in aces
+    assert aces[-1] == NEW_ALLOW
+
+
+def test_indexes_refer_to_the_list_as_it_was_read(fake_acl):
+    """Removing 0 and 1 removes both, whatever order they come in, and an
+    entry added in the same batch does not shift them."""
+    sacl.change_acl(None, "CN=x", remove=[1, 0], add=[NEW_DENY], expected_sddl=SDDL)
+    _, aces, _ = sacl._split_dacl(fake_acl["written"])
+    assert aces == [
+        NEW_DENY,
+        "(OA;CIID;CR;00299570-246d-11d0-a768-00aa006e0529;;S-1-5-21-1-2-3-1105)",
+    ]
+
+
+def test_a_queued_deny_goes_before_the_allow_entries(fake_acl):
+    sacl.change_acl(None, "CN=x", remove=[], add=[NEW_ALLOW, NEW_DENY], expected_sddl=SDDL)
+    _, aces, _ = sacl._split_dacl(fake_acl["written"])
+    assert aces.index(NEW_DENY) < aces.index("(A;;RPWPCRCCDCLCLORCWOWDSDDTSW;;;DA)")
+    assert aces[-1] == NEW_ALLOW
+
+
+def test_removing_an_inherited_entry_in_a_batch_writes_nothing(fake_acl):
+    with pytest.raises(InvalidRequest) as excinfo:
+        sacl.change_acl(None, "CN=x", remove=[0, 2], add=[NEW_ALLOW], expected_sddl=SDDL)
+    assert excinfo.value.code == "ace_inherited"
+    assert fake_acl["writes"] == 0
+
+
+def test_an_index_that_is_not_there_writes_nothing(fake_acl):
+    with pytest.raises(NotFound) as excinfo:
+        sacl.change_acl(None, "CN=x", remove=[9], add=[], expected_sddl=SDDL)
+    assert excinfo.value.code == "ace_not_found"
+    assert fake_acl["writes"] == 0
+
+
+def test_an_entry_that_exists_already_writes_nothing(fake_acl):
+    with pytest.raises(Conflict) as excinfo:
+        sacl.change_acl(
+            None, "CN=x", remove=[], add=[NEW_ALLOW, "(D;;SDDT;;;WD)"], expected_sddl=SDDL
+        )
+    assert excinfo.value.code == "ace_exists"
+    assert fake_acl["writes"] == 0
+
+
+def test_the_same_entry_twice_in_one_batch_is_refused(fake_acl):
+    with pytest.raises(Conflict) as excinfo:
+        sacl.change_acl(None, "CN=x", remove=[], add=[NEW_ALLOW, NEW_ALLOW], expected_sddl=SDDL)
+    assert excinfo.value.code == "ace_exists"
+
+
+def test_an_entry_removed_and_added_back_in_one_batch_is_allowed(fake_acl):
+    """Undoing a removal on the sheet by adding the same rights again."""
+    sacl.change_acl(None, "CN=x", remove=[0], add=["(D;;SDDT;;;WD)"], expected_sddl=SDDL)
+    assert fake_acl["writes"] == 1
+
+
+def test_a_batch_against_a_changed_acl_writes_nothing(fake_acl):
+    with pytest.raises(Conflict) as excinfo:
+        sacl.change_acl(
+            None, "CN=x", remove=[0], add=[], expected_sddl="O:DAG:DAD:(A;;RP;;;WD)"
+        )
+    assert excinfo.value.code == "acl_changed"
+    assert fake_acl["writes"] == 0
+
+
+def test_a_batch_must_say_what_it_saw():
+    """Queued changes are positions in a list the sheet read; without that
+    list to compare against, they could land on other entries."""
+    with pytest.raises(InvalidRequest) as excinfo:
+        sacl.change_acl(None, "CN=x", remove=[0], add=[], expected_sddl="")
+    assert excinfo.value.code == "acl_expected_missing"
+
+
+def test_an_empty_batch_is_refused(fake_acl):
+    with pytest.raises(InvalidRequest) as excinfo:
+        sacl.change_acl(None, "CN=x", remove=[], add=[], expected_sddl=SDDL)
+    assert excinfo.value.code == "no_changes"
+    assert fake_acl["writes"] == 0
 
 
 # ---------------------------------------------------------------------------

@@ -7,9 +7,14 @@ import {
   countChanges,
   fromDateInput,
   toDateInput,
+  withAceRemovalToggled,
+  withAclAdded,
+  withAclAddDropped,
   withMemberAdded,
   withMemberRemoved,
+  withRawAttribute,
   withoutApplied,
+  type AclAdd,
   type Draft,
   type SheetBase,
 } from './draft'
@@ -24,6 +29,11 @@ const BASE: SheetBase = {
 
 const obj = (dn: string): DirectoryObject =>
   ({ dn, name: dn.split(',')[0]!.slice(3), type: 'group' }) as DirectoryObject
+
+const anna = { ...obj('CN=Anna,OU=u'), sid: 'S-1-5-21-1-2-3-1105' } as DirectoryObject
+const ACE: AclAdd = { kind: 'ace', trustee: anna, preset: 'read', mask: 0x20014, deny: false, inherit: true }
+const DELEGATION: AclAdd = { kind: 'delegate', trustee: anna, templateId: 'reset_password' }
+const SDDL = 'O:DAG:DAD:AI(A;;RP;;;WD)'
 
 describe('what a draft would send', () => {
   it('is nothing when nothing was touched', () => {
@@ -95,8 +105,12 @@ describe('what a draft would send', () => {
       primaryGroup: 'CN=A,OU=g',
       certAdd: [{ data: 'AA==', info: { fingerprint: 'f1', subject: 'x', issuer: 'y', der: 'AA==' } }],
       certRemove: ['f0'],
+      raw: { info: { before: [], after: ['note'] } },
+      aclAdd: [ACE],
+      aclRemove: [3],
+      aclSddl: 'O:DA',
     }
-    expect(countChanges(changesOf(draft, BASE))).toBe(12)
+    expect(countChanges(changesOf(draft, BASE))).toBe(15)
   })
 })
 
@@ -142,6 +156,10 @@ describe('after a partial apply', () => {
     primaryGroup: 'CN=A,OU=g',
     certAdd: [{ data: 'AA==', info: { fingerprint: 'f1', subject: 'x', issuer: 'y', der: 'AA==' } }],
     certRemove: ['f0'],
+    raw: { info: { before: [], after: ['note'] } },
+    aclAdd: [ACE],
+    aclRemove: [3],
+    aclSddl: 'O:DA',
   }
 
   it('drops what was written and keeps what was not', () => {
@@ -157,8 +175,92 @@ describe('after a partial apply', () => {
 
   it('is empty once every step ran', () => {
     const left = withoutApplied(full, [
-      'attributes', 'accountExpires', 'mustChangePassword', 'unlock', 'deleteProtected', 'group', 'memberAdd', 'memberRemove', 'primaryGroup', 'certificates',
+      'attributes', 'rawAttributes', 'acl', 'accountExpires', 'mustChangePassword', 'unlock', 'deleteProtected', 'group', 'memberAdd', 'memberRemove', 'primaryGroup', 'certificates',
     ])
     expect(countChanges(changesOf(left, BASE))).toBe(0)
+  })
+})
+
+describe('the Security tab in the draft', () => {
+  // A tester found the tab writing the moment an entry was removed. It now
+  // queues, like every other tab, and OK or Apply writes it in one go.
+
+  it('queues an entry and remembers the permissions it was queued against', () => {
+    const next = withAclAdded(EMPTY_DRAFT, ACE, SDDL)
+    expect(next.aclAdd).toEqual([ACE])
+    expect(next.aclSddl).toBe(SDDL)
+  })
+
+  it('queues the same entry once', () => {
+    const once = withAclAdded(EMPTY_DRAFT, ACE, SDDL)
+    expect(withAclAdded(once, { ...ACE }, SDDL).aclAdd).toHaveLength(1)
+    expect(withAclAdded(once, DELEGATION, SDDL).aclAdd).toHaveLength(2)
+  })
+
+  it('drops a queued entry again', () => {
+    const two = withAclAdded(withAclAdded(EMPTY_DRAFT, ACE, SDDL), DELEGATION, SDDL)
+    expect(withAclAddDropped(two, 0).aclAdd).toEqual([DELEGATION])
+  })
+
+  it('marks an entry for removal, and a second click takes the mark back', () => {
+    const marked = withAceRemovalToggled(EMPTY_DRAFT, 2, SDDL)
+    expect(marked.aclRemove).toEqual([2])
+    expect(withAceRemovalToggled(marked, 2, SDDL).aclRemove).toEqual([])
+  })
+
+  it('keeps the permissions it first saw, so a later change by someone else is caught', () => {
+    const first = withAceRemovalToggled(EMPTY_DRAFT, 0, SDDL)
+    expect(withAclAdded(first, ACE, 'O:DAG:DAD:(A;;RP;;;AU)').aclSddl).toBe(SDDL)
+  })
+
+  it('sends removals, additions and what they were made against', () => {
+    const draft = withAclAdded(withAceRemovalToggled(EMPTY_DRAFT, 1, SDDL), DELEGATION, SDDL)
+    expect(changesOf(draft, BASE).acl).toEqual({ expectedSddl: SDDL, remove: [1], add: [DELEGATION] })
+    expect(countChanges(changesOf(draft, BASE))).toBe(2)
+  })
+
+  it('sends nothing for the tab once every mark was taken back', () => {
+    const draft = withAceRemovalToggled(withAceRemovalToggled(EMPTY_DRAFT, 1, SDDL), 1, SDDL)
+    expect(changesOf(draft, BASE).acl).toBeUndefined()
+  })
+
+  it('is forgotten once written', () => {
+    const draft = withAclAdded(withAceRemovalToggled(EMPTY_DRAFT, 1, SDDL), ACE, SDDL)
+    const left = withoutApplied(draft, ['acl'])
+    expect(left.aclAdd).toEqual([])
+    expect(left.aclRemove).toEqual([])
+    expect(left.aclSddl).toBeUndefined()
+  })
+})
+
+describe('the attribute editor in the draft', () => {
+  it('queues a changed value against what the editor showed', () => {
+    const next = withRawAttribute(EMPTY_DRAFT, 'info', ['old'], ['new'])
+    expect(changesOf(next, BASE).raw).toEqual({ info: 'new' })
+  })
+
+  it('sends several values as a list, and none as a removal', () => {
+    const many = withRawAttribute(EMPTY_DRAFT, 'otherTelephone', [], ['1', '2'])
+    expect(changesOf(many, BASE).raw).toEqual({ otherTelephone: ['1', '2'] })
+    const none = withRawAttribute(EMPTY_DRAFT, 'info', ['old'], [])
+    expect(changesOf(none, BASE).raw).toEqual({ info: null })
+  })
+
+  it('forgets an edit that ends where it started', () => {
+    const edited = withRawAttribute(EMPTY_DRAFT, 'info', ['old'], ['new'])
+    const back = withRawAttribute(edited, 'info', ['new'], ['old'])
+    expect(back.raw).toEqual({})
+    expect(changesOf(back, BASE).raw).toBeUndefined()
+  })
+
+  it('keeps what the editor first showed when the same attribute is edited twice', () => {
+    const twice = withRawAttribute(withRawAttribute(EMPTY_DRAFT, 'info', ['old'], ['a']), 'info', ['a'], ['b'])
+    expect(twice.raw.info).toEqual({ before: ['old'], after: ['b'] })
+  })
+
+  it('counts each attribute once, and is forgotten once written', () => {
+    const draft = withRawAttribute(withRawAttribute(EMPTY_DRAFT, 'info', [], ['x']), 'comment', [], ['y'])
+    expect(countChanges(changesOf(draft, BASE))).toBe(2)
+    expect(withoutApplied(draft, ['rawAttributes']).raw).toEqual({})
   })
 })
