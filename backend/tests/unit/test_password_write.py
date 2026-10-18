@@ -55,6 +55,10 @@ class Connection:
     def modify(self, message: Any) -> None:
         self.messages.append(message)
 
+    def get(self, dn: str, attrs: Any = None) -> dict[str, list[str]]:
+        # A normal account: "must change" is allowed on it.
+        return {"userAccountControl": ["512"]}
+
 
 @pytest.fixture
 def conn(monkeypatch) -> Connection:

@@ -276,7 +276,8 @@ def test_only_whole_path_segments_are_renamed():
 
 
 def test_logon_hours_expiry_and_account_options_come_along_but_not_disabled(directory):
-    copy(directory)
+    # Without "must change": the two exclude each other, as in ADUC.
+    copy(directory, must_change_password=False)
 
     assert directory.raw(NEW, "logonHours") == [LOGON_HOURS]
     assert directory.text(NEW, "accountExpires") == str(EXPIRES)
