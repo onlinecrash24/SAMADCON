@@ -6,6 +6,7 @@ import {
   changesOf,
   countChanges,
   fromDateInput,
+  passwordSteps,
   toDateInput,
   withAceRemovalToggled,
   withAclAdded,
@@ -262,5 +263,44 @@ describe('the attribute editor in the draft', () => {
     const draft = withRawAttribute(withRawAttribute(EMPTY_DRAFT, 'info', [], ['x']), 'comment', [], ['y'])
     expect(countChanges(changesOf(draft, BASE))).toBe(2)
     expect(withoutApplied(draft, ['rawAttributes']).raw).toEqual({})
+  })
+})
+
+describe('"User cannot change password" in the draft', () => {
+  const base: SheetBase = { ...BASE, cannotChangePassword: false }
+
+  it('is sent only when it changed', () => {
+    expect(changesOf({ ...EMPTY_DRAFT, cannotChangePassword: false }, base).cannotChangePassword).toBeUndefined()
+    const changes = changesOf({ ...EMPTY_DRAFT, cannotChangePassword: true }, base)
+    expect(changes.cannotChangePassword).toBe(true)
+    expect(countChanges(changes)).toBe(1)
+  })
+
+  it('is forgotten once written', () => {
+    const left = withoutApplied({ ...EMPTY_DRAFT, cannotChangePassword: true }, ['cannotChangePassword'])
+    expect(left.cannotChangePassword).toBeUndefined()
+  })
+})
+
+describe('the order the two password options are written in', () => {
+  // The server refuses "must change" while "cannot change" is set, and the
+  // other way round; switching from one to the other clears before it sets.
+  it('clears "must change" before setting "cannot change"', () => {
+    expect(passwordSteps({ mustChangePassword: false, cannotChangePassword: true })).toEqual([
+      'mustChangePassword',
+      'cannotChangePassword',
+    ])
+  })
+
+  it('clears "cannot change" before setting "must change"', () => {
+    expect(passwordSteps({ mustChangePassword: true, cannotChangePassword: false })).toEqual([
+      'cannotChangePassword',
+      'mustChangePassword',
+    ])
+  })
+
+  it('writes only what changed', () => {
+    expect(passwordSteps({ cannotChangePassword: true })).toEqual(['cannotChangePassword'])
+    expect(passwordSteps({})).toEqual([])
   })
 })

@@ -63,6 +63,8 @@ class Connection:
 @pytest.fixture
 def conn(monkeypatch) -> Connection:
     monkeypatch.setitem(sys.modules, "ldb", FakeLdb("ldb"))
+    # "User cannot change password" lives in the ACL; this account has it clear.
+    monkeypatch.setattr(users, "cannot_change_password", lambda c, d: False)
     return Connection()
 
 
