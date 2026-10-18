@@ -73,11 +73,16 @@ class TTLCache(Generic[T]):
 schema_cache: TTLCache[Any] = TTLCache(ttl_seconds=3600.0, max_entries=32)
 rootdse_cache: TTLCache[Any] = TTLCache(ttl_seconds=300.0, max_entries=32)
 admx_cache: TTLCache[Any] = TTLCache(ttl_seconds=1800.0, max_entries=8)
+# Resolved SIDs, one entry each. They used to share the schema cache, whose 32
+# slots an ACL of forty entries filled on its own — pushing the schema out and
+# resolving every SID again for the next ACL.
+sid_cache: TTLCache[Any] = TTLCache(ttl_seconds=300.0, max_entries=4096)
 
 _ALL_CACHES = {
     "schema": schema_cache,
     "rootdse": rootdse_cache,
     "admx": admx_cache,
+    "sid": sid_cache,
 }
 
 

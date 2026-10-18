@@ -18,7 +18,7 @@ import re
 from typing import Any
 
 from samadcon.ad import rights, values
-from samadcon.ad.connection import DirectoryConnection
+from samadcon.ad.connection import SCOPE_BASE, DirectoryConnection
 from samadcon.core.errors import Conflict, InvalidRequest, NotFound, SamadconError
 
 # Deny Delete + Delete Tree for Everyone — exactly what ADUC writes for
@@ -29,16 +29,36 @@ DELETE_PROTECTION_ACE = "(D;;SDDT;;;WD)"
 _PROTECTION_RE = re.compile(r"\(D;[^;]*;([A-Z]*);;;WD\)")
 
 
+# Owner, group and DACL — SECINFO_OWNER | SECINFO_GROUP | SECINFO_DACL. Asked
+# for by name: without the control, which parts came back was the server's
+# choice and depended on the account. The SACL is left out; reading it needs
+# a privilege most delegated admins do not have, and nothing here edits it.
+READ_SD_CONTROLS = ["sd_flags:1:7"]
+
+
+def _raw_descriptor(conn: DirectoryConnection, dn: str) -> bytes | None:
+    """The packed nTSecurityDescriptor, or None when it is not readable."""
+    try:
+        result = conn.search(
+            dn,
+            scope=SCOPE_BASE,
+            attrs=["nTSecurityDescriptor"],
+            controls=READ_SD_CONTROLS,
+            max_results=1,
+        )
+    except NotFound:
+        result = None
+    if result is None or not result.entries:
+        raise NotFound("The directory object does not exist.", context={"dn": dn})
+    return values.as_bytes(result.entries[0], "nTSecurityDescriptor")
+
+
 def read_descriptor(conn: DirectoryConnection, dn: str) -> Any:
     """Return the object's nTSecurityDescriptor as a samba structure."""
     from samba.dcerpc import security
     from samba.ndr import ndr_unpack
 
-    entry = conn.get(dn, attrs=["nTSecurityDescriptor"])
-    if entry is None:
-        raise NotFound("The directory object does not exist.", context={"dn": dn})
-
-    raw = values.as_bytes(entry, "nTSecurityDescriptor")
+    raw = _raw_descriptor(conn, dn)
     if raw is None:
         raise SamadconError(
             "The object has no security descriptor, or it is not readable for you.",
@@ -298,7 +318,8 @@ def add_ace(
     _ensure_unchanged(current, expected_sddl)
 
     prefix, aces, suffix = _split_dacl(current)
-    if ace in aces:
+    domain = _domain_sid_text(conn)
+    if any(same_ace(ace, existing, domain) for existing in aces):
         raise Conflict(
             "This permission already exists on the object.",
             code="ace_exists",
@@ -397,8 +418,9 @@ def change_acl(
     removed_aces = [ace for index, ace in enumerate(aces) if index in removed]
     kept = [ace for index, ace in enumerate(aces) if index not in removed]
 
+    domain = _domain_sid_text(conn)
     for ace in add:
-        if ace in kept:
+        if any(same_ace(ace, existing, domain) for existing in kept):
             raise Conflict("This permission already exists on the object.", code="ace_exists")
         if ace.startswith(("(D;", "(OD;")):
             # Deny before allow, the order the directory evaluates them in.
@@ -441,6 +463,170 @@ def ace_flags(ace: str) -> set[str]:
 
 def is_inherited_ace(ace: str) -> bool:
     return "ID" in ace_flags(ace)
+
+
+# ---------------------------------------------------------------------------
+# Comparing ACEs
+#
+# SAMADCON writes an ACE with a hex mask and the trustee's full SID; Samba
+# reads the ACL back with right letters and SID aliases. Compared as text,
+# (A;;0x00000010;;;S-1-5-21-…-512) and (A;;RP;;;DA) were two entries, and
+# the same permission could be added twice. These are compared as what they
+# mean: type, flags as a set, the mask as a number, GUIDs without braces or
+# case, and the trustee as a SID.
+# ---------------------------------------------------------------------------
+
+# The right letters of SDDL for directory objects (MS-DTYP 2.5.1.1), and the
+# generic ones. File and registry letters are left out: they never appear on
+# a directory object, and an unknown letter keeps the mask as text.
+_SDDL_RIGHTS = {
+    "CC": 0x00000001,
+    "DC": 0x00000002,
+    "LC": 0x00000004,
+    "SW": 0x00000008,
+    "RP": 0x00000010,
+    "WP": 0x00000020,
+    "DT": 0x00000040,
+    "LO": 0x00000080,
+    "CR": 0x00000100,
+    "SD": 0x00010000,
+    "RC": 0x00020000,
+    "WD": 0x00040000,
+    "WO": 0x00080000,
+    "GA": 0x10000000,
+    "GX": 0x20000000,
+    "GW": 0x40000000,
+    "GR": 0x80000000,
+}
+
+# SID aliases that need no domain (MS-DTYP 2.5.1.1).
+_WELL_KNOWN_ALIASES = {
+    "WD": "S-1-1-0",
+    "CO": "S-1-3-0",
+    "CG": "S-1-3-1",
+    "OW": "S-1-3-4",
+    "NU": "S-1-5-2",
+    "IU": "S-1-5-4",
+    "SU": "S-1-5-6",
+    "AN": "S-1-5-7",
+    "ED": "S-1-5-9",
+    "PS": "S-1-5-10",
+    "AU": "S-1-5-11",
+    "RC": "S-1-5-12",
+    "SY": "S-1-5-18",
+    "LS": "S-1-5-19",
+    "NS": "S-1-5-20",
+    "WR": "S-1-5-33",
+    "BA": "S-1-5-32-544",
+    "BU": "S-1-5-32-545",
+    "BG": "S-1-5-32-546",
+    "PU": "S-1-5-32-547",
+    "AO": "S-1-5-32-548",
+    "SO": "S-1-5-32-549",
+    "PO": "S-1-5-32-550",
+    "BO": "S-1-5-32-551",
+    "RE": "S-1-5-32-552",
+    "RU": "S-1-5-32-554",
+    "RD": "S-1-5-32-555",
+    "NO": "S-1-5-32-556",
+    "MU": "S-1-5-32-558",
+    "LU": "S-1-5-32-559",
+    "IS": "S-1-5-32-568",
+    "CY": "S-1-5-32-569",
+    "ER": "S-1-5-32-573",
+    "RM": "S-1-5-32-580",
+}
+
+# SID aliases relative to the domain, by RID. Schema and Enterprise Admins
+# belong to the forest root; in a single-domain forest that is this domain.
+_DOMAIN_ALIASES = {
+    "RO": 498,
+    "DA": 512,
+    "DU": 513,
+    "DG": 514,
+    "DC": 515,
+    "DD": 516,
+    "CA": 517,
+    "SA": 518,
+    "EA": 519,
+    "PA": 520,
+    "CN": 522,
+    "AP": 525,
+    "KA": 526,
+    "EK": 527,
+    "RS": 553,
+}
+
+
+def _domain_sid_text(conn: Any) -> str | None:
+    try:
+        sid = conn.info.domain_sid
+    except AttributeError:
+        return None
+    return str(sid) if sid else None
+
+
+def _normal_mask(rights_field: str) -> int | str:
+    text = rights_field.strip()
+    if not text:
+        return 0
+    if text[:2].lower() == "0x" or text.isdigit():
+        try:
+            return int(text, 0)
+        except ValueError:
+            return text
+    if len(text) % 2:
+        return text
+    mask = 0
+    for index in range(0, len(text), 2):
+        bit = _SDDL_RIGHTS.get(text[index : index + 2].upper())
+        if bit is None:
+            return text
+        mask |= bit
+    return mask
+
+
+def _normal_sid(trustee: str, domain_sid: str | None) -> str:
+    text = trustee.strip()
+    if text.upper().startswith("S-"):
+        return text.upper()
+    alias = text.upper()
+    if alias in _WELL_KNOWN_ALIASES:
+        return _WELL_KNOWN_ALIASES[alias]
+    if alias in _DOMAIN_ALIASES and domain_sid:
+        return f"{domain_sid.upper()}-{_DOMAIN_ALIASES[alias]}"
+    # Without the domain, an alias only ever matches itself.
+    return alias
+
+
+def _normal_guid(value: str) -> str:
+    return value.strip().strip("{}").lower()
+
+
+def normal_ace(ace: str, domain_sid: str | None) -> tuple[Any, ...]:
+    """What an ACE means, as something two spellings of it compare equal on."""
+    fields = parse_ace(ace)
+    return (
+        fields["type"].strip().upper(),
+        frozenset(ace_flags(ace)),
+        _normal_mask(fields["rights"]),
+        _normal_guid(fields["object_guid"]),
+        _normal_guid(fields["applies_to_guid"]),
+        _normal_sid(fields["trustee"], domain_sid),
+    )
+
+
+def same_ace(a: str, b: str, domain_sid: str | None) -> bool:
+    """Whether two ACEs grant the same thing to the same trustee.
+
+    An entry this cannot take apart — a conditional ACE, say — is compared as
+    text, as everything was before: a missed duplicate is better than a
+    refused write over an entry nobody is touching.
+    """
+    try:
+        return normal_ace(a, domain_sid) == normal_ace(b, domain_sid)
+    except InvalidRequest:
+        return a == b
 
 
 def _ensure_unchanged(current: str, expected: str | None) -> None:

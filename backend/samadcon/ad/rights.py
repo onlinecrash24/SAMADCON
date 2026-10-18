@@ -22,7 +22,7 @@ from typing import Any
 
 from samadcon.ad import values
 from samadcon.ad.connection import SCOPE_ONELEVEL, SCOPE_SUBTREE, DirectoryConnection
-from samadcon.core.cache import schema_cache
+from samadcon.core.cache import schema_cache, sid_cache
 
 logger = logging.getLogger(__name__)
 
@@ -269,7 +269,7 @@ def resolve_sid(conn: DirectoryConnection, sid: str) -> dict[str, Any]:
         return {"sid": text, "name": well_known, "kind": "well_known"}
 
     cache_key = f"sid:{conn.info.base_dn}:{text}"
-    cached = schema_cache.get(cache_key)
+    cached = sid_cache.get(cache_key)
     if cached is not None:
         return cached
 
@@ -297,5 +297,5 @@ def resolve_sid(conn: DirectoryConnection, sid: str) -> dict[str, Any]:
     except Exception:
         logger.debug("could not resolve %s", text, exc_info=True)
 
-    schema_cache.set(cache_key, resolved, ttl=300)
+    sid_cache.set(cache_key, resolved, ttl=300)
     return resolved
