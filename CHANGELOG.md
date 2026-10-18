@@ -14,6 +14,51 @@ release.
 
 ---
 
+## 0.6.19 — 2026-10-18
+
+Nothing written without OK, Apply, Save or a question first.
+
+A tester found that removing an entry on an object's Security tab took
+effect at once, with no OK pressed. The attribute editor in the same window
+worked the same way.
+
+The property sheet:
+
+- The Security tab queues its changes. Delete strikes an entry through and
+  Undo takes it back; added entries and delegations are shown as not saved
+  yet and can be discarded. OK or Apply writes them; Cancel discards them.
+- The attribute editor queues its edits in the same way.
+- What the Security tab queued is written in one go, through the new
+  PUT /security/acl: one read, a check against the permissions the tab
+  read, and one write. If any part is refused, nothing is written. This
+  includes delegations, whose entries were written one by one before, so
+  a failure partway could leave some of them behind.
+
+Elsewhere:
+
+- A question first before removing a link from a policy's Links tab,
+  stopping a folder redirection, deleting a script file, switching a
+  policy's WMI filter, and resetting a computer account. The last is
+  asked from the menu and from the row of buttons, as ADUC asks.
+- User rights and the members of restricted groups are edited as a draft
+  per card, with Save and Discard, like the settings beside them. Each
+  account picked or removed was written at once before. Removing a whole
+  restricted group asks first.
+
+Unchanged, as in GPMC and ADUC: a policy's enabled halves, a link's
+enabled and enforced switches, the order of preference items, and
+enabling or unlocking an account still act at once.
+
+Also:
+
+- The favicon reads SAM, AD, CON.
+- The functional level's schema step says why it names Windows Server
+  2019 for level 2016.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.19, :0.6 and :latest.
+
+---
+
 ## 0.6.18 — 2026-10-17
 
 The functional level: where it stands, what a raise needs, and the command.
