@@ -11,9 +11,13 @@
  * Attributes without a value are listed on request, as RSAT lists them: the
  * server asks the directory which ones the object may have and which of those
  * the signed-in account may write.
+ *
+ * An edit goes into the property sheet's draft and is written with OK or
+ * Apply, as every other tab's is and as ADUC's attribute editor does. It
+ * used to write when its own small dialog was confirmed.
  */
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 
 import { api } from '../../api/endpoints'
@@ -23,15 +27,21 @@ import { useI18n } from '../../i18n'
 import type { MessageKey } from '../../i18n/messages'
 import { readShowEmptyAttributes, writeShowEmptyAttributes } from '../../state/showEmptyAttributes'
 import { attributeRows, cannotSave, valuesFromText } from './attributeRows'
+import { withRawAttribute } from './sheet/draft'
+import { useSheet } from './sheet/SheetContext'
 
 interface AttributeEditorProps {
   dn: string
-  onChanged: (message: string) => void
 }
 
-export function AttributeEditor({ dn, onChanged }: AttributeEditorProps) {
+/** The text values the editor shows for an entry, as the draft compares them. */
+function textValues(entry: AttributeEntry): string[] {
+  return entry.values.map((value) => value.text ?? '')
+}
+
+export function AttributeEditor({ dn }: AttributeEditorProps) {
   const { t } = useI18n()
-  const queryClient = useQueryClient()
+  const sheet = useSheet()
 
   const [filter, setFilter] = useState('')
   const [showEmpty, setShowEmpty] = useState(readShowEmptyAttributes)
@@ -46,20 +56,6 @@ export function AttributeEditor({ dn, onChanged }: AttributeEditorProps) {
     () => attributeRows(listing.data?.attributes ?? {}, filter),
     [listing.data, filter],
   )
-
-  const save = useMutation({
-    mutationFn: ({ name, values }: { name: string; values: string[] }) =>
-      api.updateAttributes(dn, {
-        // An empty list means "remove the attribute"; the API spells that null.
-        [name]: values.length === 0 ? null : values.length === 1 ? values[0]! : values,
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['attributes', dn] })
-      void queryClient.invalidateQueries({ queryKey: ['object-detail'] })
-      setEditing(null)
-      onChanged(t('status.saved'))
-    },
-  })
 
   return (
     <section className="detail__section">
@@ -89,12 +85,29 @@ export function AttributeEditor({ dn, onChanged }: AttributeEditorProps) {
         <tbody>
           {rows.map(([name, entry]) => (
             <tr key={name}>
-              <td className="attrs__name mono">{name}</td>
+              <td className="attrs__name mono">
+                {name}
+                {sheet.draft.raw[name] && (
+                  <div>
+                    <Badge tone="warn">{t('sheet.queued')}</Badge>
+                  </div>
+                )}
+              </td>
               <td className="attrs__value">
-                {entry.values.length === 0 && (
+                {sheet.draft.raw[name] &&
+                  (sheet.draft.raw[name].after.length === 0 ? (
+                    <span className="muted">{t('attributes.notSet')}</span>
+                  ) : (
+                    sheet.draft.raw[name].after.map((value, index) => (
+                      <div key={index} className="attrs__item">
+                        <span className="mono">{value}</span>
+                      </div>
+                    ))
+                  ))}
+                {!sheet.draft.raw[name] && entry.values.length === 0 && (
                   <span className="muted">{t('attributes.notSet')}</span>
                 )}
-                {entry.values.map((value, index) => (
+                {!sheet.draft.raw[name] && entry.values.map((value, index) => (
                   <div key={index} className="attrs__item">
                     {value.text !== undefined ? (
                       <span className="mono">{value.text}</span>
@@ -111,6 +124,7 @@ export function AttributeEditor({ dn, onChanged }: AttributeEditorProps) {
                   <button
                     type="button"
                     className="link"
+                    disabled={sheet.busy}
                     onClick={() => setEditing({ name, entry })}
                   >
                     {t('action.edit')}
@@ -134,13 +148,13 @@ export function AttributeEditor({ dn, onChanged }: AttributeEditorProps) {
         <AttributeDialog
           name={editing.name}
           entry={editing.entry}
-          saving={save.isPending}
-          error={save.error}
-          onClose={() => {
-            save.reset()
+          current={sheet.draft.raw[editing.name]?.after ?? textValues(editing.entry)}
+          onClose={() => setEditing(null)}
+          onSave={(values) => {
+            const { name, entry } = editing
+            sheet.setDraft((draft) => withRawAttribute(draft, name, textValues(entry), values))
             setEditing(null)
           }}
-          onSave={(values) => save.mutate({ name: editing.name, values })}
         />
       )}
     </section>
@@ -150,22 +164,19 @@ export function AttributeEditor({ dn, onChanged }: AttributeEditorProps) {
 function AttributeDialog({
   name,
   entry,
-  saving,
-  error,
+  current,
   onClose,
   onSave,
 }: {
   name: string
   entry: AttributeEntry
-  saving: boolean
-  error: unknown
+  /** What the draft holds for it, or the directory's values when untouched. */
+  current: string[]
   onClose: () => void
   onSave: (values: string[]) => void
 }) {
   const { t } = useI18n()
-  const [text, setText] = useState(() =>
-    entry.values.map((value) => value.text ?? '').join('\n'),
-  )
+  const [text, setText] = useState(() => current.join('\n'))
 
   const values = valuesFromText(text)
   const blocked = cannotSave(entry, values)
@@ -182,16 +193,15 @@ function AttributeDialog({
           <button
             type="button"
             className="button button--primary"
-            disabled={saving || blocked !== null}
+            disabled={blocked !== null}
             onClick={() => onSave(values)}
           >
-            {t('action.save')}
+            {t('action.ok')}
           </button>
         </>
       }
     >
       <div className="form">
-        <ErrorMessage error={error} />
         <p className="muted small">
           {entry.single_valued === true
             ? t('attributes.singleValueHint')

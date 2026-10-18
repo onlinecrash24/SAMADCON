@@ -35,6 +35,28 @@ export interface SheetBase {
   primaryGroup?: string | null
 }
 
+/**
+ * An entry the Security tab queued: a set of rights for one account, or a
+ * delegation task, which the server expands to its entries.
+ */
+export type AclAdd =
+  | {
+      kind: 'ace'
+      trustee: DirectoryObject
+      /** The preset the person chose, for the list; the mask is what is sent. */
+      preset: string
+      mask: number
+      deny: boolean
+      inherit: boolean
+    }
+  | { kind: 'delegate'; trustee: DirectoryObject; templateId: string }
+
+/** An attribute changed in the attribute editor: what it showed, and what it is to become. */
+export interface RawEdit {
+  before: string[]
+  after: string[]
+}
+
 export interface Draft {
   attributes: Record<string, FieldValue>
   flags: Record<string, boolean>
@@ -54,6 +76,13 @@ export interface Draft {
   /** Certificates to publish (the upload, base64, and what the server parsed from it) and to remove, by fingerprint. */
   certAdd: { data: string; info: Certificate }[]
   certRemove: string[]
+  /** The attribute editor's edits, by attribute name. */
+  raw: Record<string, RawEdit>
+  /** The Security tab's queue: entries to add, and positions in the ACL as read to remove. */
+  aclAdd: AclAdd[]
+  aclRemove: number[]
+  /** The ACL the queue was made against; the server refuses the write if it changed since. */
+  aclSddl?: string
 }
 
 export const EMPTY_DRAFT: Draft = {
@@ -63,6 +92,9 @@ export const EMPTY_DRAFT: Draft = {
   memberRemove: [],
   certAdd: [],
   certRemove: [],
+  raw: {},
+  aclAdd: [],
+  aclRemove: [],
 }
 
 /** What has to be sent: only the parts that differ from the base. */
@@ -81,6 +113,9 @@ export interface Changes {
   primaryGroup?: string
   certAdd: { data: string; info: Certificate }[]
   certRemove: string[]
+  /** For the generic attribute endpoint: one value, several, or null to remove. */
+  raw?: Record<string, string | string[] | null>
+  acl?: { expectedSddl: string; remove: number[]; add: AclAdd[] }
 }
 
 /** ISO timestamp → yyyy-mm-dd for <input type="date">, or '' when unset. */
@@ -136,6 +171,16 @@ export function changesOf(draft: Draft, base: SheetBase): Changes {
   if (Object.keys(attributes).length) out.attributes = attributes
   if (Object.keys(flags).length) out.flags = flags
 
+  const raw: Record<string, string | string[] | null> = {}
+  for (const [name, edit] of Object.entries(draft.raw)) {
+    raw[name] = edit.after.length === 0 ? null : edit.after.length === 1 ? edit.after[0]! : edit.after
+  }
+  if (Object.keys(raw).length) out.raw = raw
+
+  if ((draft.aclAdd.length || draft.aclRemove.length) && draft.aclSddl !== undefined) {
+    out.acl = { expectedSddl: draft.aclSddl, remove: draft.aclRemove, add: draft.aclAdd }
+  }
+
   if (draft.accountExpires !== undefined && draft.accountExpires !== toDateInput(base.accountExpires)) {
     out.accountExpires = fromDateInput(draft.accountExpires)
   }
@@ -176,7 +221,9 @@ export function countChanges(changes: Changes): number {
     changes.memberRemove.length +
     (changes.primaryGroup !== undefined ? 1 : 0) +
     changes.certAdd.length +
-    changes.certRemove.length
+    changes.certRemove.length +
+    Object.keys(changes.raw ?? {}).length +
+    (changes.acl ? changes.acl.add.length + changes.acl.remove.length : 0)
   )
 }
 
@@ -206,6 +253,50 @@ export function withMemberRemoved(draft: Draft, dn: string, existing: boolean): 
   return { ...draft, memberRemove: [...draft.memberRemove, dn] }
 }
 
+/** Whether two queued entries would grant the same thing to the same account. */
+function sameAclAdd(a: AclAdd, b: AclAdd): boolean {
+  if (a.trustee.dn.toLowerCase() !== b.trustee.dn.toLowerCase()) return false
+  if (a.kind === 'delegate') return b.kind === 'delegate' && a.templateId === b.templateId
+  if (b.kind === 'delegate') return false
+  return a.mask === b.mask && a.deny === b.deny && a.inherit === b.inherit
+}
+
+/** The ACL the queue is made against: the first one seen, kept until the queue is written. */
+function againstAcl(draft: Draft, sddl: string): string {
+  return draft.aclSddl ?? sddl
+}
+
+export function withAclAdded(draft: Draft, entry: AclAdd, sddl: string): Draft {
+  if (draft.aclAdd.some((queued) => sameAclAdd(queued, entry))) return draft
+  return { ...draft, aclAdd: [...draft.aclAdd, entry], aclSddl: againstAcl(draft, sddl) }
+}
+
+export function withAclAddDropped(draft: Draft, position: number): Draft {
+  return { ...draft, aclAdd: draft.aclAdd.filter((_, at) => at !== position) }
+}
+
+/** Mark the entry at *index* for removal, or take the mark back. */
+export function withAceRemovalToggled(draft: Draft, index: number, sddl: string): Draft {
+  const marked = draft.aclRemove.includes(index)
+  return {
+    ...draft,
+    aclRemove: marked ? draft.aclRemove.filter((at) => at !== index) : [...draft.aclRemove, index],
+    aclSddl: againstAcl(draft, sddl),
+  }
+}
+
+/**
+ * The draft with an attribute editor change folded in. *before* is what the
+ * editor showed; a second edit of the same attribute keeps the first
+ * *before*, and an edit that ends where it started is no edit.
+ */
+export function withRawAttribute(draft: Draft, name: string, before: string[], after: string[]): Draft {
+  const original = draft.raw[name]?.before ?? before
+  const { [name]: _drop, ...rest } = draft.raw
+  if (JSON.stringify(original) === JSON.stringify(after)) return { ...draft, raw: rest }
+  return { ...draft, raw: { ...rest, [name]: { before: original, after } } }
+}
+
 /**
  * The draft after part of it was applied: those parts are dropped, the rest
  * stays. Apply writes in steps, and a step that failed leaves everything
@@ -213,6 +304,8 @@ export function withMemberRemoved(draft: Draft, dn: string, existing: boolean): 
  */
 export type Step =
   | 'attributes'
+  | 'rawAttributes'
+  | 'acl'
   | 'accountExpires'
   | 'mustChangePassword'
   | 'unlock'
@@ -269,6 +362,14 @@ export function withoutApplied(draft: Draft, applied: Step[]): Draft {
       case 'certificates':
         next = { ...next, certAdd: [], certRemove: [] }
         break
+      case 'rawAttributes':
+        next = { ...next, raw: {} }
+        break
+      case 'acl': {
+        const { aclSddl: _drop, ...rest } = next
+        next = { ...rest, aclAdd: [], aclRemove: [] }
+        break
+      }
     }
   }
   return next

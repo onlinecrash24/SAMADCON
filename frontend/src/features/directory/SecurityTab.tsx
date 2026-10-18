@@ -5,13 +5,18 @@
  * people who know what they want, and a set of delegation tasks for the
  * common cases where assembling an access mask by hand would be error-prone.
  *
+ * Nothing here writes. Removing marks an entry, adding and delegating queue
+ * one, and the property sheet's OK or Apply writes the lot in one go — as
+ * every other tab does, and as ADUC's Security tab does. A tester found the
+ * tab removing an entry the moment it was clicked, with no OK to press.
+ *
  * Inherited entries are hidden by default. They usually outnumber the explicit
  * ones several times over, they cannot be edited here anyway, and burying the
  * three entries that matter under thirty that do not is how ACL editors become
  * unusable.
  */
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import { api } from '../../api/endpoints'
@@ -20,6 +25,13 @@ import { Badge, ErrorMessage, Field, Icon, Modal, Spinner } from '../../componen
 import { useI18n } from '../../i18n'
 import type { MessageKey } from '../../i18n/messages'
 import { ChosenObject, ObjectPicker } from './ObjectPicker'
+import {
+  withAceRemovalToggled,
+  withAclAddDropped,
+  withAclAdded,
+  type AclAdd,
+} from './sheet/draft'
+import { useSheet } from './sheet/SheetContext'
 
 /** Right combinations offered when adding an entry by hand. */
 const PRESETS: Array<{ id: string; mask: number }> = [
@@ -33,56 +45,49 @@ const PRESETS: Array<{ id: string; mask: number }> = [
   { id: 'full_control', mask: 0x000f01ff },
 ]
 
-interface SecurityTabProps {
-  object: DirectoryObject
-  onChanged: (message: string) => void
-}
-
-export function SecurityTab({ object, onChanged }: SecurityTabProps) {
+export function SecurityTab({ object }: { object: DirectoryObject }) {
   const { t } = useI18n()
-  const queryClient = useQueryClient()
+  const sheet = useSheet()
 
   const [showInherited, setShowInherited] = useState(false)
   const [dialog, setDialog] = useState<'add' | 'delegate' | null>(null)
-  const [error, setError] = useState<unknown>(null)
 
   const acl = useQuery({
     queryKey: ['acl', object.dn],
     queryFn: () => api.acl(object.dn),
-  })
-
-  const refresh = () => {
-    void queryClient.invalidateQueries({ queryKey: ['acl', object.dn] })
-  }
-
-  const remove = useMutation({
-    mutationFn: (entry: AccessControlEntry) =>
-      api.removeAce(object.dn, entry.index, acl.data?.sddl),
-    onSuccess: () => {
-      setError(null)
-      refresh()
-      onChanged(t('security.entryRemoved'))
-    },
-    onError: setError,
+    // Marked entries are positions in this list. Refetching it under them
+    // would move the marks; the server checks against what was read anyway.
+    refetchOnWindowFocus: false,
   })
 
   const entries = (acl.data?.aces ?? []).filter((ace) => showInherited || !ace.inherited)
   const hiddenCount = (acl.data?.aces.length ?? 0) - entries.length
+  const queued = sheet.draft.aclAdd
+  const sddl = acl.data?.sddl
+
+  const queue = (entry: AclAdd) => {
+    if (sddl !== undefined) sheet.setDraft((draft) => withAclAdded(draft, entry, sddl))
+    setDialog(null)
+  }
 
   return (
     <section className="detail__section">
       <div className="detail__actions">
-        <button type="button" className="button" onClick={() => setDialog('add')}>
+        <button type="button" className="button" disabled={sheet.busy || !acl.data} onClick={() => setDialog('add')}>
           {t('security.addEntry')}
         </button>
         {object.is_container && (
-          <button type="button" className="button" onClick={() => setDialog('delegate')}>
+          <button
+            type="button"
+            className="button"
+            disabled={sheet.busy || !acl.data}
+            onClick={() => setDialog('delegate')}
+          >
             {t('security.delegate')}
           </button>
         )}
       </div>
 
-      <ErrorMessage error={error} onDismiss={() => setError(null)} />
       <ErrorMessage error={acl.error} />
       {acl.isLoading && <Spinner label={t('status.loading')} />}
 
@@ -112,7 +117,7 @@ export function SecurityTab({ object, onChanged }: SecurityTabProps) {
             </span>
           </label>
 
-          {entries.length === 0 ? (
+          {entries.length === 0 && queued.length === 0 ? (
             <p className="muted">{t('security.noEntries')}</p>
           ) : (
             <table className="acl">
@@ -121,46 +126,51 @@ export function SecurityTab({ object, onChanged }: SecurityTabProps) {
                   <AceRow
                     key={`${ace.index}-${ace.trustee.sid}`}
                     ace={ace}
-                    onRemove={() => remove.mutate(ace)}
+                    marked={sheet.draft.aclRemove.includes(ace.index)}
+                    busy={sheet.busy}
+                    onToggle={() => {
+                      if (sddl !== undefined) {
+                        sheet.setDraft((draft) => withAceRemovalToggled(draft, ace.index, sddl))
+                      }
+                    }}
+                  />
+                ))}
+                {queued.map((entry, position) => (
+                  <QueuedRow
+                    key={`queued-${position}`}
+                    entry={entry}
+                    busy={sheet.busy}
+                    onDrop={() => sheet.setDraft((draft) => withAclAddDropped(draft, position))}
                   />
                 ))}
               </tbody>
             </table>
           )}
+          {(queued.length > 0 || sheet.draft.aclRemove.length > 0) && (
+            <p className="muted small">{t('security.queuedHint')}</p>
+          )}
         </>
       )}
 
-      {dialog === 'add' && acl.data && (
-        <AddEntryDialog
-          dn={object.dn}
-          expectedSddl={acl.data.sddl}
-          isContainer={object.is_container}
-          onClose={() => setDialog(null)}
-          onDone={() => {
-            refresh()
-            setDialog(null)
-            onChanged(t('security.entryAdded'))
-          }}
-        />
+      {dialog === 'add' && (
+        <AddEntryDialog isContainer={object.is_container} onClose={() => setDialog(null)} onAdd={queue} />
       )}
-
-      {dialog === 'delegate' && acl.data && (
-        <DelegateDialog
-          dn={object.dn}
-          expectedSddl={acl.data.sddl}
-          onClose={() => setDialog(null)}
-          onDone={() => {
-            refresh()
-            setDialog(null)
-            onChanged(t('security.delegated'))
-          }}
-        />
-      )}
+      {dialog === 'delegate' && <DelegateDialog onClose={() => setDialog(null)} onAdd={queue} />}
     </section>
   )
 }
 
-function AceRow({ ace, onRemove }: { ace: AccessControlEntry; onRemove: () => void }) {
+function AceRow({
+  ace,
+  marked,
+  busy,
+  onToggle,
+}: {
+  ace: AccessControlEntry
+  marked: boolean
+  busy: boolean
+  onToggle: () => void
+}) {
   const { t } = useI18n()
 
   const rightsLabel = ace.full_control
@@ -168,13 +178,14 @@ function AceRow({ ace, onRemove }: { ace: AccessControlEntry; onRemove: () => vo
     : ace.rights.map((right) => t(`right.${right}` as MessageKey)).join(', ')
 
   return (
-    <tr>
+    <tr className={marked ? 'acl__row--removed' : undefined}>
       <td>
         <span className="list__name">
           <Icon type={ace.trustee.kind} />
           <span>{ace.trustee.name}</span>
         </span>
         {ace.inherited && <Badge tone="muted">{t('security.inherited')}</Badge>}
+        {marked && <Badge tone="danger">{t('security.markedForRemoval')}</Badge>}
       </td>
       <td>
         <Badge tone={ace.type === 'deny' ? 'danger' : 'ok'}>
@@ -196,8 +207,8 @@ function AceRow({ ace, onRemove }: { ace: AccessControlEntry; onRemove: () => vo
       </td>
       <td className="attrs__action">
         {!ace.inherited && (
-          <button type="button" className="link" onClick={onRemove}>
-            {t('action.delete')}
+          <button type="button" className="link" disabled={busy} onClick={onToggle}>
+            {marked ? t('security.undo') : t('action.delete')}
           </button>
         )}
       </td>
@@ -205,36 +216,58 @@ function AceRow({ ace, onRemove }: { ace: AccessControlEntry; onRemove: () => vo
   )
 }
 
+/** An entry queued on this tab, shown until OK or Apply writes it or it is dropped. */
+function QueuedRow({ entry, busy, onDrop }: { entry: AclAdd; busy: boolean; onDrop: () => void }) {
+  const { t } = useI18n()
+  return (
+    <tr className="acl__row--queued">
+      <td>
+        <span className="list__name">
+          <Icon type={entry.trustee.type} />
+          <span>{entry.trustee.name}</span>
+        </span>
+        <Badge tone="warn">{t('sheet.queued')}</Badge>
+      </td>
+      <td>
+        {entry.kind === 'ace' ? (
+          <Badge tone={entry.deny ? 'danger' : 'ok'}>
+            {t(entry.deny ? 'security.deny' : 'security.allow')}
+          </Badge>
+        ) : (
+          <Badge tone="muted">{t('security.delegate')}</Badge>
+        )}
+      </td>
+      <td className="acl__rights">
+        {entry.kind === 'ace'
+          ? t(`right.${entry.preset}` as MessageKey)
+          : t(`delegation.${entry.templateId}` as MessageKey)}
+        {entry.kind === 'ace' && entry.inherit && (
+          <div className="muted small">{t('security.inheritToChildren')}</div>
+        )}
+      </td>
+      <td className="attrs__action">
+        <button type="button" className="link" disabled={busy} onClick={onDrop}>
+          {t('action.discard')}
+        </button>
+      </td>
+    </tr>
+  )
+}
+
 function AddEntryDialog({
-  dn,
-  expectedSddl,
   isContainer,
   onClose,
-  onDone,
+  onAdd,
 }: {
-  dn: string
-  expectedSddl: string
   isContainer: boolean
   onClose: () => void
-  onDone: () => void
+  onAdd: (entry: AclAdd) => void
 }) {
   const { t } = useI18n()
   const [trustee, setTrustee] = useState<DirectoryObject | null>(null)
   const [preset, setPreset] = useState(PRESETS[0]!.id)
   const [deny, setDeny] = useState(false)
   const [inherit, setInherit] = useState(isContainer)
-
-  const add = useMutation({
-    mutationFn: () =>
-      api.addAce(dn, {
-        trustee_sid: trustee!.sid!,
-        mask: PRESETS.find((entry) => entry.id === preset)!.mask,
-        deny,
-        inherit_to_children: inherit,
-        expected_sddl: expectedSddl,
-      }),
-    onSuccess: onDone,
-  })
 
   const ready = Boolean(trustee?.sid)
 
@@ -250,16 +283,24 @@ function AddEntryDialog({
           <button
             type="button"
             className="button button--primary"
-            disabled={!ready || add.isPending}
-            onClick={() => add.mutate()}
+            disabled={!ready}
+            onClick={() =>
+              onAdd({
+                kind: 'ace',
+                trustee: trustee!,
+                preset,
+                mask: PRESETS.find((entry) => entry.id === preset)!.mask,
+                deny,
+                inherit: isContainer && inherit,
+              })
+            }
           >
-            {t('action.save')}
+            {t('action.ok')}
           </button>
         </>
       }
     >
       <div className="form">
-        <ErrorMessage error={add.error} />
         {trustee ? (
           <ChosenObject object={trustee} onClear={() => setTrustee(null)} />
         ) : (
@@ -293,17 +334,7 @@ function AddEntryDialog({
   )
 }
 
-function DelegateDialog({
-  dn,
-  expectedSddl,
-  onClose,
-  onDone,
-}: {
-  dn: string
-  expectedSddl: string
-  onClose: () => void
-  onDone: () => void
-}) {
+function DelegateDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (entry: AclAdd) => void }) {
   const { t } = useI18n()
   const [trustee, setTrustee] = useState<DirectoryObject | null>(null)
   const [templateId, setTemplateId] = useState<string>('')
@@ -311,11 +342,6 @@ function DelegateDialog({
   const templates = useQuery({
     queryKey: ['delegation-templates'],
     queryFn: () => api.delegationTemplates(),
-  })
-
-  const delegate = useMutation({
-    mutationFn: () => api.delegate(dn, templateId, trustee!.sid!, expectedSddl),
-    onSuccess: onDone,
   })
 
   const ready = Boolean(trustee?.sid && templateId)
@@ -332,16 +358,16 @@ function DelegateDialog({
           <button
             type="button"
             className="button button--primary"
-            disabled={!ready || delegate.isPending}
-            onClick={() => delegate.mutate()}
+            disabled={!ready}
+            onClick={() => onAdd({ kind: 'delegate', trustee: trustee!, templateId })}
           >
-            {t('action.save')}
+            {t('action.ok')}
           </button>
         </>
       }
     >
       <div className="form">
-        <ErrorMessage error={delegate.error} />
+        <ErrorMessage error={templates.error} />
         {trustee ? (
           <ChosenObject object={trustee} onClear={() => setTrustee(null)} />
         ) : (

@@ -31,6 +31,9 @@ export const de = {
   'sheet.tab.organization': 'Organisation',
   'sheet.tab.certificates': 'Veröffentlichte Zertifikate',
   'sheet.step.certificates': 'Veröffentlichte Zertifikate',
+  'sheet.step.rawAttributes': 'Attribut-Editor',
+  'sheet.step.acl': 'Sicherheit',
+  'sheet.queued': 'Noch nicht gespeichert',
   'certs.intro': 'Liste der für das Benutzerkonto veröffentlichten X.509-Zertifikate:',
   'certs.none': 'Keine Zertifikate veröffentlicht.',
   'certs.issuedTo': 'Ausgestellt für',
@@ -274,10 +277,11 @@ export const de = {
   'security.inheritanceBlocked': 'Vererbung deaktiviert',
   'security.noEntries': 'Keine direkt vergebenen Berechtigungen.',
   'security.addEntry': 'Berechtigung hinzufügen',
-  'security.entryAdded': 'Berechtigung wurde hinzugefügt.',
-  'security.entryRemoved': 'Berechtigung wurde entfernt.',
   'security.delegate': 'Aufgabe delegieren',
-  'security.delegated': 'Die Aufgabe wurde delegiert.',
+  'security.markedForRemoval': 'Wird entfernt',
+  'security.undo': 'Rückgängig',
+  'security.queuedHint':
+    'Die markierten Änderungen werden erst mit OK oder Übernehmen geschrieben; Abbrechen verwirft sie.',
   'security.account': 'Konto',
   'security.accountHint': 'Name oder Anmeldename eingeben',
   'security.permission': 'Berechtigung',
@@ -1242,6 +1246,9 @@ export const de = {
   'error.password_age_order':
     'Das maximale Kennwortalter ({max_age} Tage) muss größer sein als das minimale ({min_age} Tage).',
   'error.password_age_order.hint': '0 Tage beim maximalen Alter bedeutet: Kennwörter laufen nie ab.',
+  'error.acl_expected_missing':
+    'Die Berechtigungen, gegen die die Änderungen vorgenommen wurden, fehlen in der Anfrage.',
+  'error.acl_expected_missing.hint': 'Fenster schließen, neu öffnen und die Änderungen noch einmal vornehmen.',
   'error.password_policy_out_of_range': 'Der Wert {given} liegt außerhalb von {min} bis {max}.',
   'error.password_policy_out_of_range.min_length':
     'Die Mindestlänge muss zwischen {min} und {max} Zeichen liegen.',
@@ -1983,6 +1990,9 @@ export const en: Record<MessageKey, string> = {
   'sheet.tab.organization': 'Organization',
   'sheet.tab.certificates': 'Published Certificates',
   'sheet.step.certificates': 'published certificates',
+  'sheet.step.rawAttributes': 'attribute editor',
+  'sheet.step.acl': 'security',
+  'sheet.queued': 'Not saved yet',
   'certs.intro': 'List of X.509 certificates published for the user account:',
   'certs.none': 'No certificates published.',
   'certs.issuedTo': 'Issued To',
@@ -2223,10 +2233,11 @@ export const en: Record<MessageKey, string> = {
   'security.inheritanceBlocked': 'Inheritance blocked',
   'security.noEntries': 'No permissions set directly on this object.',
   'security.addEntry': 'Add permission',
-  'security.entryAdded': 'The permission was added.',
-  'security.entryRemoved': 'The permission was removed.',
   'security.delegate': 'Delegate a task',
-  'security.delegated': 'The task was delegated.',
+  'security.markedForRemoval': 'To be removed',
+  'security.undo': 'Undo',
+  'security.queuedHint':
+    'The marked changes are written with OK or Apply; Cancel discards them.',
   'security.account': 'Account',
   'security.accountHint': 'Type a name or logon name',
   'security.permission': 'Permission',
@@ -3181,6 +3192,9 @@ export const en: Record<MessageKey, string> = {
   'error.password_age_order':
     'The maximum password age ({max_age} days) must be greater than the minimum ({min_age} days).',
   'error.password_age_order.hint': '0 days as the maximum age means passwords never expire.',
+  'error.acl_expected_missing':
+    'The request lacks the permissions the changes were made against.',
+  'error.acl_expected_missing.hint': 'Close the window, open it again and make the changes once more.',
   'error.password_policy_out_of_range': 'The value {given} is outside {min} to {max}.',
   'error.password_policy_out_of_range.min_length':
     'The minimum length must be between {min} and {max} characters.',

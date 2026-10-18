@@ -352,6 +352,68 @@ def remove_ace(
     return {"dn": dn, "removed": target}
 
 
+def change_acl(
+    conn: DirectoryConnection,
+    dn: str,
+    *,
+    remove: list[int],
+    add: list[str],
+    expected_sddl: str,
+) -> dict[str, Any]:
+    """Apply what the property sheet queued: one read, one check, one write.
+
+    *remove* holds positions in the list as :func:`read_acl` reported it, so
+    they are resolved against the ACL as read, before anything is added. A
+    refusal of any part writes nothing. The check against *expected_sddl* is
+    not optional here: the positions only mean something in the list the
+    sheet saw.
+    """
+    if not expected_sddl:
+        raise InvalidRequest(
+            "The permissions the changes were made against are missing.",
+            code="acl_expected_missing",
+        )
+    if not remove and not add:
+        raise InvalidRequest("Nothing to change.", code="no_changes")
+
+    current = read_sddl(conn, dn)
+    _ensure_unchanged(current, expected_sddl)
+    prefix, aces, suffix = _split_dacl(current)
+
+    for index in remove:
+        if index < 0 or index >= len(aces):
+            raise NotFound(
+                "This permission no longer exists on the object.",
+                code="ace_not_found",
+                context={"index": index},
+            )
+        if is_inherited_ace(aces[index]):
+            raise InvalidRequest(
+                "Inherited permissions cannot be removed here.",
+                code="ace_inherited",
+                hint="Change them on the container they come from, or block inheritance.",
+            )
+    removed = set(remove)
+    removed_aces = [ace for index, ace in enumerate(aces) if index in removed]
+    kept = [ace for index, ace in enumerate(aces) if index not in removed]
+
+    for ace in add:
+        if ace in kept:
+            raise Conflict("This permission already exists on the object.", code="ace_exists")
+        if ace.startswith(("(D;", "(OD;")):
+            # Deny before allow, the order the directory evaluates them in.
+            first_allow = next(
+                (i for i, existing in enumerate(kept) if existing.startswith(("(A;", "(OA;"))),
+                len(kept),
+            )
+            kept.insert(first_allow, ace)
+        else:
+            kept.append(ace)
+
+    write_sddl(conn, dn, prefix + "".join(kept) + suffix)
+    return {"dn": dn, "removed": removed_aces, "added": list(add)}
+
+
 # SDDL ACE fields: (type;flags;rights;object_guid;inherited_object_guid;sid)
 _ACE_FIELDS = ("type", "flags", "rights", "object_guid", "applies_to_guid", "trustee")
 

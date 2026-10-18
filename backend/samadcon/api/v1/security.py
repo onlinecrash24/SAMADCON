@@ -11,6 +11,7 @@ from samadcon.ad.access import ad_read, ad_write
 from samadcon.api.common import Audit, DnQuery
 from samadcon.auth.deps import CurrentSession, VerifiedSession, VerifiedWorker, Worker
 from samadcon.schemas.requests import (
+    AclChangesRequest,
     AddAceRequest,
     DelegateRequest,
     DeleteProtectionRequest,
@@ -28,6 +29,53 @@ async def read_acl(worker: Worker, session: CurrentSession, dn: DnQuery) -> dict
     caught instead of silently overwritten.
     """
     return await ad_read(worker, session, sacl.read_acl, dn, label="security.read_acl")
+
+
+@router.put("/acl")
+async def change_acl(
+    payload: AclChangesRequest,
+    worker: VerifiedWorker,
+    session: VerifiedSession,
+    audit: Audit,
+    dn: DnQuery,
+) -> dict[str, Any]:
+    """Apply what the Security tab queued, in one write.
+
+    Removals by position, entries, and delegation tasks expanded to their
+    entries: all checked against the ACL the sheet read, and written together
+    or not at all.
+    """
+    aces = [
+        sacl.build_ace(
+            trustee_sid=entry.trustee_sid,
+            mask=entry.mask,
+            deny=entry.deny,
+            object_guid=entry.object_guid,
+            applies_to_guid=entry.applies_to_guid,
+            inherit_to_children=entry.inherit_to_children,
+        )
+        for entry in payload.add
+    ]
+    for task in payload.delegate:
+        aces.extend(delegation.build_aces(task.template_id, task.trustee_sid))
+
+    with audit.operation(
+        "security.change_acl",
+        target=dn,
+        delegate=[task.template_id for task in payload.delegate],
+    ) as record:
+        result = await ad_write(
+            worker,
+            session,
+            sacl.change_acl,
+            dn,
+            remove=payload.remove,
+            add=aces,
+            expected_sddl=payload.expected_sddl,
+            label="security.change_acl",
+        )
+        record["changes"] = {"dacl": {"removed": result["removed"], "added": result["added"]}}
+    return result
 
 
 @router.post("/acl/entries")

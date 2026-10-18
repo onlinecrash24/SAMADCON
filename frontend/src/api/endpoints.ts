@@ -759,31 +759,22 @@ export const api = {
 
   // -- permissions -------------------------------------------------------
   acl: (dn: string) => http.get<AclListing>(`/security/acl?dn=${dnParam(dn)}`),
-  addAce: (
+  /** What the Security tab queued, written in one go. */
+  changeAcl: (
     dn: string,
     payload: {
-      trustee_sid: string
-      mask: number
-      deny?: boolean
-      object_guid?: string | null
-      applies_to_guid?: string | null
-      inherit_to_children?: boolean
-      expected_sddl?: string
+      expected_sddl: string
+      remove: number[]
+      add: { trustee_sid: string; mask: number; deny: boolean; inherit_to_children: boolean }[]
+      delegate: { template_id: string; trustee_sid: string }[]
     },
-  ) => http.post<{ dn: string; added: string }>(`/security/acl/entries?dn=${dnParam(dn)}`, payload),
-  removeAce: (dn: string, index: number, expectedSddl?: string) =>
-    http.delete<{ dn: string; removed: string }>(`/security/acl/entries?dn=${dnParam(dn)}`, {
-      index,
-      expected_sddl: expectedSddl ?? null,
-    }),
+  ) =>
+    http.put<{ dn: string; removed: string[]; added: string[] }>(
+      `/security/acl?dn=${dnParam(dn)}`,
+      payload,
+    ),
   delegationTemplates: () =>
     http.get<{ templates: DelegationTemplate[] }>('/security/delegation/templates'),
-  delegate: (dn: string, templateId: string, trusteeSid: string, expectedSddl?: string) =>
-    http.post<{ dn: string; applied: string[] }>(`/security/delegation?dn=${dnParam(dn)}`, {
-      template_id: templateId,
-      trustee_sid: trusteeSid,
-      expected_sddl: expectedSddl ?? null,
-    }),
   /** Whether the object is protected against accidental deletion. */
   protection: (dn: string) =>
     http.get<{ dn: string; delete_protected: boolean }>(`/security/protection?dn=${dnParam(dn)}`),

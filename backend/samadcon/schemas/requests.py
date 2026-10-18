@@ -567,6 +567,41 @@ class DelegateRequest(StrictModel):
     expected_sddl: str | None = None
 
 
+class AceSpec(StrictModel):
+    """One entry the Security tab queued, as AddAceRequest has it."""
+
+    trustee_sid: str = Field(min_length=3, max_length=184, pattern=r"^S-\d+-\d+(-\d+)*$")
+    mask: int = Field(gt=0, le=0xFFFFFFFF)
+    deny: bool = False
+    object_guid: str | None = Field(default=None, max_length=38)
+    applies_to_guid: str | None = Field(default=None, max_length=38)
+    inherit_to_children: bool = False
+
+
+class DelegationSpec(StrictModel):
+    template_id: str = Field(min_length=1, max_length=64)
+    trustee_sid: str = Field(min_length=3, max_length=184, pattern=r"^S-\d+-\d+(-\d+)*$")
+
+
+class AclChangesRequest(StrictModel):
+    """What the property sheet's Security tab queued until OK or Apply.
+
+    *remove* are positions as GET /security/acl returned them, so
+    *expected_sddl* — the ACL they were taken from — is required.
+    """
+
+    expected_sddl: str = Field(min_length=1)
+    remove: list[int] = Field(default_factory=list, max_length=500)
+    add: list[AceSpec] = Field(default_factory=list, max_length=100)
+    delegate: list[DelegationSpec] = Field(default_factory=list, max_length=50)
+
+    @model_validator(mode="after")
+    def _positions_are_positions(self) -> AclChangesRequest:
+        if any(index < 0 for index in self.remove):
+            raise ValueError("positions start at 0")
+        return self
+
+
 class DeleteProtectionRequest(StrictModel):
     protect: bool
 

@@ -55,9 +55,10 @@ import {
  * written is dropped from the draft, what was not stays, and the error
  * names the step, so the person knows exactly which half happened.
  *
- * The tabs that keep their own state — the attribute editor and the security
- * tab — still write when their own dialogs are confirmed. ADUC's do the
- * same, and both are for people who know what they are doing.
+ * The attribute editor and the Security tab queue into the same draft. They
+ * used to write when their own small dialogs were confirmed, on the belief
+ * that ADUC's do; ADUC's do not, and a tester found a permission gone the
+ * moment Delete was clicked, with no OK pressed.
  */
 
 type Detail = UserDetail | GroupDetail | ComputerDetail | OuDetail | DirectoryObject
@@ -162,6 +163,8 @@ export function PropertiesSheet({
     void queryClient.invalidateQueries({ queryKey: ['memberOf'] })
     void queryClient.invalidateQueries({ queryKey: ['protection'] })
     void queryClient.invalidateQueries({ queryKey: ['certificates'] })
+    void queryClient.invalidateQueries({ queryKey: ['attributes', object.dn] })
+    void queryClient.invalidateQueries({ queryKey: ['acl', object.dn] })
   }
 
   /**
@@ -204,6 +207,37 @@ export function PropertiesSheet({
               return Promise.reject(new Error('This object type cannot be edited.'))
           }
         })
+      }
+      if (what.raw) {
+        await run('rawAttributes', () => api.updateAttributes(object.dn, what.raw!))
+      }
+      // Before the deletion protection, which writes the same descriptor:
+      // the queue is checked against the ACL as the tab read it.
+      if (what.acl) {
+        const acl = what.acl
+        await run('acl', () =>
+          api.changeAcl(object.dn, {
+            expected_sddl: acl.expectedSddl,
+            remove: acl.remove,
+            add: acl.add.flatMap((entry) =>
+              entry.kind === 'ace'
+                ? [
+                    {
+                      trustee_sid: entry.trustee.sid!,
+                      mask: entry.mask,
+                      deny: entry.deny,
+                      inherit_to_children: entry.inherit,
+                    },
+                  ]
+                : [],
+            ),
+            delegate: acl.add.flatMap((entry) =>
+              entry.kind === 'delegate'
+                ? [{ template_id: entry.templateId, trustee_sid: entry.trustee.sid! }]
+                : [],
+            ),
+          }),
+        )
       }
       if (what.scope !== undefined || what.securityGroup !== undefined) {
         await run('group', () =>
@@ -379,16 +413,8 @@ export function PropertiesSheet({
           {tab === 'members' && <MembershipTab mode="members" onNavigate={onNavigate} />}
           {tab === 'memberOf' && <MembershipTab mode="memberOf" onNavigate={onNavigate} />}
           {tab === 'object' && <ObjectTab />}
-          {tab === 'security' && <SecurityTab object={object} onChanged={onChanged} />}
-          {tab === 'attributes' && (
-            <AttributeEditor
-              dn={object.dn}
-              onChanged={(message) => {
-                invalidate()
-                onChanged(message)
-              }}
-            />
-          )}
+          {tab === 'security' && <SecurityTab object={object} />}
+          {tab === 'attributes' && <AttributeEditor dn={object.dn} />}
         </div>
       </div>
 

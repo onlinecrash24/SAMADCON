@@ -918,6 +918,10 @@ body.is-resizing { cursor: col-resize; user-select: none; }
   vertical-align: top;
 }
 .acl__rights { word-break: break-word; }
+/* Queued until OK or Apply: a removal stays in the list, struck through, so
+   it can be taken back; an addition shows where it will be. */
+.acl__row--removed td:not(.attrs__action) { text-decoration: line-through; opacity: 0.6; }
+.acl__row--queued { background: color-mix(in srgb, var(--warning) 8%, transparent); }
 
 .picker__chosen { display: flex; align-items: center; gap: 8px; }
 .picker__results {
