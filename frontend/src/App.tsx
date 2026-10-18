@@ -457,11 +457,6 @@ function Console() {
           />
         </form>
 
-        {/* In the middle of the room between the search and the actions. */}
-        <div className="topbar__coffee">
-          <CoffeeLink />
-        </div>
-
         <div className="topbar__actions">
           <SourceNote version={serverInfo.data?.version} />
           <button type="button" className="link" onClick={() => setLanguage(language === 'de' ? 'en' : 'de')}>
@@ -470,6 +465,7 @@ function Console() {
           <span className="topbar__user" title={session!.principal}>
             {session!.username}
           </span>
+          <CoffeeLink />
           <button type="button" className="button" onClick={() => void logout()}>
             {t('nav.logout')}
           </button>
