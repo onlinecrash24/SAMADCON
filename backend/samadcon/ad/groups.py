@@ -20,6 +20,7 @@ from samadcon.ad.directory import (
     GROUP_TYPE_DOMAIN_LOCAL,
     GROUP_TYPE_GLOBAL,
     GROUP_TYPE_SECURITY,
+    GROUP_TYPE_SYSTEM,
     GROUP_TYPE_UNIVERSAL,
     group_scope_name,
     is_security_group,
@@ -76,15 +77,82 @@ def group_type_value(scope: str, security: bool) -> int:
     return bits - 0x100000000 + GROUP_TYPE_SECURITY
 
 
+SCOPES = ("domain_local", "global", "universal")
+
+
+def scope_change_problem(
+    current: str | None,
+    target: str,
+    member_scopes: set[str],
+    parent_scopes: set[str],
+    *,
+    builtin: bool = False,
+) -> str | None:
+    """Why a group cannot move from *current* to *target* scope, or None.
+
+    Microsoft's rules ("Group scope", "Change Group Scope"), which ADUC
+    applies by greying out what cannot be chosen:
+
+    * global and domain local never convert into each other directly — only
+      through universal;
+    * global → universal: not while the group is in another global group;
+    * domain local → universal: not while a domain local group is a member;
+    * universal → global: not while a universal group is a member;
+    * universal → domain local: always.
+
+    *member_scopes* are the scopes of the groups that are members of this
+    one, *parent_scopes* those of the groups it is a member of. A builtin
+    group keeps its scope.
+    """
+    if current is None or current == target:
+        return None
+    if builtin:
+        return "builtin"
+    if {current, target} == {"global", "domain_local"}:
+        return "via_universal"
+    if current == "global" and target == "universal" and "global" in parent_scopes:
+        return "member_of_global"
+    if current == "domain_local" and target == "universal" and "domain_local" in member_scopes:
+        return "has_domain_local_members"
+    if current == "universal" and target == "global" and "universal" in member_scopes:
+        return "has_universal_members"
+    return None
+
+
+def _group_scopes(conn: DirectoryConnection, expression: str) -> set[str]:
+    result = conn.search(
+        conn.info.base_dn, scope=SCOPE_SUBTREE, expression=expression, attrs=["groupType"]
+    )
+    return {
+        scope
+        for entry in result.entries
+        if (scope := group_scope_name(values.as_int(entry, "groupType"))) is not None
+    }
+
+
+def scope_changes(conn: DirectoryConnection, dn: str, group_type: int | None) -> dict[str, Any]:
+    """For each scope: None if the group may be moved there, else the reason."""
+    current = group_scope_name(group_type)
+    escaped = values.escape_filter(dn)
+    members = _group_scopes(conn, f"(&(objectClass=group)(memberOf={escaped}))")
+    parents = _group_scopes(conn, f"(&(objectClass=group)(member={escaped}))")
+    builtin = bool((group_type or 0) & GROUP_TYPE_SYSTEM)
+    return {
+        target: scope_change_problem(current, target, members, parents, builtin=builtin)
+        for target in SCOPES
+    }
+
+
 def get_group(conn: DirectoryConnection, dn: str) -> dict[str, Any]:
     entry = conn.get(dn, attrs=DETAIL_ATTRS)
     if entry is None:
         raise NotFound("The group does not exist.", context={"dn": dn})
 
     group_type = values.as_int(entry, "groupType")
+    group_dn = values.as_str(entry, "distinguishedName") or str(entry.dn)
     detail = {
         **summarize(entry),
-        "dn": values.as_str(entry, "distinguishedName") or str(entry.dn),
+        "dn": group_dn,
         "type": "group",
         "sam_account_name": values.as_str(entry, "sAMAccountName"),
         "attributes": {
@@ -95,6 +163,7 @@ def get_group(conn: DirectoryConnection, dn: str) -> dict[str, Any]:
         "group_type": group_type,
         "member_count": len(values.as_list(entry, "member")),
         "member_of": sorted(values.as_list(entry, "memberOf"), key=str.lower),
+        "scope_changes": scope_changes(conn, group_dn, group_type),
     }
     return detail
 
@@ -195,10 +264,15 @@ def update_group(
         new_value = group_type_value(new_scope, new_security)
 
         if new_value != current:
-            # AD only permits certain transitions (global <-> universal,
-            # domain local <-> universal, and only when membership allows it).
-            # Rather than reimplementing that matrix, let the DC decide and
-            # translate its refusal.
+            # Checked here as ADUC checks it, so the refusal says why; the DC
+            # still has the last word and its refusal is translated as before.
+            problem = scope_changes(conn, dn, current).get(new_scope)
+            if problem is not None:
+                raise InvalidRequest(
+                    "The group cannot be changed to this scope.",
+                    code="group_scope_change_refused",
+                    context={"reason": problem, "scope": new_scope},
+                )
             message = ldb.Message()
             message.dn = ldb.Dn(conn.samdb, dn)
             message["groupType"] = ldb.MessageElement(

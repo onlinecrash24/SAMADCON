@@ -222,12 +222,18 @@ export interface UserDetail extends DirectoryObject {
   primary_group_id: number | null
   /** The primary group resolved to its DN, or null when it could not be. */
   primary_group_dn: string | null
+  /** msDS-SupportedEncryptionTypes; null when absent (the domain's default). */
+  supported_encryption_types?: number | null
 }
+
+export type GroupScope = 'global' | 'domain_local' | 'universal'
 
 export interface GroupDetail extends DirectoryObject {
   sam_account_name: string
   attributes: Record<string, string | string[] | null>
-  scope: 'global' | 'domain_local' | 'universal' | null
+  scope: GroupScope | null
+  /** Per scope: null if the group may be moved there, else why not (as ADUC greys it out). */
+  scope_changes?: Partial<Record<GroupScope, string | null>>
   security_group: boolean
   group_type: number | null
   member_count: number

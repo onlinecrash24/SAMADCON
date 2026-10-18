@@ -292,6 +292,44 @@ def read(conn: DirectoryConnection, dn: str) -> dict[str, Any]:
     return {**answer, "present": True, "sections": sections}
 
 
+_LOCKOUT_KEYS = ("LockoutBadCount", "LockoutDuration", "ResetLockoutCount")
+
+
+def _minutes(value: str | None) -> int | None:
+    """A lockout time in minutes; None when not defined or unbounded (-1 or
+    0, "until an administrator unlocks it")."""
+    if value is None:
+        return None
+    try:
+        minutes = int(value.strip())
+    except ValueError:
+        return None
+    return minutes if minutes > 0 else None
+
+
+def check_lockout(sections: dict[str, dict[str, str]]) -> None:
+    """Microsoft's rule, as GPMC enforces it: with a lockout threshold
+    above 0, "Reset account lockout counter after" must not exceed "Account
+    lockout duration". A setting that is not defined is not compared."""
+    from samadcon.ad.password_policy import check_lockout_order
+
+    entries = {
+        key.lower(): value
+        for name, section in sections.items()
+        if name.lower() == "system access"
+        for key, value in section.items()
+    }
+    try:
+        threshold = int((entries.get("lockoutbadcount") or "0").strip())
+    except ValueError:
+        return
+    check_lockout_order(
+        threshold,
+        _minutes(entries.get("lockoutduration")),
+        _minutes(entries.get("resetlockoutcount")),
+    )
+
+
 def write(
     conn: DirectoryConnection,
     dn: str,
@@ -352,6 +390,8 @@ def write_many(
         text = updated.decode("utf-16")
     if current is not None and updated == BOM + current.encode("utf-16-le"):
         return {"dn": dn, "changed": False, "version": gpo["version"]}
+    if any(key in _LOCKOUT_KEYS for key in changes):
+        check_lockout(parse(text or ""))
 
     share = sysvol.sysvol_for(conn)
     _, _, base = sysvol.parse_unc(gpo["path"])

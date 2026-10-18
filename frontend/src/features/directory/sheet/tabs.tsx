@@ -13,6 +13,7 @@ import type { GroupDetail, UserDetail } from '../../../api/types'
 import { Field, TextRow } from '../../../components/primitives'
 import { nameFromDn } from '../../../dn'
 import { useI18n } from '../../../i18n'
+import type { MessageKey } from '../../../i18n/messages'
 import { FIELDS } from '../fieldDefs'
 import { FieldInput, FieldRow } from './FieldInput'
 import { useSheet } from './SheetContext'
@@ -46,6 +47,9 @@ export function GroupGeneralTab({ group }: { group: GroupDetail }) {
   const { draft, setDraft, busy } = useSheet()
   const scope = draft.scope ?? group.scope ?? ''
   const security = draft.securityGroup ?? group.security_group
+  // What ADUC greys out, with the reason beside it rather than only a grey box.
+  const refused = (value: 'domain_local' | 'global' | 'universal') =>
+    value === group.scope ? null : (group.scope_changes?.[value] ?? null)
 
   return (
     <>
@@ -63,10 +67,15 @@ export function GroupGeneralTab({ group }: { group: GroupDetail }) {
                 name="group-scope"
                 value={value}
                 checked={scope === value}
-                disabled={busy}
+                disabled={busy || refused(value) !== null}
                 onChange={() => setDraft((d) => ({ ...d, scope: value }))}
               />
-              <span>{t(`group.scope.${value}`)}</span>
+              <span>
+                {t(`group.scope.${value}`)}
+                {refused(value) && (
+                  <span className="muted small"> — {t(`group.scopeRefused.${refused(value)}` as MessageKey)}</span>
+                )}
+              </span>
             </label>
           ))}
         </fieldset>

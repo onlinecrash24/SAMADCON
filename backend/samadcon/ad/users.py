@@ -91,6 +91,8 @@ STATUS_ATTRS = [
     "whenCreated",
     "whenChanged",
     "msDS-UserPasswordExpiryTimeComputed",
+    # ADUC's "This account supports Kerberos AES 128/256 bit encryption".
+    "msDS-SupportedEncryptionTypes",
     "primaryGroupID",
     "otherTelephone",
     "otherHomePhone",
@@ -230,6 +232,9 @@ def _render_user(conn: DirectoryConnection, entry: Any) -> dict[str, Any]:
         "direct_reports": sorted(values.as_list(entry, "directReports"), key=str.lower),
         "primary_group_id": values.as_int(entry, "primaryGroupID"),
         "primary_group_dn": primary_group_dn(conn, entry),
+        # Absent means the domain's default; the Account tab shows it as
+        # neither AES box ticked, as ADUC does.
+        "supported_encryption_types": values.as_int(entry, "msDS-SupportedEncryptionTypes"),
     }
     return detail
 

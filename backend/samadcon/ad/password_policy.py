@@ -60,11 +60,36 @@ def _days(ticks: int | None) -> int | float:
     return int(days) if days == int(days) else days
 
 
+def _finite_minutes(ticks: int | None) -> int | None:
+    """Minutes in an interval; None for none, or for "never" / "until an
+    administrator unlocks it", which no reset time can exceed."""
+    if not ticks or ticks == NEVER:
+        return None
+    return round(abs(ticks) / TICKS_PER_MINUTE)
+
+
+def check_lockout_order(threshold: int, duration: int | None, reset: int | None) -> None:
+    """Microsoft's rule for the account lockout policy: with a threshold
+    above 0, "Reset account lockout counter after" must not exceed "Account
+    lockout duration". GPMC enforces it; SAMADCON let it through.
+
+    *duration* and *reset* are minutes, None where either has no bound.
+    """
+    if threshold > 0 and duration is not None and reset is not None and reset > duration:
+        raise InvalidRequest(
+            "The lockout counter reset must not be longer than the lockout duration.",
+            code="lockout_reset_exceeds_duration",
+            context={"reset": reset, "duration": duration},
+        )
+
+
 def policy_changes(current: dict[str, Any], request: dict[str, Any]) -> dict[str, str]:
     """The attributes to replace, from what was asked for and what is there.
 
-    *current* holds pwd_properties, min_age_ticks and max_age_ticks; *request*
-    the fields of FIELDS, None for "leave as it is".
+    *current* holds pwd_properties, min_age_ticks and max_age_ticks, and for
+    the lockout check lockout_threshold, lockout_duration_ticks and
+    lockout_window_ticks; *request* the fields of FIELDS, None for "leave as
+    it is".
     """
     changes: dict[str, str] = {}
 
@@ -101,6 +126,21 @@ def policy_changes(current: dict[str, Any], request: dict[str, Any]) -> dict[str
         elif attribute == "maxPwdAge":
             max_age_ticks = ticks
 
+    lockout_fields = ("lockoutThreshold", "lockoutDuration", "lockOutObservationWindow")
+    if any(attribute in changes for attribute in lockout_fields):
+        threshold = int(changes.get("lockoutThreshold", current.get("lockout_threshold") or 0))
+        duration = _finite_minutes(
+            int(changes["lockoutDuration"])
+            if "lockoutDuration" in changes
+            else current.get("lockout_duration_ticks")
+        )
+        reset = _finite_minutes(
+            int(changes["lockOutObservationWindow"])
+            if "lockOutObservationWindow" in changes
+            else current.get("lockout_window_ticks")
+        )
+        check_lockout_order(threshold, duration, reset)
+
     if "minPwdAge" in changes or "maxPwdAge" in changes:
         min_age, max_age = _days(min_age_ticks), _days(max_age_ticks)
         if max_age != 0 and min_age >= max_age:
@@ -129,11 +169,24 @@ def set_password_policy(conn: DirectoryConnection, **request: Any) -> dict[str, 
 
     import ldb
 
-    entry = conn.get(conn.info.base_dn, attrs=["pwdProperties", "minPwdAge", "maxPwdAge"])
+    entry = conn.get(
+        conn.info.base_dn,
+        attrs=[
+            "pwdProperties",
+            "minPwdAge",
+            "maxPwdAge",
+            "lockoutThreshold",
+            "lockoutDuration",
+            "lockOutObservationWindow",
+        ],
+    )
     current = {
         "pwd_properties": values.as_int(entry, "pwdProperties", 0),
         "min_age_ticks": values.as_int(entry, "minPwdAge"),
         "max_age_ticks": values.as_int(entry, "maxPwdAge"),
+        "lockout_threshold": values.as_int(entry, "lockoutThreshold", 0),
+        "lockout_duration_ticks": values.as_int(entry, "lockoutDuration"),
+        "lockout_window_ticks": values.as_int(entry, "lockOutObservationWindow"),
     }
     changes = policy_changes(current, request)
     if not changes:

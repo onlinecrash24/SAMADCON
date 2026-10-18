@@ -392,6 +392,11 @@ export const de = {
   'group.scope': 'Bereich',
   'group.type': 'Typ',
   'group.security': 'Sicherheitsgruppe',
+  'group.scopeRefused.via_universal': 'nur über „Universal“',
+  'group.scopeRefused.member_of_global': 'nicht, solange die Gruppe Mitglied einer globalen Gruppe ist',
+  'group.scopeRefused.has_domain_local_members': 'nicht, solange eine lokale Gruppe (in Domäne) Mitglied ist',
+  'group.scopeRefused.has_universal_members': 'nicht, solange eine universelle Gruppe Mitglied ist',
+  'group.scopeRefused.builtin': 'nicht bei einer vordefinierten Gruppe',
   'group.distribution': 'Verteilergruppe',
   'group.scope.global': 'Global',
   'group.scope.domain_local': 'Domänenlokal',
@@ -897,6 +902,8 @@ export const de = {
 
   'flag.account_disabled': 'Konto ist deaktiviert',
   'flag.password_never_expires': 'Kennwort läuft nie ab',
+  'user.aes128': 'Dieses Konto unterstützt Kerberos-AES-128-Bit-Verschlüsselung',
+  'user.aes256': 'Dieses Konto unterstützt Kerberos-AES-256-Bit-Verschlüsselung',
   'flag.password_not_required': 'Kein Kennwort erforderlich',
   'flag.smartcard_required': 'Smartcard für Anmeldung erforderlich',
   'flag.trusted_for_delegation': 'Für Delegierung vertraut',
@@ -1258,6 +1265,20 @@ export const de = {
   'error.password_age_order':
     'Das maximale Kennwortalter ({max_age} Tage) muss größer sein als das minimale ({min_age} Tage).',
   'error.password_age_order.hint': '0 Tage beim maximalen Alter bedeutet: Kennwörter laufen nie ab.',
+  'error.lockout_reset_exceeds_duration':
+    '„Kontosperrungszähler zurücksetzen nach“ ({reset} Minuten) darf nicht länger sein als die Kontosperrdauer ({duration} Minuten).',
+  'error.lockout_reset_exceeds_duration.hint':
+    'Die Sperrdauer verlängern oder die Rücksetzzeit verkürzen. Bei 0 Fehlversuchen als Schwellenwert gilt die Regel nicht.',
+  'error.group_scope_change_refused': 'Der Gruppenbereich lässt sich so nicht ändern.',
+  'error.group_scope_change_refused.via_universal':
+    'Global und Lokal (in Domäne) lassen sich nicht direkt ineinander umwandeln, nur über „Universal“.',
+  'error.group_scope_change_refused.member_of_global':
+    'Die Gruppe ist Mitglied einer globalen Gruppe und kann deshalb nicht universell werden.',
+  'error.group_scope_change_refused.has_domain_local_members':
+    'Eine lokale Gruppe (in Domäne) ist Mitglied; deshalb kann die Gruppe nicht universell werden.',
+  'error.group_scope_change_refused.has_universal_members':
+    'Eine universelle Gruppe ist Mitglied; deshalb kann die Gruppe nicht global werden.',
+  'error.group_scope_change_refused.builtin': 'Eine vordefinierte Gruppe behält ihren Bereich.',
   'error.must_change_with_never_expires':
     '„Benutzer muss Kennwort bei nächster Anmeldung ändern“ und „Kennwort läuft nie ab“ schließen sich aus.',
   'error.must_change_with_never_expires.hint':
@@ -2376,6 +2397,11 @@ export const en: Record<MessageKey, string> = {
   'group.scope': 'Scope',
   'group.type': 'Type',
   'group.security': 'Security group',
+  'group.scopeRefused.via_universal': 'only by way of universal',
+  'group.scopeRefused.member_of_global': 'not while the group is a member of a global group',
+  'group.scopeRefused.has_domain_local_members': 'not while a domain local group is a member',
+  'group.scopeRefused.has_universal_members': 'not while a universal group is a member',
+  'group.scopeRefused.builtin': 'not for a builtin group',
   'group.distribution': 'Distribution group',
   'group.scope.global': 'Global',
   'group.scope.domain_local': 'Domain local',
@@ -2871,6 +2897,8 @@ export const en: Record<MessageKey, string> = {
 
   'flag.account_disabled': 'Account is disabled',
   'flag.password_never_expires': 'Password never expires',
+  'user.aes128': 'This account supports Kerberos AES 128 bit encryption',
+  'user.aes256': 'This account supports Kerberos AES 256 bit encryption',
   'flag.password_not_required': 'Password not required',
   'flag.smartcard_required': 'Smart card required for logon',
   'flag.trusted_for_delegation': 'Trusted for delegation',
@@ -3232,6 +3260,20 @@ export const en: Record<MessageKey, string> = {
   'error.password_age_order':
     'The maximum password age ({max_age} days) must be greater than the minimum ({min_age} days).',
   'error.password_age_order.hint': '0 days as the maximum age means passwords never expire.',
+  'error.lockout_reset_exceeds_duration':
+    '"Reset account lockout counter after" ({reset} minutes) must not be longer than the lockout duration ({duration} minutes).',
+  'error.lockout_reset_exceeds_duration.hint':
+    'Lengthen the lockout or shorten the reset time. With a threshold of 0 the rule does not apply.',
+  'error.group_scope_change_refused': 'The group scope cannot be changed this way.',
+  'error.group_scope_change_refused.via_universal':
+    'Global and domain local do not convert into each other directly, only by way of universal.',
+  'error.group_scope_change_refused.member_of_global':
+    'The group is a member of a global group, so it cannot become universal.',
+  'error.group_scope_change_refused.has_domain_local_members':
+    'A domain local group is a member, so the group cannot become universal.',
+  'error.group_scope_change_refused.has_universal_members':
+    'A universal group is a member, so the group cannot become global.',
+  'error.group_scope_change_refused.builtin': 'A builtin group keeps its scope.',
   'error.must_change_with_never_expires':
     '"User must change password at next logon" and "Password never expires" exclude each other.',
   'error.must_change_with_never_expires.hint':

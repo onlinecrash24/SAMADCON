@@ -4,11 +4,24 @@ import type { UserDetail } from '../../../api/types'
 import { Badge, Field, TextRow, useDateFormat } from '../../../components/primitives'
 import { useI18n } from '../../../i18n'
 import type { MessageKey } from '../../../i18n/messages'
+import {
+  AES128,
+  AES256,
+  ENCRYPTION_ATTRIBUTE,
+  hasEncryption,
+  withEncryption,
+} from '../encryptionTypes'
 import { ACCOUNT_FLAGS, DANGEROUS_FLAGS, FIELDS } from '../fieldDefs'
 import { bothSet, choosePasswordOption, type PasswordOption } from '../passwordOptions'
-import { toDateInput } from './draft'
+import { toDateInput, withRawAttribute } from './draft'
 import { FieldInput } from './FieldInput'
 import { useSheet } from './SheetContext'
+
+/** ADUC's two AES boxes, in its order, after the other account options. */
+const AES_OPTIONS = [
+  { bit: AES128, label: 'user.aes128' },
+  { bit: AES256, label: 'user.aes256' },
+] as const
 
 /**
  * ADUC's Account tab: the logon name, the account options, when it expires.
@@ -31,6 +44,21 @@ export function AccountTab({ user }: { user: UserDetail }) {
   // Which box the last tick cleared, to say why it moved — ADUC says it in a
   // message box; here it is a line under the options.
   const [cleared, setCleared] = useState<PasswordOption | null>(null)
+
+  // The AES boxes are two bits of one attribute; the edit goes through the
+  // attribute editor's part of the draft, against what the directory said.
+  const savedEncryption = user.supported_encryption_types ?? null
+  const queuedEncryption = draft.raw[ENCRYPTION_ATTRIBUTE]
+  const encryption = queuedEncryption
+    ? queuedEncryption.after.length
+      ? Number(queuedEncryption.after[0])
+      : null
+    : savedEncryption
+  const setEncryption = (bit: number, on: boolean) => {
+    const next = withEncryption(encryption, bit, on)
+    const asList = (value: number | null) => (value === null ? [] : [String(value)])
+    setDraft((d) => withRawAttribute(d, ENCRYPTION_ATTRIBUTE, asList(savedEncryption), asList(next)))
+  }
 
   const choose = (which: PasswordOption, value: boolean) => {
     const { next, cleared: other } = choosePasswordOption(options, which, value)
@@ -92,6 +120,17 @@ export function AccountTab({ user }: { user: UserDetail }) {
                 <Badge tone="danger">{t('flag.dangerous')}</Badge>
               )}
             </span>
+          </label>
+        ))}
+        {AES_OPTIONS.map(({ bit, label }) => (
+          <label className="checkbox" key={label}>
+            <input
+              type="checkbox"
+              checked={hasEncryption(encryption, bit)}
+              disabled={busy}
+              onChange={(event) => setEncryption(bit, event.target.checked)}
+            />
+            <span>{t(label)}</span>
           </label>
         ))}
         {cleared && (
