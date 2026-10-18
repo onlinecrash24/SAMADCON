@@ -14,6 +14,26 @@ release.
 
 ---
 
+## 0.6.20 — 2026-10-18
+
+A way to support SAMADCON: Buy Me a Coffee.
+
+- The console shows a small "Buy me a coffee" button between the signed-in
+  user and Sign out, and the sign-in page shows it under its footer. It
+  links to https://buymeacoffee.com/onlinecrash24 and opens in a new tab.
+  The cup is drawn by the page itself, so the console's content security
+  policy still allows images from the console only. On a narrow window
+  only the cup is shown.
+- The README, in English and German, carries a Buy Me a Coffee badge.
+- The repository has a .github/FUNDING.yml, which gives it GitHub's
+  Sponsor button.
+
+Nothing else changed.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.20, :0.6 and :latest.
+
+---
+
 ## 0.6.19 — 2026-10-18
 
 Nothing written without OK, Apply, Save or a question first.
