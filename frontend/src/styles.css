@@ -345,8 +345,28 @@ button:focus-visible {
 .source-note a { color: inherit; text-decoration: none; }
 .source-note a:hover { color: var(--accent); text-decoration: underline; }
 .topbar .source-note { font-size: 0.85em; }
-.source-note__coffee { display: inline-flex; align-self: center; }
-.source-note__coffee svg { display: block; }
+.topbar__coffee { flex: 1; display: flex; justify-content: center; min-width: 0; }
+.login__coffee { display: flex; justify-content: center; margin-top: 14px; }
+/* Buy Me a Coffee's own yellow and black, the same in both themes: it is
+   their mark, and it should read as theirs rather than as one of ours. */
+.coffee {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: #ffdd00;
+  color: #000;
+  font-size: 0.85em;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.coffee:hover { background: #ffe94d; color: #000; text-decoration: none; }
+.coffee:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.coffee svg { display: block; }
+/* Where the bar runs short, the cup alone; its tooltip still says what it is. */
+@media (max-width: 1100px) { .topbar__coffee .coffee span { display: none; } }
 
 /* The consoles, as a strip of tabs under the top bar. */
 .console__tabs {

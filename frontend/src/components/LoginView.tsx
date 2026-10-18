@@ -5,7 +5,7 @@ import type { ProbeResult, ServerInfo, ServerListing } from '../api/types'
 import { useI18n } from '../i18n'
 import { useSession } from '../state/session'
 import { LogoLockup } from './Logo'
-import { SourceNote } from './SourceNote'
+import { CoffeeLink, SourceNote } from './SourceNote'
 import { Badge, Banner, ErrorMessage, Field, Spinner } from './primitives'
 
 /** Value of the domain selector. Anything else is a profile id. */
@@ -313,6 +313,9 @@ export function LoginView() {
             {language === 'de' ? 'English' : 'Deutsch'}
           </button>
           <SourceNote version={info?.version} />
+        </div>
+        <div className="login__coffee">
+          <CoffeeLink />
         </div>
       </form>
     </div>

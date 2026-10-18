@@ -24,7 +24,7 @@ import {
   PasswordDialog,
 } from './components/dialogs'
 import { ErrorMessage, Icon, Spinner } from './components/primitives'
-import { SourceNote } from './components/SourceNote'
+import { CoffeeLink, SourceNote } from './components/SourceNote'
 import type { DnsZone } from './api/types'
 import { SNAPINS, panesFor, type SnapinId } from './features/console/snapins'
 import { readListLimit, writeListLimit, type ListLimit } from './state/listLimit'
@@ -456,6 +456,11 @@ function Console() {
             }}
           />
         </form>
+
+        {/* In the middle of the room between the search and the actions. */}
+        <div className="topbar__coffee">
+          <CoffeeLink />
+        </div>
 
         <div className="topbar__actions">
           <SourceNote version={serverInfo.data?.version} />
