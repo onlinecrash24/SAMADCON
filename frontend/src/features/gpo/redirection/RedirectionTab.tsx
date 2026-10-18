@@ -16,6 +16,7 @@ import { useEffect, useState } from 'react'
 
 import { api } from '../../../api/endpoints'
 import type { Gpo, RedirectedFolder } from '../../../api/types'
+import { ConfirmDialog } from '../../../components/ConfirmDialog'
 import { ErrorMessage, Spinner } from '../../../components/primitives'
 import { useI18n } from '../../../i18n'
 import type { MessageKey } from '../../../i18n/messages'
@@ -35,6 +36,8 @@ export function RedirectionTab({
 
   const [draft, setDraft] = useState<Record<string, string>>({})
   const [error, setError] = useState<unknown>(null)
+  // Removing a redirection asks first; typing a new path waits for Save.
+  const [clearing, setClearing] = useState<{ guid: string; label: string } | null>(null)
 
   const known = useQuery({ queryKey: ['known-folders'], queryFn: () => api.knownFolders() })
   const current = useQuery({
@@ -147,7 +150,14 @@ export function RedirectionTab({
                           type="button"
                           className="button button--danger"
                           disabled={save.isPending}
-                          onClick={() => save.mutate({ guid: row.guid, path: null })}
+                          onClick={() =>
+                            setClearing({
+                              guid: row.guid,
+                              label: row.name
+                                ? t(`redirection.name.${row.name}` as MessageKey)
+                                : row.guid,
+                            })
+                          }
                         >
                           {t('redirection.clear')}
                         </button>
@@ -162,6 +172,20 @@ export function RedirectionTab({
       </div>
 
       <p className="muted small">{t('redirection.everyoneHint')}</p>
+
+      {clearing && (
+        <ConfirmDialog
+          title={t('redirection.clearTitle', { folder: clearing.label })}
+          confirmLabel={t('redirection.clear')}
+          pending={save.isPending}
+          onConfirm={() =>
+            save.mutate({ guid: clearing.guid, path: null }, { onSettled: () => setClearing(null) })
+          }
+          onCancel={() => setClearing(null)}
+        >
+          <p>{t('redirection.clearBody')}</p>
+        </ConfirmDialog>
+      )}
     </div>
   )
 }

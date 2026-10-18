@@ -23,6 +23,7 @@ import type {
   SecuritySetting,
   SecurityTrustee,
 } from '../../../api/types'
+import { ConfirmDialog } from '../../../components/ConfirmDialog'
 import { ErrorMessage, Spinner } from '../../../components/primitives'
 import { ObjectPicker } from '../../directory/ObjectPicker'
 import { isSambaDc } from '../../../dcKind'
@@ -30,6 +31,7 @@ import { useI18n } from '../../../i18n'
 import type { MessageKey } from '../../../i18n/messages'
 import { useSession } from '../../../state/session'
 import { AdvancedAudit } from './AdvancedAudit'
+import { trusteeValue, trusteesChanged, withTrustee, withoutTrustee } from './trusteeDraft'
 
 // The Windows editor's order: account policies, local policies, event log,
 // restricted groups — and the advanced audit policy last, as its own node.
@@ -412,6 +414,84 @@ function SettingInput({
 
 // ---------------------------------------------------------------------------
 
+/**
+ * One card of accounts — a user right, or the members of a restricted group.
+ *
+ * Picking or removing an account changes the card's draft; Save writes it and
+ * Discard drops it, as the settings beside it do. Each pick used to be written
+ * at once. The card is keyed by what was saved, so a save that went through
+ * brings a fresh card, and a refused one leaves the draft standing.
+ */
+function TrusteeCard({
+  saved,
+  busy,
+  exclude,
+  onSave,
+}: {
+  saved: SecurityTrustee[]
+  busy: boolean
+  exclude?: Set<string>
+  onSave: (value: string[] | null) => void
+}) {
+  const { t } = useI18n()
+  const [draft, setDraft] = useState<SecurityTrustee[] | null>(null)
+  const [picking, setPicking] = useState(false)
+
+  const shown = draft ?? saved
+  const changed = draft !== null && trusteesChanged(saved, draft)
+
+  return (
+    <>
+      <TrusteeList
+        trustees={shown}
+        busy={busy}
+        onRemove={(sid) => setDraft(withoutTrustee(shown, sid))}
+      />
+
+      {picking ? (
+        <ObjectPicker
+          types={['user', 'group', 'computer']}
+          exclude={exclude}
+          onSelect={(object: DirectoryObject) => {
+            setPicking(false)
+            if (!object.sid) return
+            setDraft(
+              withTrustee(shown, { sid: object.sid, name: object.name, kind: object.type, dn: object.dn }),
+            )
+          }}
+        />
+      ) : (
+        <div className="pane__actions">
+          <button type="button" className="button" disabled={busy} onClick={() => setPicking(true)}>
+            + {t('security.addAccount')}
+          </button>
+          {changed && (
+            <>
+              <button
+                type="button"
+                className="button button--primary"
+                disabled={busy}
+                onClick={() => onSave(trusteeValue(shown))}
+              >
+                {t('action.save')}
+              </button>
+              <button type="button" className="button" disabled={busy} onClick={() => setDraft(null)}>
+                {t('action.discard')}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+      {changed && <p className="muted small">{t('security.cardPending')}</p>}
+    </>
+  )
+}
+
+/** The card's key: what was saved, so a successful save brings a fresh card. */
+function savedKey(trustees: SecurityTrustee[]): string {
+  return trustees.map((item) => item.sid).join('|')
+}
+
 /** User rights: one list of accounts each. */
 function UserRights({
   settings,
@@ -425,7 +505,6 @@ function UserRights({
   onSave: (section: string, key: string, value: string[] | null) => void
 }) {
   const { t } = useI18n()
-  const [open, setOpen] = useState<string | null>(null)
 
   return (
     <div className="stack-tight">
@@ -437,46 +516,18 @@ function UserRights({
           <div key={setting.key} className="card">
             <h4>{t(`security.key.${setting.key}` as MessageKey)}</h4>
             <div className="muted small mono">{setting.key}</div>
-
-            <TrusteeList
-              trustees={trustees}
+            <TrusteeCard
+              key={savedKey(trustees)}
+              saved={trustees}
               busy={busy}
-              onRemove={(sid) =>
-                onSave(
-                  setting.section,
-                  setting.key,
-                  keep(trustees, sid).length ? keep(trustees, sid) : null,
-                )
-              }
+              exclude={new Set(trustees.map((item) => (item.dn ?? '').toLowerCase()))}
+              onSave={(value) => onSave(setting.section, setting.key, value)}
             />
-
-            {open === setting.key ? (
-              <ObjectPicker
-                types={['user', 'group', 'computer']}
-                exclude={new Set(trustees.map((item) => (item.dn ?? '').toLowerCase()))}
-                onSelect={(object: DirectoryObject) => {
-                  setOpen(null)
-                  if (!object.sid) return
-                  onSave(setting.section, setting.key, [
-                    ...trustees.map((item) => item.sid),
-                    object.sid,
-                  ])
-                }}
-              />
-            ) : (
-              <button type="button" className="button" onClick={() => setOpen(setting.key)}>
-                + {t('security.addAccount')}
-              </button>
-            )}
           </div>
         )
       })}
     </div>
   )
-}
-
-function keep(trustees: SecurityTrustee[], sid: string): string[] {
-  return trustees.filter((item) => item.sid !== sid).map((item) => item.sid)
 }
 
 function TrusteeList({
@@ -516,6 +567,9 @@ function TrusteeList({
 /**
  * Restricted groups: no fixed list. Each group named here gets two keys —
  * who belongs to it, and what it belongs to.
+ *
+ * Its members are a card like a user right's. Taking a whole group out asks
+ * first: it clears both keys at once.
  */
 function RestrictedGroups({
   section,
@@ -534,7 +588,7 @@ function RestrictedGroups({
 }) {
   const { t } = useI18n()
   const [adding, setAdding] = useState(false)
-  const [open, setOpen] = useState<string | null>(null)
+  const [removing, setRemoving] = useState<string | null>(null)
 
   const groups = new Set<string>()
   for (const key of Object.keys(entries)) {
@@ -563,32 +617,17 @@ function RestrictedGroups({
                 type="button"
                 className="button button--danger"
                 disabled={busy}
-                onClick={() => onGroup(group, false)}
+                onClick={() => setRemoving(group)}
               >
                 {t('security.removeGroup')}
               </button>
             </div>
-            <TrusteeList
-              trustees={members}
+            <TrusteeCard
+              key={savedKey(members)}
+              saved={members}
               busy={busy}
-              onRemove={(sid) =>
-                onSave(section, key, keep(members, sid).length ? keep(members, sid) : null)
-              }
+              onSave={(value) => onSave(section, key, value)}
             />
-            {open === group ? (
-              <ObjectPicker
-                types={['user', 'group', 'computer']}
-                onSelect={(object: DirectoryObject) => {
-                  setOpen(null)
-                  if (!object.sid) return
-                  onSave(section, key, [...members.map((item) => item.sid), object.sid])
-                }}
-              />
-            ) : (
-              <button type="button" className="button" onClick={() => setOpen(group)}>
-                + {t('security.addAccount')}
-              </button>
-            )}
           </div>
         )
       })}
@@ -609,6 +648,21 @@ function RestrictedGroups({
         <button type="button" className="button" onClick={() => setAdding(true)}>
           + {t('security.addGroup')}
         </button>
+      )}
+
+      {removing && (
+        <ConfirmDialog
+          title={t('security.removeGroupTitle', { group: removing })}
+          confirmLabel={t('security.removeGroup')}
+          pending={busy}
+          onConfirm={() => {
+            onGroup(removing, false)
+            setRemoving(null)
+          }}
+          onCancel={() => setRemoving(null)}
+        >
+          <p>{t('security.removeGroupBody')}</p>
+        </ConfirmDialog>
       )}
     </div>
   )

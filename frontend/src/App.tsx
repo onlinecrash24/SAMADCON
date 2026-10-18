@@ -35,6 +35,7 @@ import { DiagnosticsView } from './features/diagnostics/DiagnosticsView'
 import { SecurityFindings } from './features/diagnostics/SecurityFindings'
 import { DnsView } from './features/dns/DnsView'
 import { FindBitlockerDialog } from './features/directory/BitLocker'
+import { ConfirmResetComputer } from './features/directory/ConfirmResetComputer'
 import { CopyUserDialog } from './features/directory/CopyUserDialog'
 import { contextMenuActions } from './features/directory/objectActions'
 import { GpoView } from './features/gpo/GpoView'
@@ -156,7 +157,7 @@ function Console() {
   const [shellError, setShellError] = useState<unknown>(null)
   const [objectDialog, setObjectDialog] = useState<
     | {
-        kind: 'rename' | 'move' | 'delete' | 'password' | 'findBitlocker' | 'copy'
+        kind: 'rename' | 'move' | 'delete' | 'password' | 'findBitlocker' | 'copy' | 'resetAccount'
         object: DirectoryObject
       }
     | null
@@ -330,7 +331,8 @@ function Console() {
         write(api.unlock(object.dn), t('status.unlocked'))
         return
       case 'resetAccount':
-        write(api.resetComputer(object.dn), t('status.saved'))
+        // ADUC asks first; see asksFirst in objectActions.
+        setObjectDialog({ kind: 'resetAccount', object })
         return
       case 'resetPassword':
         setObjectDialog({ kind: 'password', object })
@@ -708,6 +710,14 @@ function Console() {
           template={objectDialog.object}
           onClose={() => setObjectDialog(null)}
           onDone={onChanged}
+        />
+      )}
+      {objectDialog?.kind === 'resetAccount' && (
+        <ConfirmResetComputer
+          dn={objectDialog.object.dn}
+          name={objectDialog.object.name}
+          onClose={() => setObjectDialog(null)}
+          onDone={changedInPlace}
         />
       )}
       {objectDialog?.kind === 'findBitlocker' && (

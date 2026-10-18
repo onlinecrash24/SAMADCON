@@ -11,6 +11,7 @@ import { useState } from 'react'
 
 import { api } from '../../api/endpoints'
 import type { Gpo } from '../../api/types'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Badge, ErrorMessage, Spinner } from '../../components/primitives'
 import { useI18n } from '../../i18n'
 
@@ -18,6 +19,9 @@ export function WmiTab({ gpo, onChanged }: { gpo: Gpo; onChanged: (message: stri
   const { t } = useI18n()
   const queryClient = useQueryClient()
   const [error, setError] = useState<unknown>(null)
+  // The GPMC asks before switching a policy's filter: it decides where the
+  // policy applies at all. A pick in the list is a question, not a write.
+  const [choice, setChoice] = useState<{ dn: string | null; name: string } | null>(null)
 
   const assigned = useQuery({
     queryKey: ['gpo-wmi', gpo.dn],
@@ -54,7 +58,11 @@ export function WmiTab({ gpo, onChanged }: { gpo: Gpo; onChanged: (message: stri
           <select
             value={current?.dn ?? ''}
             disabled={assign.isPending}
-            onChange={(event) => assign.mutate(event.target.value || null)}
+            onChange={(event) => {
+              const dn = event.target.value || null
+              const picked = filters.find((filter) => (filter.dn ?? '') === (dn ?? ''))
+              setChoice({ dn, name: dn ? (picked?.name ?? picked?.id ?? dn) : t('gpo.noWmiFilter') })
+            }}
           >
             <option value="">{t('gpo.noWmiFilter')}</option>
             {filters.map((filter) => (
@@ -86,6 +94,19 @@ export function WmiTab({ gpo, onChanged }: { gpo: Gpo; onChanged: (message: stri
             </div>
           ))}
         </section>
+      )}
+
+      {choice && (
+        <ConfirmDialog
+          title={t('gpo.wmiChangeTitle')}
+          confirmLabel={t('action.ok')}
+          danger={false}
+          pending={assign.isPending}
+          onConfirm={() => assign.mutate(choice.dn, { onSettled: () => setChoice(null) })}
+          onCancel={() => setChoice(null)}
+        >
+          <p>{t('gpo.wmiChangeBody', { name: choice.name })}</p>
+        </ConfirmDialog>
       )}
     </div>
   )

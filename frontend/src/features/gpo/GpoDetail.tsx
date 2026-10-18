@@ -12,6 +12,7 @@ import { useState } from 'react'
 
 import { api } from '../../api/endpoints'
 import type { Gpo } from '../../api/types'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Badge, ErrorMessage, Modal, Spinner, useDateFormat } from '../../components/primitives'
 import { useI18n } from '../../i18n'
 import type { MessageKey } from '../../i18n/messages'
@@ -277,6 +278,8 @@ function LinksTab({ gpo, onChanged }: { gpo: Gpo; onChanged: (message: string) =
   const queryClient = useQueryClient()
   const [error, setError] = useState<unknown>(null)
   const [adding, setAdding] = useState(false)
+  // Removing a link asks first, as the tree's menu and the GPMC do.
+  const [unlinking, setUnlinking] = useState<{ dn: string; container: string } | null>(null)
 
   const locations = useQuery({
     queryKey: ['gpo-locations', gpo.guid],
@@ -300,10 +303,10 @@ function LinksTab({ gpo, onChanged }: { gpo: Gpo; onChanged: (message: string) =
   const unlink = useMutation({
     mutationFn: (dn: string) => api.unlinkGpo(dn, gpo.dn),
     onSuccess: () => {
+      setUnlinking(null)
       refresh()
       onChanged(t('gpo.unlinked'))
     },
-    onError: setError,
   })
 
   if (locations.isLoading) return <Spinner label={t('status.loading')} />
@@ -377,7 +380,10 @@ function LinksTab({ gpo, onChanged }: { gpo: Gpo; onChanged: (message: string) =
                       type="button"
                       className="button button--danger"
                       disabled={unlink.isPending}
-                      onClick={() => unlink.mutate(link.container_dn)}
+                      onClick={() => {
+                        unlink.reset()
+                        setUnlinking({ dn: link.container_dn, container: link.container })
+                      }}
                     >
                       {t('gpo.unlink')}
                     </button>
@@ -387,6 +393,20 @@ function LinksTab({ gpo, onChanged }: { gpo: Gpo; onChanged: (message: string) =
             </tbody>
           </table>
         </div>
+      )}
+
+      {unlinking && (
+        <ConfirmDialog
+          title={t('gpo.unlinkHere')}
+          confirmLabel={t('gpo.unlink')}
+          pending={unlink.isPending}
+          error={unlink.error}
+          onConfirm={() => unlink.mutate(unlinking.dn)}
+          onCancel={() => setUnlinking(null)}
+        >
+          <p>{t('gpo.confirmUnlink', { policy: gpo.display_name ?? gpo.guid, container: unlinking.container })}</p>
+          <p className="muted small">{t('gpo.confirmUnlinkHint')}</p>
+        </ConfirmDialog>
       )}
 
       {adding && (

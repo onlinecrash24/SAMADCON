@@ -120,6 +120,18 @@ function objectActions(object: DirectoryObject, facts: AccountFacts): ActionItem
   return actions
 }
 
+/**
+ * Whether an action asks before it runs, wherever it is started from.
+ *
+ * Only what ADUC asks about. Resetting a computer account breaks its trust
+ * with the domain until it is joined again; enabling and unlocking are one
+ * click there too. Disable has its own question, for administrators only.
+ * The rest open a dialog of their own.
+ */
+export function asksFirst(id: ActionId): boolean {
+  return id === 'resetAccount'
+}
+
 /** The row of buttons in the detail pane, which has the object loaded. */
 export function detailRowActions(object: DirectoryObject, facts: AccountFacts): ActionItem[] {
   return objectActions(object, facts)

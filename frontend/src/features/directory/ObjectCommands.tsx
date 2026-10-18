@@ -6,6 +6,7 @@ import type { DirectoryObject } from '../../api/types'
 import { DeleteDialog, MoveDialog, PasswordDialog, RenameDialog } from '../../components/dialogs'
 import { ErrorMessage } from '../../components/primitives'
 import { useI18n } from '../../i18n'
+import { ConfirmResetComputer } from './ConfirmResetComputer'
 import { CopyUserDialog } from './CopyUserDialog'
 import { detailRowActions, type AccountFacts, type ActionId } from './objectActions'
 import { useDisableAccount } from './useDisableAccount'
@@ -37,9 +38,9 @@ export function ObjectCommands({
 }) {
   const { t } = useI18n()
   const queryClient = useQueryClient()
-  const [dialog, setDialog] = useState<'password' | 'rename' | 'move' | 'delete' | 'copy' | null>(
-    null,
-  )
+  const [dialog, setDialog] = useState<
+    'password' | 'rename' | 'move' | 'delete' | 'copy' | 'resetAccount' | null
+  >(null)
   const [error, setError] = useState<unknown>(null)
 
   const invalidate = () => {
@@ -92,10 +93,8 @@ export function ObjectCommands({
         })
         return
       case 'resetAccount':
-        action.mutate(async () => {
-          await api.resetComputer(object.dn)
-          return t('status.saved')
-        })
+        // ADUC asks first; see asksFirst in objectActions.
+        setDialog('resetAccount')
         return
       case 'resetPassword':
         setDialog('password')
@@ -132,6 +131,14 @@ export function ObjectCommands({
         ))}
       </div>
 
+      {dialog === 'resetAccount' && (
+        <ConfirmResetComputer
+          dn={object.dn}
+          name={object.name}
+          onClose={() => setDialog(null)}
+          onDone={done}
+        />
+      )}
       {dialog === 'copy' && (
         <CopyUserDialog template={object} onClose={() => setDialog(null)} onDone={done} />
       )}

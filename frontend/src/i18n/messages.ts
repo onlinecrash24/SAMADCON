@@ -448,6 +448,9 @@ export const de = {
   'action.unlock': 'Entsperren',
   'action.resetPassword': 'Kennwort zurücksetzen',
   'action.resetAccount': 'Konto zurücksetzen',
+  'computer.resetConfirmTitle': 'Computerkonto „{name}“ zurücksetzen?',
+  'computer.resetConfirmBody':
+    'Der Computer verliert damit seine Verbindung zur Domäne. Danach muss er der Domäne erneut beitreten, bevor sich dort wieder jemand mit einem Domänenkonto anmelden kann.',
   'action.rename': 'Umbenennen',
   'action.move': 'Verschieben',
   'action.delete': 'Löschen',
@@ -1450,6 +1453,9 @@ export const de = {
     'Ein WMI-Filter entscheidet erst auf dem Client, ob die Richtlinie angewendet wird. Samba wertet ihn nicht selbst aus.',
   'gpo.wmiFilter': 'Filter',
   'gpo.noWmiFilter': 'Kein Filter',
+  'gpo.wmiChangeTitle': 'WMI-Filter ändern?',
+  'gpo.wmiChangeBody':
+    'Die Richtlinie verwendet dann „{name}“. Der Filter entscheidet, auf welchen Windows-Rechnern sie überhaupt angewendet wird.',
   'gpo.noWmiFilters': 'In dieser Domäne sind keine WMI-Filter vorhanden.',
   'gpo.wmiMissing':
     'Die Richtlinie verweist auf den Filter {id}, den es nicht mehr gibt — sie wirkt dadurch nirgends.',
@@ -1724,6 +1730,10 @@ export const de = {
   'security.addAccount': 'Konto',
   'security.addGroup': 'Gruppe',
   'security.removeGroup': 'Gruppe entfernen',
+  'security.removeGroupTitle': 'Eingeschränkte Gruppe {group} entfernen?',
+  'security.removeGroupBody':
+    'Beide Einträge der Gruppe werden aus der Richtlinie entfernt: ihre Mitglieder und die Gruppen, denen sie angehört.',
+  'security.cardPending': 'Noch nicht gespeichert. „Speichern“ schreibt die Liste, „Verwerfen“ stellt sie wieder her.',
   'security.restrictedGroup': 'Gruppe',
   'security.rightsHint': 'Wer das Recht bekommt. Die Liste ersetzt die bestehende — wer fehlt, hat es nicht.',
   'security.restrictedHint': 'Die Mitgliederliste ersetzt die tatsächliche Mitgliedschaft auf jedem Client. Wer hier fehlt, wird dort entfernt.',
@@ -1818,6 +1828,9 @@ export const de = {
   'redirection.folder': 'Ordner',
   'redirection.target': 'Zielpfad',
   'redirection.clear': 'Aufheben',
+  'redirection.clearTitle': 'Umleitung von „{folder}“ aufheben?',
+  'redirection.clearBody':
+    'Der Ordner wird aus der Richtlinie entfernt. Was die Clients danach mit dem umgeleiteten Inhalt tun, legt die Einstellung fest, mit der die Umleitung eingerichtet wurde.',
   'redirection.notRedirected': 'nicht umgeleitet',
   'redirection.saved': 'Ordnerumleitung gespeichert.',
   'redirection.unchanged': 'Nichts zu ändern — der Pfad stand bereits so.',
@@ -1868,6 +1881,8 @@ export const de = {
   'scripts.storing': 'Wird abgelegt …',
   'scripts.fileStored': '{name} liegt jetzt auf der Freigabe.',
   'scripts.fileRemoved': '{name} wurde entfernt.',
+  'scripts.removeTitle': '{name} entfernen?',
+  'scripts.removeBody': 'Die Datei wird aus dem SYSVOL der Richtlinie gelöscht.',
 
   'scripts.notRegistered':
     'Diese Richtlinie enthält Skripte, aber die zugehörige Client-Erweiterung ist nicht eingetragen — kein Client führt sie aus. Einmal speichern trägt sie nach.',
@@ -2404,6 +2419,9 @@ export const en: Record<MessageKey, string> = {
   'action.unlock': 'Unlock',
   'action.resetPassword': 'Reset password',
   'action.resetAccount': 'Reset account',
+  'computer.resetConfirmTitle': 'Reset the computer account "{name}"?',
+  'computer.resetConfirmBody':
+    'The computer loses its connection to the domain. It has to join the domain again before anyone can sign in there with a domain account.',
   'action.rename': 'Rename',
   'action.move': 'Move',
   'action.delete': 'Delete',
@@ -3392,6 +3410,9 @@ export const en: Record<MessageKey, string> = {
     'A WMI filter decides on the client whether the policy is applied. Samba does not evaluate it itself.',
   'gpo.wmiFilter': 'Filter',
   'gpo.noWmiFilter': 'No filter',
+  'gpo.wmiChangeTitle': 'Change the WMI filter?',
+  'gpo.wmiChangeBody':
+    'The policy will then use "{name}". The filter decides on which Windows computers it applies at all.',
   'gpo.noWmiFilters': 'This domain has no WMI filters.',
   'gpo.wmiMissing':
     'The policy points at filter {id}, which no longer exists — so it applies nowhere.',
@@ -3666,6 +3687,10 @@ export const en: Record<MessageKey, string> = {
   'security.addAccount': 'Account',
   'security.addGroup': 'Group',
   'security.removeGroup': 'Remove group',
+  'security.removeGroupTitle': 'Remove the restricted group {group}?',
+  'security.removeGroupBody':
+    'Both entries of the group are removed from the policy: its members and the groups it belongs to.',
+  'security.cardPending': 'Not saved yet. Save writes the list, Discard restores it.',
   'security.restrictedGroup': 'Group',
   'security.rightsHint': 'Who gets the right. The list replaces the existing one — anybody missing from it does not have it.',
   'security.restrictedHint': 'The member list replaces the actual membership on every client. Anybody missing from it is removed there.',
@@ -3760,6 +3785,9 @@ export const en: Record<MessageKey, string> = {
   'redirection.folder': 'Folder',
   'redirection.target': 'Target path',
   'redirection.clear': 'Stop',
+  'redirection.clearTitle': 'Stop redirecting "{folder}"?',
+  'redirection.clearBody':
+    'The folder is removed from the policy. What clients then do with the redirected content is decided by the setting the redirection was made with.',
   'redirection.notRedirected': 'not redirected',
   'redirection.saved': 'Folder redirection saved.',
   'redirection.unchanged': 'Nothing to change — the path already read that way.',
@@ -3809,6 +3837,8 @@ export const en: Record<MessageKey, string> = {
   'scripts.storing': 'Storing …',
   'scripts.fileStored': '{name} is on the share now.',
   'scripts.fileRemoved': '{name} was removed.',
+  'scripts.removeTitle': 'Remove {name}?',
+  'scripts.removeBody': "The file is deleted from the policy's SYSVOL folder.",
 
   'scripts.notRegistered':
     'This policy holds scripts but the client-side extension that runs them is not registered — no client runs them. Saving once registers it.',

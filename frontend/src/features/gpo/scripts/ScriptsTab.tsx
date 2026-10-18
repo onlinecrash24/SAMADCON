@@ -16,6 +16,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../../../api/endpoints'
 import type { Gpo, ScriptEngine, ScriptEntry, ScriptEvent, ScriptFile } from '../../../api/types'
+import { ConfirmDialog } from '../../../components/ConfirmDialog'
 import { ErrorMessage, Spinner } from '../../../components/primitives'
 import { useI18n } from '../../../i18n'
 import type { MessageKey } from '../../../i18n/messages'
@@ -263,6 +264,8 @@ function Files({
   const { t } = useI18n()
   const [error, setError] = useState<unknown>(null)
   const picker = useRef<HTMLInputElement>(null)
+  // A file removed from SYSVOL is gone; it asks first.
+  const [removing, setRemoving] = useState<string | null>(null)
 
   const listing = useQuery({
     // The directory is per half and per event, exactly as the endpoints are.
@@ -332,7 +335,7 @@ function Files({
                         type="button"
                         className="button button--danger"
                         disabled={remove.isPending}
-                        onClick={() => remove.mutate(file.name)}
+                        onClick={() => setRemoving(file.name)}
                       >
                         {t('action.remove')}
                       </button>
@@ -367,6 +370,18 @@ function Files({
           }}
         />
       </div>
+
+      {removing && (
+        <ConfirmDialog
+          title={t('scripts.removeTitle', { name: removing })}
+          confirmLabel={t('action.remove')}
+          pending={remove.isPending}
+          onConfirm={() => remove.mutate(removing, { onSettled: () => setRemoving(null) })}
+          onCancel={() => setRemoving(null)}
+        >
+          <p>{t('scripts.removeBody')}</p>
+        </ConfirmDialog>
+      )}
     </section>
   )
 }
