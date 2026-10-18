@@ -1,4 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" fill="none">
   <rect width="120" height="120" rx="24" fill="#161826"></rect>
-  <text x="60" y="80" text-anchor="middle" fill="#9184d9" font-family="Inter, Helvetica, Arial, sans-serif" font-size="54" font-weight="600">AD</text>
+  <!-- One width for all three lines, so they end flush left and right
+       whichever font the system substitutes: textLength fixes the run,
+       lengthAdjust="spacing" makes it up between the letters. -->
+  <g fill="#9184d9" font-family="Inter, Helvetica, Arial, sans-serif" text-anchor="middle">
+    <text x="60" y="33" font-size="23" font-weight="600" textLength="62" lengthAdjust="spacing">SAM</text>
+    <text x="60" y="75.5" font-size="41" font-weight="700" textLength="62" lengthAdjust="spacing">AD</text>
+    <text x="60" y="103" font-size="23" font-weight="600" textLength="62" lengthAdjust="spacing">CON</text>
+  </g>
 </svg>
