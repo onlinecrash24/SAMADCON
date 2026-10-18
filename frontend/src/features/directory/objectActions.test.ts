@@ -10,7 +10,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { DirectoryObject } from '../../api/types'
-import { contextMenuActions, detailRowActions, UNKNOWN } from './objectActions'
+import { asksFirst, contextMenuActions, detailRowActions, UNKNOWN } from './objectActions'
 
 function object(overrides: Partial<DirectoryObject> = {}): DirectoryObject {
   return {
@@ -194,6 +194,21 @@ describe('finding a BitLocker key', () => {
     for (const type of ['user', 'computer', 'group', 'organizational_unit']) {
       const shape = { type: type as DirectoryObject['type'], is_container: type === 'organizational_unit' }
       expect(ids(contextMenuActions(object(shape)))).not.toContain('findBitlocker')
+    }
+  })
+})
+
+describe('what asks before it runs', () => {
+  // ADUC asks before resetting a computer account: the machine loses its
+  // trust with the domain until it is joined again. One click did it here,
+  // from the menu and from the row of buttons alike.
+  it('asks before resetting a computer account', () => {
+    expect(asksFirst('resetAccount')).toBe(true)
+  })
+
+  it('does not ask where ADUC does not', () => {
+    for (const id of ['enable', 'unlock', 'refresh', 'properties'] as const) {
+      expect(asksFirst(id)).toBe(false)
     }
   })
 })
