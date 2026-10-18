@@ -14,6 +14,38 @@ release.
 
 ---
 
+## 0.6.23 — 2026-10-18
+
+More of what ADUC and GPMC enforce, compared against Microsoft's documentation and measured against ADUC on Windows 11.
+
+- "User cannot change password" on the Account tab. It is not a bit of
+  userAccountControl; ADUC turns the allow entries for SELF and Everyone
+  on the "Change Password" right into denies, and SAMADCON now does the
+  same, in one write to the ACL with OK or Apply. Clearing it restores
+  SELF and Everyone, once each. Measured with ADUC: clearing it there left
+  Everyone twice and SELF missing; SAMADCON puts that right when the option
+  is set and cleared again.
+- "User must change password at next logon" and "User cannot change
+  password" cannot be saved together, as in ADUC, with its wording. A
+  password reset with "must change" is refused on such an account before
+  the password is set.
+- Account lockout: with a threshold above 0, "Reset account lockout counter
+  after" must not be longer than the lockout duration. This is checked in
+  Diagnostics > Password policy and in a GPO's account lockout settings.
+- Group scope: the General tab offers only the changes Microsoft allows
+  from the current scope, and says why the others are not possible: global
+  and domain local only by way of universal, global to universal not while
+  the group is a member of a global group, domain local to universal not
+  with a domain local member, universal to global not with a universal
+  member. The server checks the same before writing.
+- The Account tab has ADUC's two options "This account supports Kerberos
+  AES 128/256 bit encryption", as bits of msDS-SupportedEncryptionTypes.
+  Other bits are kept; an attribute left with none is removed.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.23, :0.6 and :latest.
+
+---
+
 ## 0.6.22 — 2026-10-18
 
 "Must change password" and "Password never expires" exclude each other.
