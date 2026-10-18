@@ -5,6 +5,8 @@
 
 <p align="center"><em><a href="README.md">English version</a></em></p>
 
+<p align="center"><a href="https://buymeacoffee.com/onlinecrash24"><img src="https://img.shields.io/badge/Buy_me_a_coffee-FFDD00?logo=buymeacoffee&amp;logoColor=black" alt="Buy Me a Coffee"></a></p>
+
 Browserbasierte Verwaltungskonsole für Samba-AD-DC-Domänen. Ersetzt die Windows-RSAT-Werkzeuge
 (ADUC, DNS-Manager, Sites & Services, GPMC) durch einen Docker-Container — **inklusive
 Gruppenrichtlinien-Editor**, den vergleichbare Projekte auslassen.

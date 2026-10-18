@@ -11,6 +11,9 @@ export const LICENCE = 'AGPL-3.0-or-later'
 /** Where the corresponding source lives. */
 export const SOURCE_URL = 'https://github.com/onlinecrash24/SAMADCON'
 
+/** Where to support the project. The same link the README and GitHub's Sponsor button carry. */
+export const COFFEE_URL = 'https://buymeacoffee.com/onlinecrash24'
+
 /**
  * What this build is, and where it came from.
  *
@@ -35,6 +38,27 @@ export function SourceNote({ version }: { version?: string | null }) {
       {version && <span className="source-note__version">v{version}</span>}
       <a href={SOURCE_URL} target="_blank" rel="noreferrer" title={t('app.sourceTitle')}>
         {LICENCE}
+      </a>
+      {/* Drawn inline rather than loaded: the console's CSP allows images
+          from itself only, and a support link is no reason to widen it. */}
+      <a
+        href={COFFEE_URL}
+        target="_blank"
+        rel="noreferrer"
+        className="source-note__coffee"
+        title={t('app.coffeeTitle')}
+        aria-label={t('app.coffeeTitle')}
+      >
+        <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" focusable="false">
+          <path
+            d="M4 8h12v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V8Zm12 2h1.5a2.5 2.5 0 0 1 0 5H16M7 2.5c0 1 1 1.5 1 2.5S7 6.5 7 6.5M11 2.5c0 1 1 1.5 1 2.5s-1 1.5-1 1.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
       </a>
     </span>
   )

@@ -5,6 +5,8 @@
 
 <p align="center"><em><a href="README.de.md">Deutsche Fassung</a></em></p>
 
+<p align="center"><a href="https://buymeacoffee.com/onlinecrash24"><img src="https://img.shields.io/badge/Buy_me_a_coffee-FFDD00?logo=buymeacoffee&amp;logoColor=black" alt="Buy Me a Coffee"></a></p>
+
 A browser-based management console for Samba AD DC domains. It replaces the Windows RSAT tools
 (ADUC, DNS Manager, Sites & Services, GPMC) with a Docker container — **group policy editor
 included**, which comparable projects leave out.
