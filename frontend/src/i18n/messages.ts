@@ -155,6 +155,11 @@ export const de = {
   'settings.readOnly':
     'Nur lesbar: Dieses Konto darf die Einstellungen nicht ändern. Das dürfen standardmäßig die Domänen-Admins.',
   'settings.requiredTitle': 'Pflichtfelder beim Anlegen und Kopieren von Benutzern',
+  'settings.cnTitle': 'Vollständiger Name (CN) neuer Benutzer',
+  'settings.cnHint':
+    'Womit das Feld „Vollständiger Name“ beim Anlegen und Kopieren vorbelegt wird. Das ist der Name des Objekts im Verzeichnis und die Spalte „Name“ in der Liste; von Hand bleibt er überschreibbar.',
+  'settings.cnFromName': 'Aus Vor- und Nachname, ohne diese aus dem Anmeldenamen (wie ADUC)',
+  'settings.cnFromLogon': 'Aus dem Anmeldenamen',
   'settings.requiredHint':
     'Ein neuer Benutzer kann nur angelegt werden, wenn diese Felder ausgefüllt sind. Beim Kopieren zählt, was die Vorlage mitgibt; die E-Mail gibt sie nie mit.',
   'snapin.sites': 'Standorte und Dienste',
@@ -344,8 +349,10 @@ export const de = {
   'user.samName': 'Benutzeranmeldename (Prä-Windows 2000)',
   'user.samNameHint': 'sAMAccountName — höchstens 20 Zeichen, eindeutig in der Domäne. Folgt dem Namen oben, bis Sie ihn ändern.',
   'user.fullName': 'Vollständiger Name',
+  'dialog.fullNameHintLogon':
+    'Wird der CN des Objekts, die Spalte „Name“ in der Liste. Vorbelegt mit dem Anmeldenamen — leer lassen, um ihm zu folgen.',
   'dialog.fullNameHint':
-    'Wird der CN des Objekts. Vorbelegt mit dem Anmeldenamen — leer lassen, um ihm zu folgen.',
+    'Wird der CN des Objekts, die Spalte „Name“ in der Liste. Vorbelegt mit Vor- und Nachname, ohne diese mit dem Anmeldenamen — leer lassen, um dem zu folgen.',
   'user.upn': 'UPN',
   'user.firstName': 'Vorname',
   'user.lastName': 'Nachname',
@@ -1282,6 +1289,7 @@ export const de = {
     'Das maximale Kennwortalter ({max_age} Tage) muss größer sein als das minimale ({min_age} Tage).',
   'error.password_age_order.hint': '0 Tage beim maximalen Alter bedeutet: Kennwörter laufen nie ab.',
   'error.required_field_missing': 'Pflichtfelder sind leer: {fields}.',
+  'error.invalid_setting': 'Der Wert „{given}“ passt nicht zur Einstellung {setting}.',
   'error.required_field_missing.hint':
     'Welche Felder Pflicht sind, legen die SAMADCON-Einstellungen fest.',
   'error.invalid_mail': '„{given}“ ist keine E-Mail-Adresse.',
@@ -2192,6 +2200,11 @@ export const en: Record<MessageKey, string> = {
   'settings.readOnly':
     'Read only: this account may not change the settings. By default only Domain Admins may.',
   'settings.requiredTitle': 'Mandatory fields when creating and copying users',
+  'settings.cnTitle': "New users' full name (CN)",
+  'settings.cnHint':
+    'What the Full name field starts as when a user is created or copied. It is the object\'s name in the directory and the Name column in the list; it can still be typed over.',
+  'settings.cnFromName': 'From first and last name, or the logon name without them (as ADUC)',
+  'settings.cnFromLogon': 'From the logon name',
   'settings.requiredHint':
     'A new user can only be created with these fields filled in. On a copy, what the template carries over counts; it never carries the mail address.',
   'snapin.sites': 'Sites and Services',
@@ -2378,8 +2391,10 @@ export const en: Record<MessageKey, string> = {
   'user.samName': 'User logon name (pre-Windows 2000)',
   'user.samNameHint': 'sAMAccountName — at most 20 characters, unique in the domain. Follows the name above until you change it.',
   'user.fullName': 'Full name',
+  'dialog.fullNameHintLogon':
+    "Becomes the object's CN, the Name column in the list. Prefilled from the logon name — leave it empty to follow it.",
   'dialog.fullNameHint':
-    'Becomes the object\'s CN. Prefilled from the logon name — leave it empty to follow it.',
+    "Becomes the object's CN, the Name column in the list. Prefilled from first and last name, or the logon name without them — leave it empty to follow it.",
   'user.upn': 'UPN',
   'user.firstName': 'First name',
   'user.lastName': 'Last name',
@@ -3306,6 +3321,7 @@ export const en: Record<MessageKey, string> = {
     'The maximum password age ({max_age} days) must be greater than the minimum ({min_age} days).',
   'error.password_age_order.hint': '0 days as the maximum age means passwords never expire.',
   'error.required_field_missing': 'Mandatory fields are empty: {fields}.',
+  'error.invalid_setting': 'The value "{given}" does not fit the setting {setting}.',
   'error.required_field_missing.hint': 'Which fields are mandatory is set in the SAMADCON settings.',
   'error.invalid_mail': '"{given}" is not a mail address.',
   'error.field_not_requirable': 'The field "{field}" cannot be made mandatory.',

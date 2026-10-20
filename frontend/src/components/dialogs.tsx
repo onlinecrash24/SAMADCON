@@ -9,6 +9,7 @@ import { UpnField } from '../features/directory/UpnField'
 import { adminRefusal, isBuiltinAdministrator } from '../features/directory/adminDisable'
 import { fieldLabel, missingRequired } from '../features/directory/requiredUserFields'
 import { splitUpn } from '../features/directory/upn'
+import { defaultCommonName } from '../features/directory/userNames'
 import { useSession } from '../state/session'
 import type { TreeNode } from '../api/types'
 import { isAtOrBelow, parentDn } from '../dn'
@@ -57,6 +58,7 @@ export function useUserIdentity() {
   // SAMADCON's settings in the domain: which fields a new user must have.
   const settings = useQuery({ queryKey: ['app-settings'], queryFn: () => api.appSettings() })
   const required = settings.data?.settings.users.required_fields ?? []
+  const cnSource = settings.data?.settings.users.cn_source ?? 'name'
   const [form, setForm] = useState({
     first_name: '',
     last_name: '',
@@ -74,14 +76,13 @@ export function useUserIdentity() {
     upnSuffix: '',
     sam: '',
     samTouched: false,
-    // The object's CN. Follows the logon name until someone types into it —
-    // a tester's request, and a departure from ADUC, which builds it from
-    // first and last name and makes you retype it every time you want the
-    // logon name instead. Cleared, it follows the logon name again.
+    // The object's CN. Follows first and last name or the logon name — the
+    // settings choose, see defaultCommonName — until someone types into it;
+    // cleared, it follows again.
     cn: '',
   })
 
-  const commonName = form.cn || form.sam
+  const commonName = form.cn || defaultCommonName(form.first_name, form.last_name, form.sam, cnSource)
   const suffix = form.upnSuffix || session?.domain.dns_domain || ''
   const upn = form.upnLocal.trim() ? `${form.upnLocal.trim()}@${suffix}` : ''
   const displayName = [form.first_name, form.last_name].filter(Boolean).join(' ') || commonName
@@ -99,7 +100,7 @@ export function useUserIdentity() {
     ...(displayName ? { display_name: displayName } : {}),
   }
 
-  return { form, setForm, commonName, attributes, required }
+  return { form, setForm, commonName, attributes, required, cnSource }
 }
 
 export type UserIdentity = ReturnType<typeof useUserIdentity>
@@ -117,7 +118,7 @@ export function UserIdentityFields({
 }) {
   const { t } = useI18n()
   const { session } = useSession()
-  const { form, setForm, commonName, required } = identity
+  const { form, setForm, commonName, required, cnSource } = identity
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
     setForm((current) => ({ ...current, [key]: value }))
   const setExtra = (name: string, value: string) =>
@@ -181,11 +182,14 @@ export function UserIdentityFields({
           />
         </div>
       </Field>
-      <Field label={t('user.fullName')} hint={t('dialog.fullNameHint')}>
+      <Field
+        label={t('user.fullName')}
+        hint={t(cnSource === 'logon' ? 'dialog.fullNameHintLogon' : 'dialog.fullNameHint')}
+      >
         <input
           maxLength={64}
           value={commonName}
-          placeholder={form.sam}
+          placeholder={defaultCommonName(form.first_name, form.last_name, form.sam, cnSource)}
           onChange={(e) => set('cn', e.target.value)}
         />
       </Field>

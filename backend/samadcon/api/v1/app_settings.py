@@ -30,15 +30,21 @@ async def write_settings(
 ) -> dict[str, Any]:
     """Save, refused if someone else saved since *expected* was read."""
     with audit.operation(
-        "settings.write", required_user_fields=payload.required_user_fields
+        "settings.write",
+        required_user_fields=payload.required_user_fields,
+        cn_source=payload.cn_source,
     ) as record:
         result = await ad_write(
             worker,
             session,
             app_settings.write,
             required_fields=payload.required_user_fields,
+            cn_source=payload.cn_source,
             expected=payload.expected,
             label="settings.write",
         )
-        record["changes"] = {"users.required_fields": payload.required_user_fields}
+        record["changes"] = {
+            "users.required_fields": payload.required_user_fields,
+            "users.cn_source": payload.cn_source,
+        }
     return result

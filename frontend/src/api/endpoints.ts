@@ -219,7 +219,11 @@ export const api = {
     attributes?: Record<string, string>
   }) => http.post<UserDetail>('/users', payload),
   appSettings: () => http.get<AppSettingsView>('/settings'),
-  saveAppSettings: (payload: { required_user_fields: string[]; expected: string }) =>
+  saveAppSettings: (payload: {
+    required_user_fields: string[]
+    cn_source?: 'name' | 'logon'
+    expected: string
+  }) =>
     http.put<AppSettingsView>('/settings', payload),
   copyTemplateGroups: (templateDn: string) =>
     http.get<{ groups: { dn: string; primary: boolean }[]; copied_fields?: string[] }>(

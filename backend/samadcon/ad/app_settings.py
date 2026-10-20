@@ -36,7 +36,11 @@ ATTRIBUTE = "msDS-Settings"
 # Authenticated Users: list, read, list object, read permissions.
 READ_ACE = "(A;;LCRPLORC;;;AU)"
 
-DEFAULTS: dict[str, Any] = {"version": 1, "users": {"required_fields": []}}
+# What a new user's CN — the Name column — starts as: first and last name,
+# as ADUC builds it, or the logon name. One tester asked for each.
+CN_SOURCES = ("name", "logon")
+
+DEFAULTS: dict[str, Any] = {"version": 1, "users": {"required_fields": [], "cn_source": "name"}}
 
 
 def _requirable() -> tuple[str, ...]:
@@ -93,11 +97,21 @@ def clean_required(fields: list[str]) -> list[str]:
     return cleaned
 
 
-def render(current: str | None, *, required_fields: list[str]) -> str:
-    """The document to store: what was there, with the new values set."""
+def render(current: str | None, *, required_fields: list[str], cn_source: str | None = None) -> str:
+    """The document to store: what was there, with the new values set.
+    A setting left out (None) keeps what was there."""
     document = parse(current)
     document["version"] = DEFAULTS["version"]
-    document["users"] = {**document["users"], "required_fields": clean_required(required_fields)}
+    users = {**document["users"], "required_fields": clean_required(required_fields)}
+    if cn_source is not None:
+        if cn_source not in CN_SOURCES:
+            raise InvalidRequest(
+                "This value is not one the setting takes.",
+                code="invalid_setting",
+                context={"setting": "users.cn_source", "given": cn_source},
+            )
+        users["cn_source"] = cn_source
+    document["users"] = users
     return json.dumps(document, ensure_ascii=False)
 
 
@@ -139,7 +153,11 @@ def read(conn: DirectoryConnection) -> dict[str, Any]:
 
 
 def write(
-    conn: DirectoryConnection, *, required_fields: list[str], expected: str
+    conn: DirectoryConnection,
+    *,
+    required_fields: list[str],
+    expected: str,
+    cn_source: str | None = None,
 ) -> dict[str, Any]:
     """Save, refusing if someone else saved since *expected* was read."""
     current, entry = _stored_text(conn)
@@ -149,7 +167,7 @@ def write(
             code="settings_changed",
             hint="Reload the settings and make the change again.",
         )
-    text = render(current, required_fields=required_fields)
+    text = render(current, required_fields=required_fields, cn_source=cn_source)
 
     import ldb
 

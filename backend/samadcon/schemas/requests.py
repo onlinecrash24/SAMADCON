@@ -140,6 +140,8 @@ class AppSettingsRequest(StrictModel):
     was read (``stamp``); the save is refused if it changed since."""
 
     required_user_fields: list[str] = Field(default_factory=list, max_length=50)
+    # "name" or "logon"; checked in samadcon.ad.app_settings. None keeps it.
+    cn_source: str | None = Field(default=None, max_length=16)
     expected: str = Field(default="", max_length=1_000_000)
 
 

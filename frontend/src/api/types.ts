@@ -500,7 +500,11 @@ export interface AppSettingsView {
   writable: boolean
   /** The document as read; sent back on save to catch a concurrent change. */
   stamp: string
-  settings: { version: number; users: { required_fields: string[] } }
+  settings: {
+    version: number
+    /** cn_source: what a new user's CN starts as — first and last name, or the logon name. */
+    users: { required_fields: string[]; cn_source?: 'name' | 'logon' }
+  }
   requirable_user_fields: string[]
 }
 
