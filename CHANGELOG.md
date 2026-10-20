@@ -14,6 +14,50 @@ release.
 
 ---
 
+## 0.6.24 — 2026-10-20
+
+Settings, kept in the domain: mandatory fields for new users, and the CN.
+
+A new Settings tab edits SAMADCON's own settings. They are kept in the
+domain it manages, not in the container: CN=SAMADCON,CN=Program Data, an
+object of the class AD has for application settings (msDS-App-Configuration),
+with one JSON document in msDS-Settings. No schema extension is needed;
+this was measured on Samba 4.22.11. Every SAMADCON instance on the domain
+reads the same settings, and the domain's backup holds them.
+
+- The object is created on the first save, with a read entry for
+  Authenticated Users, so the rules hold for delegated admins too.
+  Changing the settings needs write access to it, by default Domain Admins;
+  without it the tab is read only and says so.
+- A save is refused if someone else saved in the meantime. Keys this
+  version does not know are kept. A document that is not JSON is
+  reported, not overwritten.
+
+Mandatory fields when creating and copying users:
+
+- A tester registers users for Authelia, which needs a mail address on
+  every account. Any typed user field can be made mandatory.
+- The New user and Copy dialogs now have a mail field, and an input for
+  each other mandatory field. Create waits until they are filled, and the
+  footer says in red what is still missing.
+- On a copy, what the template carries over counts as filled; it never
+  carries the mail address, as in ADUC.
+- The server refuses a new or copied user without the mandatory fields,
+  before anything is written. A mail address given has to look like one.
+
+What a new user's CN starts as:
+
+- The Full name field, the object's name and the Name column in the list,
+  is prefilled either from first and last name, or the logon name without
+  them, as ADUC builds it, or from the logon name, as one tester asked.
+  Without a saved setting it is ADUC's rule; it was the logon name until
+  now, so set "From the logon name" to keep that. It can be typed over
+  either way.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.24, :0.6 and :latest.
+
+---
+
 ## 0.6.23 — 2026-10-18
 
 More of what ADUC and GPMC enforce, compared against Microsoft's documentation and measured against ADUC on Windows 11.
