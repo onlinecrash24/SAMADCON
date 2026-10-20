@@ -20,7 +20,14 @@
 
 import type { MessageKey } from '../../i18n/messages'
 
-export type SnapinId = 'directory' | 'dns' | 'sites' | 'gpo' | 'diagnostics' | 'reports'
+export type SnapinId =
+  | 'directory'
+  | 'dns'
+  | 'sites'
+  | 'gpo'
+  | 'diagnostics'
+  | 'reports'
+  | 'settings'
 
 export interface Snapin {
   id: SnapinId
@@ -94,6 +101,15 @@ export const SNAPINS: Snapin[] = [
     id: 'reports',
     label: 'snapin.reports',
     icon: 'tab-reports',
+    available: true,
+    panes: { tree: false, detail: false },
+  },
+  {
+    // SAMADCON's own settings, kept in the domain. Last: it configures the
+    // console rather than managing the domain.
+    id: 'settings',
+    label: 'snapin.settings',
+    icon: 'tab-settings',
     available: true,
     panes: { tree: false, detail: false },
   },

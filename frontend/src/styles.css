@@ -1368,3 +1368,6 @@ fieldset[disabled] { opacity: 0.6; }
 .fl__steps li { margin: 8px 0; }
 .fl__command { display: flex; gap: 8px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
 .fl__command code { padding: 4px 8px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 4px; overflow-wrap: anywhere; }
+
+/* SAMADCON settings: the fields that may be made mandatory, in columns. */
+.settings__fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px 16px; margin: 8px 0 12px; }

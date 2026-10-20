@@ -15,7 +15,12 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { ApiError } from '../../api/client'
 import { api } from '../../api/endpoints'
 import type { CopyUserResult } from '../../api/types'
-import { ContainerBrowser, UserIdentityFields, useUserIdentity } from '../../components/dialogs'
+import {
+  ContainerBrowser,
+  MissingRequired,
+  UserIdentityFields,
+  useUserIdentity,
+} from '../../components/dialogs'
 import {
   CopyButton,
   ErrorMessage,
@@ -27,6 +32,7 @@ import {
 import { nameFromDn, parentDn } from '../../dn'
 import { useI18n } from '../../i18n'
 import { requestedGroups } from './copyUser'
+import { carriedFields, missingRequired } from './requiredUserFields'
 import { choosePasswordOption, type PasswordOption, type PasswordOptions } from './passwordOptions'
 
 export function CopyUserDialog({
@@ -87,6 +93,11 @@ export function CopyUserDialog({
     setOptions(next)
     setCleared(other)
   }
+
+  // A mandatory field the template fills needs no input; mail is never one
+  // of them — it stays behind on a copy, as in ADUC.
+  const carried = carriedFields(offered.data?.copied_fields ?? [], source.data?.attributes ?? {})
+  const missing = missingRequired(identity.required, identity.attributes, carried)
 
   const templateGroups = offered.data?.groups ?? []
   const groups = templateGroups.map((group) => group.dn)
@@ -192,7 +203,7 @@ export function CopyUserDialog({
             type="submit"
             form="copy-user"
             className="button button--primary"
-            disabled={create.isPending || !source.data || !offered.data}
+            disabled={create.isPending || !source.data || !offered.data || missing.length > 0}
           >
             {t('action.create')}
           </button>
@@ -214,7 +225,8 @@ export function CopyUserDialog({
             </button>
           </div>
         </div>
-        <UserIdentityFields identity={identity} />
+        <UserIdentityFields identity={identity} carried={carried} />
+        <MissingRequired fields={missing} />
 
         <fieldset className="radio-group radio-group--block">
           <legend>{t('login.password')}</legend>

@@ -147,6 +147,16 @@ export const de = {
   'snapin.dns': 'DNS-Verwaltung',
   'snapin.gpo': 'Gruppenrichtlinienverwaltung',
   'snapin.reports': 'Berichte',
+  'snapin.settings': 'Einstellungen',
+  'settings.title': 'SAMADCON-Einstellungen',
+  'settings.where':
+    'Gespeichert in der Domäne selbst, in diesem Objekt. Sie gelten für jede SAMADCON-Instanz an dieser Domäne und sind in deren Sicherung enthalten.',
+  'settings.notCreated': 'noch nicht angelegt; entsteht beim ersten Speichern',
+  'settings.readOnly':
+    'Nur lesbar: Dieses Konto darf die Einstellungen nicht ändern. Das dürfen standardmäßig die Domänen-Admins.',
+  'settings.requiredTitle': 'Pflichtfelder beim Anlegen und Kopieren von Benutzern',
+  'settings.requiredHint':
+    'Ein neuer Benutzer kann nur angelegt werden, wenn diese Felder ausgefüllt sind. Beim Kopieren zählt, was die Vorlage mitgibt; die E-Mail gibt sie nie mit.',
   'snapin.sites': 'Standorte und Dienste',
   'snapin.diagnostics': 'Diagnose',
 
@@ -341,6 +351,7 @@ export const de = {
   'user.lastName': 'Nachname',
   'user.displayName': 'Anzeigename',
   'user.mail': 'E-Mail',
+  'user.requiredMissing': 'Noch auszufüllen: {fields}',
   'user.telephone': 'Telefon',
   'user.title': 'Position',
   'user.department': 'Abteilung',
@@ -1270,6 +1281,16 @@ export const de = {
   'error.password_age_order':
     'Das maximale Kennwortalter ({max_age} Tage) muss größer sein als das minimale ({min_age} Tage).',
   'error.password_age_order.hint': '0 Tage beim maximalen Alter bedeutet: Kennwörter laufen nie ab.',
+  'error.required_field_missing': 'Pflichtfelder sind leer: {fields}.',
+  'error.required_field_missing.hint':
+    'Welche Felder Pflicht sind, legen die SAMADCON-Einstellungen fest.',
+  'error.invalid_mail': '„{given}“ ist keine E-Mail-Adresse.',
+  'error.field_not_requirable': 'Das Feld „{field}“ kann nicht Pflicht werden.',
+  'error.settings_changed': 'Die Einstellungen wurden inzwischen von jemand anderem geändert.',
+  'error.settings_changed.hint': 'Die Einstellungen neu laden und die Änderung noch einmal vornehmen.',
+  'error.settings_corrupt': 'Die SAMADCON-Einstellungen im Verzeichnis sind nicht lesbar.',
+  'error.settings_corrupt.hint':
+    'msDS-Settings an CN=SAMADCON,CN=Program Data prüfen; der Inhalt muss JSON sein.',
   'error.must_change_with_cannot_change':
     'Die zwei Optionen „Benutzer muss Kennwort bei der nächsten Anmeldung ändern“ und „Benutzer kann Kennwort nicht ändern“ dürfen nicht zusammen für denselben Benutzer ausgewählt werden.',
   'error.must_change_with_cannot_change.hint': 'Eine der beiden Optionen abwählen; ADUC speichert sie ebenfalls nicht zusammen.',
@@ -2163,6 +2184,16 @@ export const en: Record<MessageKey, string> = {
   'snapin.dns': 'DNS Management',
   'snapin.gpo': 'Group Policy Management',
   'snapin.reports': 'Reports',
+  'snapin.settings': 'Settings',
+  'settings.title': 'SAMADCON settings',
+  'settings.where':
+    "Kept in the domain itself, in this object. They apply to every SAMADCON instance on this domain and are part of the domain's backup.",
+  'settings.notCreated': 'not created yet; made on the first save',
+  'settings.readOnly':
+    'Read only: this account may not change the settings. By default only Domain Admins may.',
+  'settings.requiredTitle': 'Mandatory fields when creating and copying users',
+  'settings.requiredHint':
+    'A new user can only be created with these fields filled in. On a copy, what the template carries over counts; it never carries the mail address.',
   'snapin.sites': 'Sites and Services',
   'snapin.diagnostics': 'Diagnostics',
 
@@ -2354,6 +2385,7 @@ export const en: Record<MessageKey, string> = {
   'user.lastName': 'Last name',
   'user.displayName': 'Display name',
   'user.mail': 'Email',
+  'user.requiredMissing': 'Still to fill in: {fields}',
   'user.telephone': 'Telephone',
   'user.title': 'Job title',
   'user.department': 'Department',
@@ -3273,6 +3305,15 @@ export const en: Record<MessageKey, string> = {
   'error.password_age_order':
     'The maximum password age ({max_age} days) must be greater than the minimum ({min_age} days).',
   'error.password_age_order.hint': '0 days as the maximum age means passwords never expire.',
+  'error.required_field_missing': 'Mandatory fields are empty: {fields}.',
+  'error.required_field_missing.hint': 'Which fields are mandatory is set in the SAMADCON settings.',
+  'error.invalid_mail': '"{given}" is not a mail address.',
+  'error.field_not_requirable': 'The field "{field}" cannot be made mandatory.',
+  'error.settings_changed': 'The settings were changed by someone else in the meantime.',
+  'error.settings_changed.hint': 'Reload the settings and make the change again.',
+  'error.settings_corrupt': "SAMADCON's settings in the directory cannot be read.",
+  'error.settings_corrupt.hint':
+    'Check msDS-Settings on CN=SAMADCON,CN=Program Data; it has to be JSON.',
   'error.must_change_with_cannot_change':
     'The two options "User must change password at next logon" and "User cannot change password" cannot both be selected for the same user.',
   'error.must_change_with_cannot_change.hint': 'Clear one of the two; ADUC does not save them together either.',

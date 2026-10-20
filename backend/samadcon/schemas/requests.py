@@ -135,6 +135,14 @@ class MustChangePasswordRequest(StrictModel):
     must_change: bool
 
 
+class AppSettingsRequest(StrictModel):
+    """SAMADCON's settings in the domain. *expected* is the document as it
+    was read (``stamp``); the save is refused if it changed since."""
+
+    required_user_fields: list[str] = Field(default_factory=list, max_length=50)
+    expected: str = Field(default="", max_length=1_000_000)
+
+
 class CannotChangePasswordRequest(StrictModel):
     cannot_change: bool
 

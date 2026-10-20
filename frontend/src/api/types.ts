@@ -492,6 +492,18 @@ export interface MemberListing {
  * form ever read, all of which anyone reaching the sign-in page could see.
  * The backend stopped sending them; this stopped claiming them.
  */
+/** SAMADCON's own settings, kept in the domain (CN=SAMADCON,CN=Program Data). */
+export interface AppSettingsView {
+  dn: string
+  exists: boolean
+  /** Whether the signed-in account may change them. */
+  writable: boolean
+  /** The document as read; sent back on save to catch a concurrent change. */
+  stamp: string
+  settings: { version: number; users: { required_fields: string[] } }
+  requirable_user_fields: string[]
+}
+
 export interface ServerInfo {
   version: string
   realm: string

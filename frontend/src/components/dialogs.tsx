@@ -7,11 +7,13 @@ import { ApiError } from '../api/client'
 import { api } from '../api/endpoints'
 import { UpnField } from '../features/directory/UpnField'
 import { adminRefusal, isBuiltinAdministrator } from '../features/directory/adminDisable'
+import { fieldLabel, missingRequired } from '../features/directory/requiredUserFields'
 import { splitUpn } from '../features/directory/upn'
 import { useSession } from '../state/session'
 import type { TreeNode } from '../api/types'
 import { isAtOrBelow, parentDn } from '../dn'
 import { useI18n } from '../i18n'
+import type { MessageKey } from '../i18n/messages'
 import { ErrorMessage, Field, Modal, Spinner } from './primitives'
 
 interface DialogProps {
@@ -52,9 +54,14 @@ function useSubmit(onDone: (message: string) => void, onClose: () => void) {
  */
 export function useUserIdentity() {
   const { session } = useSession()
+  // SAMADCON's settings in the domain: which fields a new user must have.
+  const settings = useQuery({ queryKey: ['app-settings'], queryFn: () => api.appSettings() })
+  const required = settings.data?.settings.users.required_fields ?? []
   const [form, setForm] = useState({
     first_name: '',
     last_name: '',
+    // Mail, and any other field the settings make mandatory, by API name.
+    extra: {} as Record<string, string>,
     // Two logon names, as ADUC has them, and they are not the same thing.
     // The user principal name is upnLocal@upnSuffix — the modern logon
     // name, an e-mail-shaped alias. sAMAccountName is the pre-Windows-2000
@@ -79,35 +86,70 @@ export function useUserIdentity() {
   const upn = form.upnLocal.trim() ? `${form.upnLocal.trim()}@${suffix}` : ''
   const displayName = [form.first_name, form.last_name].filter(Boolean).join(' ') || commonName
 
+  const extra = Object.fromEntries(
+    Object.entries(form.extra)
+      .map(([name, value]) => [name, value.trim()] as const)
+      .filter(([, value]) => value),
+  )
   const attributes: Record<string, string> = {
+    ...extra,
     ...(upn ? { upn } : {}),
     ...(form.first_name ? { first_name: form.first_name } : {}),
     ...(form.last_name ? { last_name: form.last_name } : {}),
     ...(displayName ? { display_name: displayName } : {}),
   }
 
-  return { form, setForm, commonName, attributes }
+  return { form, setForm, commonName, attributes, required }
 }
 
 export type UserIdentity = ReturnType<typeof useUserIdentity>
 
-export function UserIdentityFields({ identity }: { identity: UserIdentity }) {
+/** Fields the dialog has inputs of its own for; the rest of the required ones get one here. */
+const IDENTITY_FIELDS = new Set(['first_name', 'last_name', 'display_name', 'upn', 'mail'])
+
+export function UserIdentityFields({
+  identity,
+  carried = [],
+}: {
+  identity: UserIdentity
+  /** For a copy: required fields the template fills, which need no input. */
+  carried?: readonly string[]
+}) {
   const { t } = useI18n()
   const { session } = useSession()
-  const { form, setForm, commonName } = identity
+  const { form, setForm, commonName, required } = identity
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
     setForm((current) => ({ ...current, [key]: value }))
+  const setExtra = (name: string, value: string) =>
+    setForm((current) => ({ ...current, extra: { ...current.extra, [name]: value } }))
+  const label = (name: string, key: MessageKey) =>
+    required.includes(name) ? `${t(key)} *` : t(key)
+  const others = required.filter((name) => !IDENTITY_FIELDS.has(name) && !carried.includes(name))
 
   return (
     <>
       <div className="form__grid">
-        <Field label={t('user.firstName')}>
+        <Field label={label('first_name', 'user.firstName')}>
           <input value={form.first_name} onChange={(e) => set('first_name', e.target.value)} />
         </Field>
-        <Field label={t('user.lastName')}>
+        <Field label={label('last_name', 'user.lastName')}>
           <input value={form.last_name} onChange={(e) => set('last_name', e.target.value)} />
         </Field>
       </div>
+      <Field label={label('mail', 'user.mail')}>
+        <input
+          type="email"
+          autoComplete="off"
+          spellCheck={false}
+          value={form.extra.mail ?? ''}
+          onChange={(e) => setExtra('mail', e.target.value)}
+        />
+      </Field>
+      {others.map((name) => (
+        <Field key={name} label={label(name, fieldLabel(name))}>
+          <input value={form.extra[name] ?? ''} onChange={(e) => setExtra(name, e.target.value)} />
+        </Field>
+      ))}
       <Field label={t('user.logonName')} hint={t('user.logonNameHint')}>
         <UpnField
           required
@@ -151,6 +193,20 @@ export function UserIdentityFields({ identity }: { identity: UserIdentity }) {
   )
 }
 
+/**
+ * What is still empty of the fields SAMADCON's settings make mandatory. The
+ * Create button waits for them; this says which.
+ */
+export function MissingRequired({ fields }: { fields: string[] }) {
+  const { t } = useI18n()
+  if (fields.length === 0) return null
+  return (
+    <p className="muted small">
+      {t('user.requiredMissing', { fields: fields.map((name) => t(fieldLabel(name))).join(', ') })}
+    </p>
+  )
+}
+
 export function NewUserDialog({ parentDn, onClose, onDone }: DialogProps & { parentDn: string }) {
   const { t } = useI18n()
   const { error, setError, pending, run } = useSubmit(onDone, onClose)
@@ -158,6 +214,7 @@ export function NewUserDialog({ parentDn, onClose, onDone }: DialogProps & { par
   const [password, setPassword] = useState('')
   const [mustChange, setMustChange] = useState(true)
   const [enabled, setEnabled] = useState(true)
+  const missing = missingRequired(identity.required, identity.attributes)
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
@@ -184,7 +241,12 @@ export function NewUserDialog({ parentDn, onClose, onDone }: DialogProps & { par
           <button type="button" className="button" onClick={onClose}>
             {t('action.cancel')}
           </button>
-          <button type="submit" form="new-user" className="button button--primary" disabled={pending}>
+          <button
+            type="submit"
+            form="new-user"
+            className="button button--primary"
+            disabled={pending || missing.length > 0}
+          >
             {t('action.create')}
           </button>
         </>
@@ -193,6 +255,7 @@ export function NewUserDialog({ parentDn, onClose, onDone }: DialogProps & { par
       <form id="new-user" onSubmit={submit} className="form">
         <ErrorMessage error={error} onDismiss={() => setError(null)} />
         <UserIdentityFields identity={identity} />
+        <MissingRequired fields={missing} />
         <Field label={t('login.password')}>
           <input
             type="password"

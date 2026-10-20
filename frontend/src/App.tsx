@@ -26,6 +26,7 @@ import {
 import { ErrorMessage, Icon, Spinner } from './components/primitives'
 import { CoffeeLink, SourceNote } from './components/SourceNote'
 import type { DnsZone } from './api/types'
+import { SettingsView } from './features/settings/SettingsView'
 import { SNAPINS, panesFor, type SnapinId } from './features/console/snapins'
 import { readListLimit, writeListLimit, type ListLimit } from './state/listLimit'
 import { readListSort, toggleSort, writeListSort, type ListSort } from './state/listSort'
@@ -543,6 +544,10 @@ function Console() {
         ) : snapin === 'reports' ? (
           <div className="pane pane--list">
             <SecurityFindings />
+          </div>
+        ) : snapin === 'settings' ? (
+          <div className="pane pane--list">
+            <SettingsView />
           </div>
         ) : snapin !== 'directory' ? (
           <div className="pane pane--list">

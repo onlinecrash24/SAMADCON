@@ -300,6 +300,8 @@ def create_user(
             code="password_required",
             hint="Either supply a password or create the account disabled.",
         )
+    _check_mail((attributes or {}).get("mail"))
+    _check_required(attributes or {}, required_user_fields(conn))
 
     import ldb
 
@@ -862,6 +864,44 @@ def set_password(
 
     # Checked above, before the password was written.
     _write_must_change(conn, dn, must_change)
+
+
+# Enough to catch a slip — a name without a domain, a space, a missing part.
+# Whether the mailbox exists is for whatever sends to it; Authelia checks.
+_MAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
+
+
+def required_user_fields(conn: DirectoryConnection) -> list[str]:
+    """The fields SAMADCON's settings in the domain make mandatory for a new user."""
+    from samadcon.ad import app_settings
+
+    return list(app_settings.read_document(conn)["users"]["required_fields"])
+
+
+def _check_mail(value: Any) -> None:
+    text = str(value or "").strip()
+    if text and not _MAIL_RE.fullmatch(text):
+        raise InvalidRequest(
+            "This is not a mail address.",
+            code="invalid_mail",
+            context={"given": text},
+        )
+
+
+def _check_required(attributes: dict[str, Any], required: list[str]) -> None:
+    """Refuse a new account without the fields the settings make mandatory.
+
+    A tester registers users for Authelia, which needs a mail address on each
+    one. For a copy, *attributes* already holds what the template carries
+    over, so a field the template fills counts as filled.
+    """
+    missing = [field for field in required if not str(attributes.get(field) or "").strip()]
+    if missing:
+        raise InvalidRequest(
+            "Mandatory fields are empty.",
+            code="required_field_missing",
+            context={"fields": missing},
+        )
 
 
 def _refuse_must_change_and_never_expires(must_change: bool, never_expires: bool) -> None:

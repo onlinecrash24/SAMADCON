@@ -96,7 +96,9 @@ async def copy_template_groups(
     groups = await ad_read(
         worker, session, users.copy_template_groups, dn, label="user.copy_groups"
     )
-    return {"groups": groups}
+    # Which fields the copy takes from the template, so the dialog can count
+    # a mandatory one as filled when the template fills it.
+    return {"groups": groups, "copied_fields": list(users.COPIED_FIELDS)}
 
 
 @router.post("/copy")
