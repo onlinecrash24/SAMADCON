@@ -47,7 +47,11 @@ def test_the_settings_live_under_program_data():
 
 
 def test_no_document_means_the_defaults():
-    assert app_settings.parse(None) == {"version": 1, "users": {"required_fields": []}}
+    # A new user's CN from first and last name, as ADUC builds it.
+    assert app_settings.parse(None) == {
+        "version": 1,
+        "users": {"required_fields": [], "cn_source": "name"},
+    }
 
 
 def test_a_document_reads_as_written():
@@ -69,7 +73,7 @@ def test_what_this_version_does_not_know_is_kept():
     written = json.loads(app_settings.render(text, required_fields=["mail"]))
     assert written == {
         "version": 1,
-        "users": {"required_fields": ["mail"], "naming": "x"},
+        "users": {"required_fields": ["mail"], "naming": "x", "cn_source": "name"},
         "gpo": {"y": 1},
     }
 
@@ -77,8 +81,27 @@ def test_what_this_version_does_not_know_is_kept():
 def test_a_new_document_starts_from_the_defaults():
     assert json.loads(app_settings.render(None, required_fields=["mail"])) == {
         "version": 1,
-        "users": {"required_fields": ["mail"]},
+        "users": {"required_fields": ["mail"], "cn_source": "name"},
     }
+
+
+def test_the_cn_can_come_from_the_logon_name():
+    """One tester wanted the logon name as the CN, another the person's name."""
+    text = app_settings.render(None, required_fields=[], cn_source="logon")
+    assert app_settings.parse(text)["users"]["cn_source"] == "logon"
+
+
+def test_leaving_the_cn_source_out_keeps_what_was_set():
+    text = app_settings.render(None, required_fields=[], cn_source="logon")
+    again = app_settings.render(text, required_fields=["mail"])
+    assert app_settings.parse(again)["users"]["cn_source"] == "logon"
+
+
+def test_a_cn_source_that_does_not_exist_is_refused():
+    with pytest.raises(InvalidRequest) as caught:
+        app_settings.render(None, required_fields=[], cn_source="initials")
+    assert caught.value.code == "invalid_setting"
+    assert caught.value.context == {"setting": "users.cn_source", "given": "initials"}
 
 
 # ---------------------------------------------------------------------------
