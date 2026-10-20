@@ -1010,6 +1010,9 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 .modal__body { padding: 16px; overflow: auto; }
 
 .modal__footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--border); }
+/* What a dialog still waits for, at the left of its buttons and in red, so it
+   is not read past. */
+.modal__missing { margin-right: auto; align-self: center; color: var(--danger); font-weight: 600; font-size: 0.9em; }
 
 .form__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
 @media (max-width: 480px) {

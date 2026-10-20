@@ -195,15 +195,16 @@ export function UserIdentityFields({
 
 /**
  * What is still empty of the fields SAMADCON's settings make mandatory. The
- * Create button waits for them; this says which.
+ * Create button waits for them; this says which — in the footer beside it,
+ * in red, because a tester read past it under the fields.
  */
 export function MissingRequired({ fields }: { fields: string[] }) {
   const { t } = useI18n()
   if (fields.length === 0) return null
   return (
-    <p className="muted small">
+    <span className="modal__missing" role="status">
       {t('user.requiredMissing', { fields: fields.map((name) => t(fieldLabel(name))).join(', ') })}
-    </p>
+    </span>
   )
 }
 
@@ -238,6 +239,7 @@ export function NewUserDialog({ parentDn, onClose, onDone }: DialogProps & { par
       onClose={onClose}
       footer={
         <>
+          <MissingRequired fields={missing} />
           <button type="button" className="button" onClick={onClose}>
             {t('action.cancel')}
           </button>
@@ -255,7 +257,6 @@ export function NewUserDialog({ parentDn, onClose, onDone }: DialogProps & { par
       <form id="new-user" onSubmit={submit} className="form">
         <ErrorMessage error={error} onDismiss={() => setError(null)} />
         <UserIdentityFields identity={identity} />
-        <MissingRequired fields={missing} />
         <Field label={t('login.password')}>
           <input
             type="password"

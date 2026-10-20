@@ -196,6 +196,7 @@ export function CopyUserDialog({
       onClose={onClose}
       footer={
         <>
+          <MissingRequired fields={missing} />
           <button type="button" className="button" onClick={onClose}>
             {t('action.cancel')}
           </button>
@@ -226,7 +227,6 @@ export function CopyUserDialog({
           </div>
         </div>
         <UserIdentityFields identity={identity} carried={carried} />
-        <MissingRequired fields={missing} />
 
         <fieldset className="radio-group radio-group--block">
           <legend>{t('login.password')}</legend>
