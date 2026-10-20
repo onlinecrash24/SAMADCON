@@ -434,3 +434,22 @@ def test_a_computer_is_not_a_template(directory):
 def test_a_missing_template_is_not_found(directory):
     with pytest.raises(NotFound):
         users.copy_user(directory, f"CN=Nobody,{BASE}", sam_account_name="x", password="p")
+
+
+# ---------------------------------------------------------------------------
+# Required fields (SAMADCON settings)
+# ---------------------------------------------------------------------------
+
+
+def test_a_required_field_the_template_carries_counts_as_filled(directory, monkeypatch):
+    monkeypatch.setattr(users, "required_user_fields", lambda conn: ["department"])
+    assert copy(directory)["user"]["dn"] == NEW
+
+
+def test_a_required_mail_is_not_taken_from_the_template(directory, monkeypatch):
+    """Mail stays behind on a copy, as in ADUC, so it has to be typed."""
+    monkeypatch.setattr(users, "required_user_fields", lambda conn: ["mail"])
+    with pytest.raises(InvalidRequest) as caught:
+        copy(directory)
+    assert caught.value.code == "required_field_missing"
+    copy(directory, attributes={"first_name": "Max", "last_name": "Muster", "mail": "max@example.test"})
