@@ -30,25 +30,25 @@ license = { text = "AGPL-3.0-or-later" }
 # that catches a floor permitting something vulnerable. Lower one of these and
 # that second pass is what will object.
 dependencies = [
-    "fastapi>=0.142.2",
+    "fastapi>=0.162.0",
     # Declared even though fastapi brings it, for two reasons: it is imported
     # directly (api/v1/servers.py), so it belongs here anyway; and fastapi's own
     # floor is starlette>=0.46.0, which permits versions carrying eight
     # advisories. Ours has to be its own.
-    "starlette>=1.6.0",
-    "uvicorn[standard]>=0.52.1",
-    "pydantic>=2.13.4",
-    "pydantic-settings>=2.15.0",
+    "starlette>=1.10.0",
+    "uvicorn[standard]>=0.54.0",
+    "pydantic>=2.14.1",
+    "pydantic-settings>=2.16.1",
     # Every advisory on this package is a denial of service, and on this
     # application they are reachable without signing in: FastAPI reads the
     # request body before it solves the dependency that checks the session
     # (fastapi/routing.py — request.form() at 430, solve_dependencies at 481),
     # and four endpoints take uploads.
     "python-multipart>=0.0.32",
-    "dnspython>=2.8.0",
+    "dnspython>=2.9.0",
     # X.509 for the Published Certificates tab: parsing what is on the
     # account and validating what is uploaded before it goes anywhere.
-    "cryptography>=50.0.0",
+    "cryptography>=50.0.2",
 ]
 
 [project.optional-dependencies]
@@ -60,8 +60,9 @@ test = [
     "pytest-asyncio>=0.23",
     # Not a runtime dependency: nothing under samadcon/ calls out over HTTP any
     # more. It is here because fastapi's TestClient is built on it, and the
-    # whole suite fails to collect without it.
-    "httpx>=0.28.1",
+    # whole suite fails to collect without it. httpx2 rather than httpx since
+    # Starlette 1.10: its TestClient takes httpx2 first and warns about httpx.
+    "httpx2>=2.16.0",
 ]
 dev = [
     "samadcon[test]",

@@ -7,7 +7,7 @@
 # rebuilding the Samba python bindings by hand is not worth the trouble.
 
 ARG DEBIAN_RELEASE=trixie
-ARG NODE_VERSION=22
+ARG NODE_VERSION=24
 
 # ---------------------------------------------------------------------------
 # Stage 1 — frontend bundle

@@ -118,8 +118,15 @@ app = FastAPI(
     # OpenTelemetry by default, and configures OTLP export by itself when an
     # OTEL_EXPORTER_OTLP_* endpoint is set and the SDK is present. Requests
     # here run with an administrator's ticket; none of it is wanted, so none
-    # of it is left to the environment.
-    telemetry={"auto_configure": False, "tracing": False, "metrics": False, "logs": False},
+    # of it is left to the environment. operation_spans (FastAPI 0.162) only
+    # runs under tracing, and is switched off all the same.
+    telemetry={
+        "auto_configure": False,
+        "tracing": False,
+        "metrics": False,
+        "logs": False,
+        "operation_spans": False,
+    },
 )
 
 app.include_router(api_router)
