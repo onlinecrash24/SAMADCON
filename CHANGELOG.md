@@ -14,6 +14,38 @@ release.
 
 ---
 
+## 0.6.25 — 2026-10-25
+
+Maintenance: newer dependencies, Node 24 and current GitHub Actions.
+
+No change in what SAMADCON does. pip-audit and npm audit find no known
+vulnerabilities, before or after.
+
+PHP2Shell (CVE-2026-109618, CVE-2026-109619) does not affect SAMADCON:
+there is no PHP in the image. The backend is Python, the frontend a
+static bundle served by nginx; checked in a running 0.6.24 container.
+
+Python:
+
+- fastapi 0.162.0, starlette 1.10.0, pydantic 2.14.1,
+  pydantic-settings 2.16.1, dnspython 2.9.0, httptools 0.9.0,
+  websockets 17.3. The declared floors move to these versions.
+- FastAPI changed how forms and uploads are read between 0.143 and
+  0.162. Nothing here relies on what changed; importing administrative
+  templates, with one file input left empty, was checked against a
+  domain controller.
+- FastAPI 0.162's new operation_spans telemetry switch is off, like
+  the others: requests run with an administrator's ticket.
+
+Frontend: Vite 8, Vitest 5, TypeScript 7, React 19.3.1. The bundle is
+built by Node 24 (LTS) instead of 22.
+
+CI: the GitHub Actions move to their current major versions.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.25, :0.6 and :latest.
+
+---
+
 ## 0.6.24 — 2026-10-20
 
 Settings, kept in the domain: mandatory fields for new users, and the CN.
