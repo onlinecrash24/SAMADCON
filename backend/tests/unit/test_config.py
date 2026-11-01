@@ -112,3 +112,68 @@ def test_whitespace_only_path_is_unset(monkeypatch: pytest.MonkeyPatch):
 
 def test_log_level_is_uppercased(monkeypatch: pytest.MonkeyPatch):
     assert _settings(monkeypatch, SAMADCON_REALM="example.lan", SAMADCON_LOG_LEVEL="debug").log_level == "DEBUG"
+
+
+# --- Reserved names and protected OUs ------------------------------------------
+
+
+def test_reserved_names_and_protected_ous_are_empty_by_default(monkeypatch: pytest.MonkeyPatch):
+    settings = _settings(monkeypatch, SAMADCON_REALM="example.lan")
+    assert settings.reserved_prefixes == []
+    assert settings.reserved_names == []
+    assert settings.protected_ous == []
+
+
+def test_reserved_prefixes_and_names_are_split_trimmed_and_lowercased(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    settings = _settings(
+        monkeypatch,
+        SAMADCON_REALM="example.lan",
+        SAMADCON_RESERVED_PREFIXES=" Havora- , svc_ ,",
+        SAMADCON_RESERVED_NAMES="havora, Info@Example.LAN",
+    )
+    assert settings.reserved_prefixes == ["havora-", "svc_"]
+    assert settings.reserved_names == ["havora", "info@example.lan"]
+
+
+@pytest.mark.parametrize(
+    ("variable", "value"),
+    [
+        ("SAMADCON_RESERVED_PREFIXES", "havora -"),
+        ("SAMADCON_RESERVED_PREFIXES", "hav\tora-"),
+        ("SAMADCON_RESERVED_NAMES", "svc backup"),
+        ("SAMADCON_RESERVED_NAMES", "svc\x07"),
+    ],
+)
+def test_a_reserved_entry_with_a_space_or_control_character_stops_the_start(
+    monkeypatch: pytest.MonkeyPatch, variable: str, value: str
+):
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match=variable):
+        _settings(monkeypatch, SAMADCON_REALM="example.lan", **{variable: value})
+
+
+def test_protected_ous_are_split_on_semicolons_because_dns_carry_commas(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    settings = _settings(
+        monkeypatch,
+        SAMADCON_REALM="example.lan",
+        SAMADCON_PROTECTED_OUS=r" OU=Havora,DC=example,DC=lan ; OU=Service\, Intern,DC=example,DC=lan;",
+    )
+    assert settings.protected_ous == [
+        "OU=Havora,DC=example,DC=lan",
+        r"OU=Service\, Intern,DC=example,DC=lan",
+    ]
+
+
+@pytest.mark.parametrize("value", ["Havora", "OU=Havora,example", "OU=,DC=example", "=x,DC=lan"])
+def test_a_protected_ou_that_is_not_a_dn_stops_the_start(
+    monkeypatch: pytest.MonkeyPatch, value: str
+):
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="SAMADCON_PROTECTED_OUS"):
+        _settings(monkeypatch, SAMADCON_REALM="example.lan", SAMADCON_PROTECTED_OUS=value)
