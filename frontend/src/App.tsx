@@ -466,6 +466,11 @@ function Console() {
           <span className="topbar__user" title={session!.principal}>
             {session!.username}
           </span>
+          {session!.idp_user && (
+            <span className="topbar__idp" title={t('idp.viaTitle', { user: session!.idp_user })}>
+              {t('idp.via', { user: session!.idp_user })}
+            </span>
+          )}
           <CoffeeLink />
           <button type="button" className="button" onClick={() => void logout()}>
             {t('nav.logout')}

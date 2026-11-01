@@ -104,6 +104,8 @@ export interface SessionInfo {
   domain: DomainInfo
   connection?: ConnectionState | null
   target?: ConnectionTargetInfo
+  /** Who signed in at the identity provider in front, when one is configured. */
+  idp_user?: string | null
 }
 
 export interface ServerProfileInfo {

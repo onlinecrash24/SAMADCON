@@ -119,6 +119,14 @@ jobs:
           docker run --rm -e SAMADCON_TRUSTED_PROXIES='10.0.0.0/8, 192.168.1.2' \
             samadcon:test nginx -t -c /etc/samadcon/nginx.conf
 
+      # And with an identity provider's header believed from that proxy: the
+      # map block then reads a request header of its own.
+      - name: ... and with the identity provider's user header configured
+        run: |
+          docker run --rm -e SAMADCON_TRUSTED_PROXIES='172.29.0.1' \
+            -e SAMADCON_PROXY_USER_HEADER='Remote-User' \
+            samadcon:test nginx -t -c /etc/samadcon/nginx.conf
+
       # nginx spools a request body larger than its memory buffer to disk
       # before the application sees it. The spool used to sit on
       # /run/samadcon, which the compose file mounts as an 8 MB tmpfs:

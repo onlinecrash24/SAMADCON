@@ -11,11 +11,11 @@ from fastapi import APIRouter, Request, Response
 from samadcon.ad import targets
 from samadcon.ad.access import ad_read
 from samadcon.auth import kerberos
-from samadcon.auth.deps import CurrentSession, client_ip
+from samadcon.auth.deps import CurrentSession, client_ip, idp_user
 from samadcon.auth.session import get_store, get_throttle
 from samadcon.config import get_settings
 from samadcon.core.audit import get_audit
-from samadcon.core.errors import AuthenticationError, SamadconError
+from samadcon.core.errors import AuthenticationError, PermissionDenied, SamadconError
 from samadcon.core.executor import get_registry
 from samadcon.core.ratelimit import probe_limiter
 from samadcon.schemas.requests import LoginRequest
@@ -42,6 +42,27 @@ async def login(payload: LoginRequest, request: Request, response: Response) -> 
     throttle = get_throttle()
     audit = get_audit()
     address = client_ip(request)
+
+    # The identity provider in front, when one is configured. Without the
+    # setting nginx drops the header, and should one arrive anyway it is not
+    # believed. When it is required and missing, the request did not come
+    # through the proxy — someone went straight to the port — and that is
+    # refused before anything else: no target, no ticket, no failed attempt
+    # counted against an account nobody tried.
+    idp = idp_user(request) if settings.proxy_user_header else None
+    if settings.proxy_user_required and not idp:
+        audit.record(
+            action="auth.login",
+            actor=None,
+            result="error",
+            error="No user from the identity provider in front.",
+            error_code="idp_user_missing",
+            client_ip=address,
+        )
+        raise PermissionDenied(
+            "Sign-in is only possible through the identity provider in front of SAMADCON.",
+            code="idp_user_missing",
+        )
 
     # A typed-in server address makes resolve_target open outbound connections
     # to whatever was named, on 389 and 636, before anyone is signed in — the
@@ -72,6 +93,7 @@ async def login(payload: LoginRequest, request: Request, response: Response) -> 
             error_code=exc.code,
             client_ip=address,
             extra={"domain": target.display_name} if target is not None else None,
+            idp_user=idp,
         )
 
     # Resolving the target probes the network, so it runs on the worker thread.
@@ -123,6 +145,7 @@ async def login(payload: LoginRequest, request: Request, response: Response) -> 
         ticket_expires_at=expires_at,
         client_ip=address,
         user_agent=request.headers.get("user-agent"),
+        idp_user=idp,
     )
 
     # Connect straight away: a ticket the DC will not accept should surface
@@ -142,6 +165,7 @@ async def login(payload: LoginRequest, request: Request, response: Response) -> 
             error_code=exc.code,
             client_ip=address,
             extra={"domain": target.display_name},
+            idp_user=idp,
         )
         raise
 
@@ -152,6 +176,7 @@ async def login(payload: LoginRequest, request: Request, response: Response) -> 
         result="ok",
         session_id=session_id,
         client_ip=address,
+        idp_user=idp,
         # Which domain and which DC — the question every audit trail gets
         # asked once more than one domain is in play.
         extra={
@@ -171,6 +196,7 @@ async def login(payload: LoginRequest, request: Request, response: Response) -> 
         "expires_at": session.expires_at,
         "domain": domain,
         "target": target.describe(),
+        "idp_user": session.idp_user,
     }
 
 
@@ -184,15 +210,16 @@ async def logout(request: Request, response: Response) -> dict[str, Any]:
         store = get_store()
         try:
             session = store.get(session_id)
-            actor = session.principal.full
+            actor, idp = session.principal.full, session.idp_user
         except SamadconError:
-            actor = None
+            actor, idp = None, None
         store.drop(session_id, reason="logout")
         get_audit().record(
             action="auth.logout",
             actor=actor,
             session_id=session_id,
             client_ip=client_ip(request),
+            idp_user=idp,
         )
 
     response.delete_cookie(
@@ -232,6 +259,7 @@ async def session_info(session: CurrentSession) -> dict[str, Any]:
         "domain": facts["domain"],
         "connection": facts["connection"],
         "target": session.target.describe(),
+        "idp_user": session.idp_user,
     }
 
 

@@ -96,6 +96,7 @@ class AuditLog:
         session_id: str | None = None,
         client_ip: str | None = None,
         extra: dict[str, Any] | None = None,
+        idp_user: str | None = None,
     ) -> None:
         entry: dict[str, Any] = {
             "ts": datetime.now(UTC).isoformat(timespec="milliseconds").replace(
@@ -105,6 +106,10 @@ class AuditLog:
             "actor": actor,
             "result": result,
         }
+        if idp_user:
+            # Who signed in at the identity provider in front, beside the
+            # directory account that did the work: max beside max-adm.
+            entry["idp_user"] = idp_user
         if target:
             entry["target"] = target
         if changes:
@@ -155,6 +160,7 @@ class AuditLog:
         session_id: str | None = None,
         client_ip: str | None = None,
         changes: dict[str, Any] | None = None,
+        idp_user: str | None = None,
     ) -> Iterator[dict[str, Any]]:
         """Record an operation together with its outcome and duration.
 
@@ -180,6 +186,7 @@ class AuditLog:
                 session_id=session_id,
                 client_ip=client_ip,
                 extra=record.get("extra") or None,
+                idp_user=idp_user,
             )
             raise
         self.record(
@@ -192,6 +199,7 @@ class AuditLog:
             session_id=session_id,
             client_ip=client_ip,
             extra=record.get("extra") or None,
+            idp_user=idp_user,
         )
 
 

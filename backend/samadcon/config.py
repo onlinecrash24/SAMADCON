@@ -13,6 +13,7 @@ from __future__ import annotations
 import functools
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Annotated
 
@@ -23,6 +24,8 @@ logger = logging.getLogger(__name__)
 
 #: The interface languages, as frontend/src/i18n/messages.ts has them.
 LANGUAGES = ("de", "en")
+
+_HEADER_TOKEN = re.compile(r"[A-Za-z0-9-]{1,64}")
 
 
 class ServerProfile(BaseModel):
@@ -148,6 +151,24 @@ class Settings(BaseSettings):
     cookie_name: str = "samadcon_session"
     cookie_secure: bool = True
 
+    # --- An identity provider in front -------------------------------------
+    # A forward-auth proxy (Authelia, Authentik, oauth2-proxy for Keycloak)
+    # names the user it signed in in a header. nginx passes it on as
+    # X-Samadcon-Idp-User, only from a proxy in SAMADCON_TRUSTED_PROXIES
+    # (docker/proxy-user-conf.sh), and the audit log records it beside the
+    # directory account. Read here only to be checked: nginx is configured
+    # from the same variables before the application starts.
+    proxy_user_header: str | None = Field(
+        default=None, description="Header the proxy names its user in, e.g. Remote-User"
+    )
+    proxy_user_required: bool = Field(
+        default=False,
+        description="Refuse a sign-in that did not come through the proxy with a user",
+    )
+    trusted_proxies: str = Field(
+        default="", description="The proxies nginx believes; see docker/entrypoint.sh"
+    )
+
     # --- Samba ------------------------------------------------------------
     smb_conf: Path = Path("/etc/samadcon/smb.conf")
     krb5_config: Path = Path("/etc/samadcon/krb5.conf")
@@ -239,6 +260,39 @@ class Settings(BaseSettings):
     @classmethod
     def _upper_log_level(cls, value: str) -> str:
         return value.strip().upper()
+
+    @field_validator("proxy_user_header", mode="before")
+    @classmethod
+    def _header_token(cls, value: object) -> object:
+        """A plain header name or nothing. The entrypoint writes it into
+        nginx's configuration as $http_<name>, so anything else would end up
+        there as written — docker/proxy-user-conf.sh refuses it as well."""
+        if value is None:
+            return None
+        text = str(value).strip()
+        if not text:
+            return None
+        if not _HEADER_TOKEN.fullmatch(text):
+            raise ValueError(
+                "SAMADCON_PROXY_USER_HEADER must be a header name: letters, digits and dashes."
+            )
+        return text
+
+    @model_validator(mode="after")
+    def _proxy_user_reachable(self) -> Settings:
+        """A header nginx believes from nobody does nothing, and requiring it
+        would refuse every sign-in. Both are refused at start-up, by name."""
+        if self.proxy_user_required and not self.proxy_user_header:
+            raise ValueError(
+                "SAMADCON_PROXY_USER_REQUIRED needs SAMADCON_PROXY_USER_HEADER: "
+                "which header names the user."
+            )
+        if self.proxy_user_header and not self.trusted_proxies.strip():
+            raise ValueError(
+                "SAMADCON_PROXY_USER_HEADER needs SAMADCON_TRUSTED_PROXIES: the header is "
+                "believed only from a proxy named there."
+            )
+        return self
 
     @property
     def netbios_name(self) -> str:

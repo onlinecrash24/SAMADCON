@@ -496,6 +496,72 @@ Die eigene Adresse des Proxys eintragen. Nicht das Netz, in dem er steht, „zur
 größer": Jeder Host in diesem Netz erbt damit das Recht, in Ihrer Audit-Spur jede beliebige
 Identität zu behaupten.
 
+### Hinter einem Identitätsanbieter (OIDC)
+
+Vor SAMADCON kann ein Identitätsanbieter stehen — Authelia, Authentik, Keycloak —, damit dessen
+Anmeldung mit ihrem zweiten Faktor zuerst kommt. Der Reverse Proxy fragt ihn bei jeder Anfrage
+(Forward-Authentifizierung) und lässt nur durch, wen er angemeldet hat. Danach folgt wie bisher
+SAMADCONs eigene Anmeldung mit einem Konto aus dem Verzeichnis.
+
+Das sind **zwei Anmeldungen**, und das ist Absicht. SAMADCON hat kein eigenes privilegiertes
+Konto: Jede Aktion läuft mit dem Kerberos-Ticket des angemeldeten Administrators, und dieses
+Ticket entsteht aus seinem Kennwort. Ein Identitätsanbieter liefert keins von beiden. Meist sind
+es auch nicht dieselben Konten — `max` beim Identitätsanbieter, `max-adm` im Verzeichnis —, und
+das Audit-Log kann beide festhalten.
+
+**Was stimmen muss:**
+
+1. **Der Proxy fragt den Identitätsanbieter für die ganze Seite, `/api` eingeschlossen.** Von
+   einem Rechner im Netz prüfen, ohne Cookie des Identitätsanbieters. Beide Aufrufe müssen mit
+   einer Umleitung zum Identitätsanbieter antworten; ein `200` oder SAMADCONs eigenes `401`
+   heißt, er wird nicht gefragt:
+
+   ```bash
+   curl -sk -o /dev/null -D - https://samadcon.example.com/ | grep -iE '^(HTTP|location)'
+   curl -sk -o /dev/null -D - https://samadcon.example.com/api/v1/auth/session | grep -iE '^(HTTP|location)'
+   ```
+
+2. **`SAMADCON_TRUSTED_PROXIES`** nennt den Proxy, wie im [Abschnitt davor](#hinter-einem-reverse-proxy).
+3. **Optional:** `SAMADCON_PROXY_USER_HEADER` nennt den Header, in dem der Proxy den Benutzer
+   weitergibt. Dann trägt jeder Audit-Eintrag `idp_user` neben `actor`, und die Kopfzeile zeigt
+   ihn neben dem Konto. nginx im Container glaubt den Header nur von einem Proxy aus
+   `SAMADCON_TRUSTED_PROXIES`; von überall sonst und ohne die Einstellung wird er verworfen.
+4. **Optional:** `SAMADCON_PROXY_USER_REQUIRED=1` lehnt eine Anmeldung ohne diesen Header ab. Das
+   fängt ab, wer am Proxy vorbei direkt Port 8443 aufruft — SAMADCON nur an eine Adresse zu
+   binden, die allein der Proxy erreicht (`SAMADCON_BIND`), ist die andere Hälfte.
+
+| Identitätsanbieter | Header mit dem Benutzer | Geprüft |
+|---|---|---|
+| Authelia (mit nginx / Nginx Proxy Manager, `authelia-authrequest.conf`) | `Remote-User` | gemessen: Nginx Proxy Manager 2.x, Authelia |
+| Authentik (Proxy-Provider, Forward-Auth) | `X-authentik-username` | laut Dokumentation |
+| Keycloak über oauth2-proxy (`--set-xauthrequest`) | `X-Auth-Request-User` oder `X-Auth-Request-Preferred-Username` | laut Dokumentation |
+
+**Nginx Proxy Manager mit Authelia,** so gemessen. Authelias
+[Snippets für NGINX](https://www.authelia.com/integration/proxies/nginx/) kommen in NPMs eigenes
+Daten-Volume, `/data/nginx/snippets/`, dann braucht der NPM-Stack kein zusätzliches Mount; in
+`authelia-location.conf` zeigt `$upstream_authelia` auf Ihr Authelia. Der Proxy-Host behält
+Scheme `https` und Port `8443`, und im Reiter **Advanced** steht:
+
+```nginx
+include /data/nginx/snippets/authelia-location.conf;
+
+location / {
+    include /data/nginx/snippets/proxy.conf;
+    include /data/nginx/snippets/authelia-authrequest.conf;
+    proxy_pass $forward_scheme://$server:$port;
+}
+```
+
+Unter *Custom Locations* kommt nichts: Die prüft Authelia nicht. Ob NPM die Konfiguration
+übernommen hat, zeigen `docker exec npm nginx -t` und ein `grep` nach dem Hostnamen in
+`/data/nginx/proxy_host/`; einen Host, dessen Konfiguration nginx abgelehnt hat, liefert es gar
+nicht aus.
+
+**Läuft die Sitzung beim Identitätsanbieter vor der in SAMADCON ab,** trifft jede Anfrage auf den
+Proxy. Die Konsole bemerkt das und bietet an, neu zu laden; das Neuladen geht über die Anmeldung
+beim Identitätsanbieter und zurück, und die Sitzung in SAMADCON besteht noch. Nicht gespeicherte
+Änderungen gehen dabei verloren.
+
 ## Deployment
 
 ### Was auf dem Zielsystem liegen muss
@@ -573,6 +639,8 @@ und ermittelt die Domäne daraus.
 |---|---|---|
 | `SAMADCON_PUBLIC_HTTPS_PORT` | `443` | Der Port, auf den die Weiterleitung auf 8080 verweist. Wird **nur** gelesen, wenn Port 8080 veröffentlicht ist; eine Installation, die allein 8443 veröffentlicht, erreicht diesen Server-Block nie. |
 | `SAMADCON_TRUSTED_PROXIES` | leer | Der Reverse Proxy vor dem Container, falls es einen gibt. Ohne ihn steht in jedem Audit-Eintrag der Proxy statt des Administrators — siehe [Hinter einem Reverse Proxy](#hinter-einem-reverse-proxy). |
+| `SAMADCON_PROXY_USER_HEADER` | leer | Der Header, in dem der Proxy eines Identitätsanbieters seinen Benutzer nennt, z. B. `Remote-User`. Steht als `idp_user` in jedem Audit-Eintrag. Braucht `SAMADCON_TRUSTED_PROXIES` — siehe [Hinter einem Identitätsanbieter](#hinter-einem-identitätsanbieter-oidc). |
+| `SAMADCON_PROXY_USER_REQUIRED` | `0` | `1` lehnt eine Anmeldung ab, die nicht mit einem Benutzer über diesen Proxy kam. Braucht `SAMADCON_PROXY_USER_HEADER`. |
 
 **Sitzungen.**
 

@@ -42,6 +42,9 @@ class Session:
     last_seen: datetime = field(default_factory=_now)
     client_ip: str | None = None
     user_agent: str | None = None
+    # Who signed in at the identity provider in front, when one is configured.
+    # Not the directory account: max there, max-adm here is the usual case.
+    idp_user: str | None = None
 
     @property
     def expires_at(self) -> datetime:
@@ -71,6 +74,7 @@ class SessionStore:
         ticket_expires_at: datetime,
         client_ip: str | None = None,
         user_agent: str | None = None,
+        idp_user: str | None = None,
     ) -> Session:
         session = Session(
             id=session_id,
@@ -82,6 +86,7 @@ class SessionStore:
             idle_timeout=self.idle_timeout,
             client_ip=client_ip,
             user_agent=user_agent,
+            idp_user=idp_user,
         )
         with self._lock:
             self._sessions[session_id] = session

@@ -27,10 +27,71 @@ export class ApiError extends Error {
     this.context = body.context
   }
 
-  /** True when the session is gone and the UI should return to the login view. */
+  /**
+   * True when the session is gone and the UI should return to the login view.
+   * Not for a 401 from a proxy in front: SAMADCON's session may be fine, and
+   * its sign-in could not get past the proxy either.
+   */
   get isUnauthenticated(): boolean {
-    return this.status === 401
+    return this.status === 401 && this.code !== 'idp_session_expired'
   }
+}
+
+// ---------------------------------------------------------------------------
+// An identity provider in front
+// ---------------------------------------------------------------------------
+
+/**
+ * Behind a forward-auth proxy (Authelia, Authentik, oauth2-proxy) the identity
+ * provider's session can end while SAMADCON's is still good. Every call then
+ * gets the proxy's answer instead of the application's — measured behind
+ * Nginx Proxy Manager and Authelia: a 302 to the identity provider, with an
+ * HTML body. Left to itself fetch would follow that across origins and fail
+ * as a network error, or land on the sign-in page and hand back HTML; a 401
+ * from the proxy would read as SAMADCON's own and drop the console to a
+ * sign-in that cannot help. All of it becomes one error, and whoever listens
+ * is told, so the console can offer to reload — the proxy then sends the
+ * browser to the identity provider and back, and SAMADCON's session is still
+ * there.
+ */
+const idpListeners = new Set<() => void>()
+
+export function onIdpSessionExpired(listener: () => void): () => void {
+  idpListeners.add(listener)
+  return () => {
+    idpListeners.delete(listener)
+  }
+}
+
+/** Not SAMADCON's error envelope: someone in front of it answered. */
+function hasEnvelope(text: string): boolean {
+  try {
+    return typeof (JSON.parse(text) as { error?: { code?: unknown } }).error?.code === 'string'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * The proxy's answer, if this is one. `expectJson` is false for downloads,
+ * which are not JSON by nature: there only the redirect and the bare 401 or
+ * 403 tell.
+ */
+function proxyInterception(response: Response, text: string, expectJson: boolean): ApiError | null {
+  const redirected =
+    response.type === 'opaqueredirect' || (response.status >= 300 && response.status < 400)
+  const refused = (response.status === 401 || response.status === 403) && !hasEnvelope(text)
+  const page =
+    expectJson &&
+    response.ok &&
+    text !== '' &&
+    !(response.headers.get('Content-Type') ?? '').includes('json')
+  if (!redirected && !refused && !page) return null
+  for (const listener of idpListeners) listener()
+  return new ApiError(response.status, {
+    code: 'idp_session_expired',
+    message: 'The sign-in at the identity provider in front of SAMADCON has expired.',
+  })
 }
 
 let csrfToken: string | null = null
@@ -67,6 +128,8 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       headers,
       // The session cookie is httpOnly; the browser attaches it for us.
       credentials: 'same-origin',
+      // The application never redirects; a proxy in front does.
+      redirect: 'manual',
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
       signal: options.signal,
     })
@@ -84,6 +147,9 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   }
 
   const text = await response.text()
+  const intercepted = proxyInterception(response, text, true)
+  if (intercepted) throw intercepted
+
   let payload: unknown = null
   if (text) {
     try {
@@ -124,7 +190,7 @@ async function download(path: string, fallbackName: string): Promise<void> {
     headers: { Accept: '*/*' },
     credentials: 'same-origin',
   })
-  if (!response.ok) throw await failure(response, 'The download failed.')
+  if (!response.ok) throw await failure(response, 'The download failed.', false)
 
   const disposition = response.headers.get('Content-Disposition') ?? ''
   const match = /filename="?([^";]+)"?/.exec(disposition)
@@ -149,10 +215,13 @@ export function saveBlob(blob: Blob, name: string): void {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-/** fetch, with a network failure turned into the ApiError request() gives. */
+/**
+ * fetch, with a network failure turned into the ApiError request() gives, and
+ * a redirect kept back as request() keeps it.
+ */
 async function reach(url: string, init: RequestInit): Promise<Response> {
   try {
-    return await fetch(url, init)
+    return await fetch(url, { ...init, redirect: 'manual' })
   } catch (cause) {
     throw new ApiError(0, {
       code: 'network_error',
@@ -170,8 +239,11 @@ async function reach(url: string, init: RequestInit): Promise<Response> {
  * there is to go on. 413 is the one worth naming: nginx measures the whole
  * request, framing included, and says so before the application ever sees it.
  */
-async function failure(response: Response, fallback: string): Promise<ApiError> {
+async function failure(response: Response, fallback: string, expectJson = true): Promise<ApiError> {
   const text = await response.text()
+  const intercepted = proxyInterception(response, text, expectJson)
+  if (intercepted) return intercepted
+
   let envelope: ApiErrorBody | undefined
   try {
     envelope = (JSON.parse(text) as { error?: ApiErrorBody }).error
@@ -225,6 +297,8 @@ async function send<T>(path: string, form: FormData): Promise<T> {
   if (!response.ok) throw await failure(response, 'The upload failed.')
 
   const text = await response.text()
+  const intercepted = proxyInterception(response, text, true)
+  if (intercepted) throw intercepted
   if (!text) return null as T
   try {
     return JSON.parse(text) as T

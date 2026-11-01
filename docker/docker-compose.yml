@@ -44,6 +44,11 @@ services:
 #      SAMADCON_SERVERS_FILE: "/etc/samadcon/servers/servers.json"
       # Only behind a reverse proxy, and then its host's address. Never 0.0.0.0/0.
       SAMADCON_TRUSTED_PROXIES: "${SAMADCON_TRUSTED_PROXIES}"
+      # Behind an identity provider's proxy: the header that names its user,
+      # recorded as idp_user in the audit log (Authelia: Remote-User). Needs
+      # the line above. REQUIRED refuses a sign-in that went round the proxy.
+#      SAMADCON_PROXY_USER_HEADER: "Remote-User"
+#      SAMADCON_PROXY_USER_REQUIRED: "1"
     ports:
       # A value written ${NAME:?...} stops the stack when NAME is empty, and
       # says which one — here the port, and below the resolver. Empty, the port

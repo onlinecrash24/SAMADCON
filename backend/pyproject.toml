@@ -82,6 +82,8 @@ include = ["samadcon*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+# Said out loud: pytest-asyncio warns on every run while it is left unset.
+asyncio_default_fixture_loop_scope = "function"
 markers = [
     "integration: needs a live Samba AD DC (SAMADCON_TARGET=test, see the README)",
     "gpo: touches Group Policy objects on the test domain",

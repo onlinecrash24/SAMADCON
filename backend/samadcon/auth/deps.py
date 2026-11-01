@@ -24,6 +24,25 @@ def client_ip(request: Request) -> str | None:
     return request.client.host if request.client else None
 
 
+#: What nginx passes the identity provider's user on as. Set by nginx on every
+#: API request — empty, which drops it, unless the request came from a trusted
+#: proxy and SAMADCON_PROXY_USER_HEADER names the header that proxy uses.
+IDP_USER_HEADER = "X-Samadcon-Idp-User"
+
+
+def idp_user(request: Request) -> str | None:
+    """The user the identity provider in front signed in, if there is one.
+
+    Only what nginx let through reaches here, so this is about shape, not
+    trust: a value that would not read as a name in the audit log is taken
+    as no value at all.
+    """
+    value = (request.headers.get(IDP_USER_HEADER) or "").strip()
+    if not value or len(value) > 256 or any(ord(char) < 32 or ord(char) == 127 for char in value):
+        return None
+    return value
+
+
 def current_session(request: Request) -> Session:
     settings = get_settings()
     session = get_store().get(request.cookies.get(settings.cookie_name))

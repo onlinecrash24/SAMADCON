@@ -131,7 +131,8 @@ COPY --from=frontend /build/dist /srv/samadcon/www
 COPY docker/nginx.conf.template /etc/samadcon/nginx.conf.template
 COPY docker/supervisord.conf /etc/samadcon/supervisord.conf
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+COPY docker/proxy-user-conf.sh /usr/local/bin/samadcon-proxy-user-conf
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/samadcon-proxy-user-conf
 
 # Non-root. The ccache directory lives on tmpfs and is created by the
 # entrypoint, since /dev/shm is mounted fresh on every start.

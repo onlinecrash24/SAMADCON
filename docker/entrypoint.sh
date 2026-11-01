@@ -167,6 +167,14 @@ REAL_IP_CONF="${SAMADCON_CONF_DIR}/real-ip.conf"
 } > "${REAL_IP_CONF}"
 
 # --------------------------------------------------------------------------
+# Who signed in at the identity provider in front, believed only from the same
+# trusted hops. Always written: without a setting it believes no one, and the
+# header nginx passes on is then always empty. See the script for why.
+# --------------------------------------------------------------------------
+/usr/local/bin/samadcon-proxy-user-conf > "${SAMADCON_CONF_DIR}/proxy-user.conf" \
+    || die "SAMADCON_PROXY_USER_HEADER or SAMADCON_TRUSTED_PROXIES cannot go into nginx's configuration"
+
+# --------------------------------------------------------------------------
 # nginx configuration. Only the placeholders listed on the envsubst command
 # line are substituted, so nginx's own $host/$request_uri survive untouched.
 # --------------------------------------------------------------------------

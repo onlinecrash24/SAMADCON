@@ -44,6 +44,7 @@ class AuditContext:
             session_id=self.session.id,
             client_ip=self.address,
             changes=changes or None,
+            idp_user=self.session.idp_user,
         ) as record:
             yield record
 
@@ -55,6 +56,7 @@ class AuditContext:
             session_id=self.session.id,
             client_ip=self.address,
             extra=extra or None,
+            idp_user=self.session.idp_user,
         )
 
 

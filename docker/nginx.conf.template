@@ -42,6 +42,12 @@ http {
     # servers inherit it.
     include ${SAMADCON_CONF_DIR}/real-ip.conf;
 
+    # Who signed in at the identity provider in front: $samadcon_idp_user,
+    # empty unless the request came from one of those same trusted hops and
+    # SAMADCON_PROXY_USER_HEADER names the header that proxy uses. Written by
+    # the entrypoint (docker/proxy-user-conf.sh).
+    include ${SAMADCON_CONF_DIR}/proxy-user.conf;
+
     # The application limits uploads to 64 MiB of *file* bytes — template
     # packages (api/v1/admx.py) and GPO backups (gpo/transfer.py). This counts
     # the whole request: multipart boundaries and a header per part come on
@@ -120,6 +126,9 @@ http {
             proxy_set_header   X-Forwarded-Proto $scheme;
             proxy_set_header   Upgrade           $http_upgrade;
             proxy_set_header   Connection        $connection_upgrade;
+            # Always set, so an empty value drops whatever the browser sent
+            # under this name; only nginx decides what reaches the application.
+            proxy_set_header   X-Samadcon-Idp-User $samadcon_idp_user;
 
             # Directory searches over slow WAN links to a DC can take a while.
             proxy_read_timeout 300s;

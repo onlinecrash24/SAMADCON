@@ -336,6 +336,8 @@ button:focus-visible {
 .topbar__search { flex: 1; max-width: 380px; }
 .topbar__actions { display: flex; align-items: center; gap: 12px; margin-left: auto; }
 .topbar__user { color: var(--text-muted); font-size: 0.9em; }
+/* The identity provider's account, beside the directory one: max beside max-adm. */
+.topbar__idp { color: var(--text-muted); font-size: 0.8em; margin-left: -0.35rem; }
 
 /* The licence line. Readable, not prominent — it has to be findable by
    someone looking for it, and invisible to everyone else. Sized only in

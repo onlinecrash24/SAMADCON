@@ -1293,6 +1293,20 @@ export const de = {
   'error.required_field_missing.hint':
     'Welche Felder Pflicht sind, legen die SAMADCON-Einstellungen fest.',
   'error.invalid_mail': '„{given}“ ist keine E-Mail-Adresse.',
+  'error.idp_user_missing':
+    'Die Anmeldung ist nur über den vorgeschalteten Identitätsanbieter möglich.',
+  'error.idp_user_missing.hint':
+    'SAMADCON über die Adresse aufrufen, die der Proxy mit Anmeldung beim Identitätsanbieter bereitstellt, nicht direkt über Port 8443.',
+  'error.idp_session_expired': 'Die Anmeldung beim vorgeschalteten Identitätsanbieter ist abgelaufen.',
+  'error.idp_session_expired.hint':
+    'Die Seite neu laden: Danach kommt die Anmeldung beim Identitätsanbieter, und SAMADCON geht ohne neue Anmeldung weiter.',
+  'idp.expiredTitle': 'Anmeldung beim Identitätsanbieter abgelaufen',
+  'idp.expiredBody':
+    'Die Sitzung beim Identitätsanbieter vor SAMADCON ist abgelaufen, die Sitzung in SAMADCON besteht noch. Nach dem Neuladen melden Sie sich beim Identitätsanbieter an und arbeiten ohne neue AD-Anmeldung weiter. Offene, nicht gespeicherte Änderungen gehen dabei verloren.',
+  'idp.reload': 'Neu laden',
+  'idp.later': 'Später',
+  'idp.via': 'über {user}',
+  'idp.viaTitle': 'Beim Identitätsanbieter angemeldet als {user}',
   'error.field_not_requirable': 'Das Feld „{field}“ kann nicht Pflicht werden.',
   'error.settings_changed': 'Die Einstellungen wurden inzwischen von jemand anderem geändert.',
   'error.settings_changed.hint': 'Die Einstellungen neu laden und die Änderung noch einmal vornehmen.',
@@ -3324,6 +3338,19 @@ export const en: Record<MessageKey, string> = {
   'error.invalid_setting': 'The value "{given}" does not fit the setting {setting}.',
   'error.required_field_missing.hint': 'Which fields are mandatory is set in the SAMADCON settings.',
   'error.invalid_mail': '"{given}" is not a mail address.',
+  'error.idp_user_missing': 'Signing in is only possible through the identity provider in front.',
+  'error.idp_user_missing.hint':
+    'Open SAMADCON at the address the proxy serves with the identity provider\'s sign-in, not on port 8443 directly.',
+  'error.idp_session_expired': 'The sign-in at the identity provider in front has expired.',
+  'error.idp_session_expired.hint':
+    'Reload the page: the identity provider\'s sign-in comes first, and SAMADCON carries on without signing in again.',
+  'idp.expiredTitle': 'Identity provider sign-in expired',
+  'idp.expiredBody':
+    'The session at the identity provider in front of SAMADCON has expired; the SAMADCON session is still there. After reloading you sign in at the identity provider and carry on without signing in to AD again. Changes not yet saved are lost.',
+  'idp.reload': 'Reload',
+  'idp.later': 'Later',
+  'idp.via': 'via {user}',
+  'idp.viaTitle': 'Signed in at the identity provider as {user}',
   'error.field_not_requirable': 'The field "{field}" cannot be made mandatory.',
   'error.settings_changed': 'The settings were changed by someone else in the meantime.',
   'error.settings_changed.hint': 'Reload the settings and make the change again.',
