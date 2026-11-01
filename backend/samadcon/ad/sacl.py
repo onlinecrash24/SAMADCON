@@ -92,8 +92,8 @@ def write_sddl(conn: DirectoryConnection, dn: str, sddl: str) -> None:
     message["nTSecurityDescriptor"] = ldb.MessageElement(
         ndr_pack(descriptor), ldb.FLAG_MOD_REPLACE, "nTSecurityDescriptor"
     )
-    # SECINFO_DACL only.
-    conn.samdb.modify(message, controls=["sd_flags:1:4"])
+    # SECINFO_DACL only. Through the connection, so a protected OU is refused.
+    conn.modify(message, controls=["sd_flags:1:4"])
 
 
 def _domain_sid(conn: DirectoryConnection) -> Any:

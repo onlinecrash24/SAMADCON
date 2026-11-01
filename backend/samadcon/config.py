@@ -17,8 +17,10 @@ import re
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+from samadcon.ad import values
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +28,18 @@ logger = logging.getLogger(__name__)
 LANGUAGES = ("de", "en")
 
 _HEADER_TOKEN = re.compile(r"[A-Za-z0-9-]{1,64}")
+
+
+def _is_dn(text: str) -> bool:
+    """Every component a type and a value, as ad/write_guard.py compares them."""
+    rest: str | None = text
+    while rest:
+        component = values.rdn_of(rest)
+        kind, equals, value = component.partition("=")
+        if not (equals and kind.strip() and value.strip()):
+            return False
+        rest = values.parent_dn(rest)
+    return True
 
 
 class ServerProfile(BaseModel):
@@ -169,6 +183,24 @@ class Settings(BaseSettings):
         default="", description="The proxies nginx believes; see docker/entrypoint.sh"
     )
 
+    # Names SAMADCON will not hand out and OUs it only shows (ad/write_guard.py).
+    # A help inside SAMADCON, not protection: the same administrator reaches
+    # these objects with samba-tool or ADUC. The directory's own rights are
+    # what protects them. Asked for by a tester whose internal services run on
+    # accounts named havora-….
+    reserved_prefixes: Annotated[list[str], NoDecode] = Field(
+        default_factory=list,
+        description="Prefixes refused for sAMAccountName, UPN, mail and proxyAddresses",
+    )
+    reserved_names: Annotated[list[str], NoDecode] = Field(
+        default_factory=list,
+        description="Names refused there; one with @ stands for a whole address",
+    )
+    # Separated by semicolons: a DN is full of commas.
+    protected_ous: Annotated[list[str], NoDecode] = Field(
+        default_factory=list, description="OUs whose objects SAMADCON shows but does not change"
+    )
+
     # --- Samba ------------------------------------------------------------
     smb_conf: Path = Path("/etc/samadcon/smb.conf")
     krb5_config: Path = Path("/etc/samadcon/krb5.conf")
@@ -277,6 +309,34 @@ class Settings(BaseSettings):
                 "SAMADCON_PROXY_USER_HEADER must be a header name: letters, digits and dashes."
             )
         return text
+
+    @field_validator("reserved_prefixes", "reserved_names", mode="before")
+    @classmethod
+    def _split_reserved(cls, value: object, info: ValidationInfo) -> object:
+        """Comma-separated, compared without regard to case. A space or a
+        control character is a typo nobody could type into a logon name."""
+        if not isinstance(value, str):
+            return value
+        variable = f"SAMADCON_{info.field_name.upper()}"
+        entries = [entry.strip().lower() for entry in value.split(",") if entry.strip()]
+        for entry in entries:
+            if any(char.isspace() or ord(char) < 32 or ord(char) == 127 for char in entry):
+                raise ValueError(f"{variable}: {entry!r} holds a space or a control character.")
+        return entries
+
+    @field_validator("protected_ous", mode="before")
+    @classmethod
+    def _split_protected_ous(cls, value: object) -> object:
+        if not isinstance(value, str):
+            return value
+        entries = [entry.strip() for entry in value.split(";") if entry.strip()]
+        for entry in entries:
+            if not _is_dn(entry):
+                raise ValueError(
+                    f"SAMADCON_PROTECTED_OUS: {entry!r} is not a DN such as "
+                    "OU=Name,DC=example,DC=lan. Separate several with semicolons."
+                )
+        return entries
 
     @model_validator(mode="after")
     def _proxy_user_reachable(self) -> Settings:

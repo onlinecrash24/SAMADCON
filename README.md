@@ -634,6 +634,23 @@ the domain out from it.
 | `SAMADCON_LOGIN_MAX_ATTEMPTS` | `5` | Failed sign-ins per account before SAMADCON stops forwarding attempts to the DC — which is what keeps the web form from triggering AD account lockout. |
 | `SAMADCON_LOGIN_LOCKOUT_MINUTES` | `5` | How long it then waits. |
 
+**Reserved names and protected OUs.** All three are optional, and without them nothing changes.
+
+| Setting | Default | What for |
+|---|---|---|
+| `SAMADCON_RESERVED_PREFIXES` | empty | Prefixes SAMADCON will not give to `sAMAccountName`, `userPrincipalName`, `mail` or `proxyAddresses`, separated by commas, e.g. `havora-`. Compared with the part before `@`, regardless of case. |
+| `SAMADCON_RESERVED_NAMES` | empty | Whole names refused there, separated by commas, e.g. `havora,svc-backup`. One with `@` in it stands for a single address. |
+| `SAMADCON_PROTECTED_OUS` | empty | OUs whose objects SAMADCON shows but does not change, move, rename or delete, separated by **semicolons** (a DN is full of commas), e.g. `OU=Service,DC=example,DC=lan`. |
+
+Both are checked wherever SAMADCON writes: the dialogs, the attribute editor, the password reset
+and the security tab. A value an account already has may stay, so `havora-admin` itself remains
+editable; only a new one is refused. Adding a protected user to an ordinary group is allowed, as in
+ADUC — only the group changes.
+
+**They are a help, not protection.** SAMADCON acts with the signed-in administrator's ticket, and
+the same administrator reaches these objects with `samba-tool` or ADUC. What protects them is the
+directory's own permissions.
+
 **Logging.**
 
 | Setting | Default | What for |

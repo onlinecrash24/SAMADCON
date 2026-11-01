@@ -13,11 +13,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from samadcon.ad import values
+from samadcon.ad import values, write_guard
 from samadcon.ad.target import ConnectionTarget
 from samadcon.config import Settings
 from samadcon.core.errors import (
     InvalidRequest,
+    PermissionDenied,
     SamadconError,
     UpstreamUnavailable,
     translate,
@@ -249,20 +250,35 @@ class DirectoryConnection:
         return self.get(dn, attrs=["1.1"]) is not None
 
     # -- writing -----------------------------------------------------------
+    #
+    # Every write in SAMADCON comes through these four, and each refuses a
+    # reserved name or a protected OU first (ad/write_guard.py). Nothing may
+    # call samdb's own add, modify, delete or rename past them;
+    # tests/unit/test_write_guard.py looks.
 
     def add(self, message: Any) -> None:
+        self._refuse_protected(write_guard.message_dn(message))
+        self._refuse_reserved(message, existing=False)
         try:
             self.samdb.add(message)
         except Exception as exc:
             raise translate(exc) from exc
 
-    def modify(self, message: Any) -> None:
+    def modify(self, message: Any, *, controls: list[str] | None = None) -> None:
+        self._refuse_protected(write_guard.message_dn(message))
+        self._refuse_reserved(message, existing=True)
         try:
-            self.samdb.modify(message)
+            if controls:
+                self.samdb.modify(message, controls=controls)
+            else:
+                self.samdb.modify(message)
         except Exception as exc:
             raise translate(exc) from exc
 
     def delete(self, dn: str, *, recursive: bool = False) -> None:
+        self._refuse_protected(dn)
+        if recursive:
+            self._refuse_protected_below(dn)
         controls = ["tree_delete:1"] if recursive else None
         try:
             self.samdb.delete(dn, controls)
@@ -270,10 +286,75 @@ class DirectoryConnection:
             raise translate(exc) from exc
 
     def rename(self, old_dn: str, new_dn: str) -> None:
+        self._refuse_protected(old_dn)
+        self._refuse_protected(new_dn, reason="move_in")
+        self._refuse_protected_below(old_dn)
         try:
             self.samdb.rename(old_dn, new_dn)
         except Exception as exc:
             raise translate(exc) from exc
+
+    def _refuse_protected(self, dn: str, *, reason: str = "inside") -> None:
+        ou = write_guard.protecting_ou(dn, self.settings.protected_ous)
+        if ou is not None:
+            raise PermissionDenied(
+                "The object is in an OU that SAMADCON only shows.",
+                code="protected_ou",
+                hint="The protected OUs are set in SAMADCON_PROTECTED_OUS.",
+                context={"dn": dn, "protected_ou": ou, "reason": reason},
+            )
+
+    def _refuse_protected_below(self, dn: str) -> None:
+        ou = write_guard.protected_below(dn, self.settings.protected_ous)
+        if ou is not None:
+            raise PermissionDenied(
+                "A protected OU lies below this object.",
+                code="protected_ou",
+                hint="The protected OUs are set in SAMADCON_PROTECTED_OUS.",
+                context={"dn": dn, "protected_ou": ou, "reason": "ancestor"},
+            )
+
+    def _refuse_reserved(self, message: Any, *, existing: bool) -> None:
+        """Refuse a reserved value the message would give.
+
+        On an existing object only a value it does not have yet counts:
+        modify_attributes writes the whole of proxyAddresses back with
+        REPLACE, and havora-admin itself has to stay editable. The current
+        values are read only when there is a hit, so an ordinary change costs
+        no search.
+        """
+        prefixes, names = self.settings.reserved_prefixes, self.settings.reserved_names
+        if not (prefixes or names):
+            return
+        for attribute, flags, given in write_guard.checked_values(message):
+            if flags == write_guard.FLAG_MOD_DELETE:
+                continue
+            hits = [
+                (value, hit)
+                for value in given
+                if (hit := write_guard.reserved_hit(attribute, value, prefixes, names))
+            ]
+            if not hits:
+                continue
+            if existing:
+                dn = write_guard.message_dn(message)
+                current = self.get(dn, attrs=[attribute])
+                had = {v.strip().lower() for v in values.as_list(current, attribute)}
+                hits = [(value, hit) for value, hit in hits if value.strip().lower() not in had]
+            if hits:
+                value, (reason, rule) = hits[0]
+                raise InvalidRequest(
+                    "The value is reserved and cannot be given in SAMADCON.",
+                    code="reserved_name",
+                    hint="Reserved prefixes and names are set in SAMADCON_RESERVED_PREFIXES "
+                    "and SAMADCON_RESERVED_NAMES.",
+                    context={
+                        "attribute": attribute,
+                        "value": value,
+                        "rule": rule,
+                        "reason": reason,
+                    },
+                )
 
     def modify_attributes(self, dn: str, changes: dict[str, Any]) -> dict[str, Any]:
         """Replace attributes on *dn*.

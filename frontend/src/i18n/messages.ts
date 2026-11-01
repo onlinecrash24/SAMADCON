@@ -1297,6 +1297,20 @@ export const de = {
     'Die Anmeldung ist nur über den vorgeschalteten Identitätsanbieter möglich.',
   'error.idp_user_missing.hint':
     'SAMADCON über die Adresse aufrufen, die der Proxy mit Anmeldung beim Identitätsanbieter bereitstellt, nicht direkt über Port 8443.',
+  'error.reserved_name': '„{value}“ ist reserviert und kann in SAMADCON nicht vergeben werden.',
+  'error.reserved_name.prefix':
+    '„{value}“ beginnt mit dem reservierten Präfix „{rule}“ und kann in SAMADCON nicht vergeben werden.',
+  'error.reserved_name.name': '„{value}“ ist ein reservierter Name und kann in SAMADCON nicht vergeben werden.',
+  'error.reserved_name.hint':
+    'Reservierte Präfixe und Namen legt der Betreiber in SAMADCON_RESERVED_PREFIXES und SAMADCON_RESERVED_NAMES fest.',
+  'error.protected_ou': '{dn} liegt in der geschützten OU {protected_ou} und wird in SAMADCON nur angezeigt.',
+  'error.protected_ou.inside':
+    '{dn} liegt in der geschützten OU {protected_ou} und wird in SAMADCON nur angezeigt.',
+  'error.protected_ou.move_in':
+    'Das Ziel liegt in der geschützten OU {protected_ou}. Dorthin verschiebt SAMADCON nichts.',
+  'error.protected_ou.ancestor':
+    'Unter {dn} liegt die geschützte OU {protected_ou}. SAMADCON benennt den Container deshalb nicht um, verschiebt ihn nicht und löscht ihn nicht samt Inhalt.',
+  'error.protected_ou.hint': 'Die geschützten OUs legt der Betreiber in SAMADCON_PROTECTED_OUS fest.',
   'error.idp_session_expired': 'Die Anmeldung beim vorgeschalteten Identitätsanbieter ist abgelaufen.',
   'error.idp_session_expired.hint':
     'Die Seite neu laden: Danach kommt die Anmeldung beim Identitätsanbieter, und SAMADCON geht ohne neue Anmeldung weiter.',
@@ -3341,6 +3355,19 @@ export const en: Record<MessageKey, string> = {
   'error.idp_user_missing': 'Signing in is only possible through the identity provider in front.',
   'error.idp_user_missing.hint':
     'Open SAMADCON at the address the proxy serves with the identity provider\'s sign-in, not on port 8443 directly.',
+  'error.reserved_name': '“{value}” is reserved and cannot be given in SAMADCON.',
+  'error.reserved_name.prefix':
+    '“{value}” begins with the reserved prefix “{rule}” and cannot be given in SAMADCON.',
+  'error.reserved_name.name': '“{value}” is a reserved name and cannot be given in SAMADCON.',
+  'error.reserved_name.hint':
+    'Reserved prefixes and names are set by the operator in SAMADCON_RESERVED_PREFIXES and SAMADCON_RESERVED_NAMES.',
+  'error.protected_ou': '{dn} is in the protected OU {protected_ou}; SAMADCON only shows it.',
+  'error.protected_ou.inside': '{dn} is in the protected OU {protected_ou}; SAMADCON only shows it.',
+  'error.protected_ou.move_in':
+    'The target is in the protected OU {protected_ou}. SAMADCON moves nothing there.',
+  'error.protected_ou.ancestor':
+    'The protected OU {protected_ou} lies below {dn}, so SAMADCON does not rename, move or delete the container with its contents.',
+  'error.protected_ou.hint': 'The protected OUs are set by the operator in SAMADCON_PROTECTED_OUS.',
   'error.idp_session_expired': 'The sign-in at the identity provider in front has expired.',
   'error.idp_session_expired.hint':
     'Reload the page: the identity provider\'s sign-in comes first, and SAMADCON carries on without signing in again.',

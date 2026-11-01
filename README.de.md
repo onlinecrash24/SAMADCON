@@ -652,6 +652,24 @@ und ermittelt die Domäne daraus.
 | `SAMADCON_LOGIN_MAX_ATTEMPTS` | `5` | Fehlanmeldungen je Konto, bevor SAMADCON keine Versuche mehr an den DC weiterreicht — das ist es, was die Weboberfläche davon abhält, eine AD-Kontosperre auszulösen. |
 | `SAMADCON_LOGIN_LOCKOUT_MINUTES` | `5` | Wie lange es dann wartet. |
 
+**Reservierte Namen und geschützte OUs.** Alle drei sind optional; ohne sie ändert sich nichts.
+
+| Einstellung | Vorgabe | Wofür |
+|---|---|---|
+| `SAMADCON_RESERVED_PREFIXES` | leer | Präfixe, die SAMADCON nicht an `sAMAccountName`, `userPrincipalName`, `mail` oder `proxyAddresses` vergibt, durch Kommas getrennt, z. B. `havora-`. Verglichen wird der Teil vor dem `@`, ohne Rücksicht auf Groß- und Kleinschreibung. |
+| `SAMADCON_RESERVED_NAMES` | leer | Ganze Namen, die dort abgelehnt werden, durch Kommas getrennt, z. B. `havora,svc-backup`. Ein Eintrag mit `@` steht für genau eine Adresse. |
+| `SAMADCON_PROTECTED_OUS` | leer | OUs, deren Objekte SAMADCON anzeigt, aber nicht ändert, verschiebt, umbenennt oder löscht, durch **Semikolons** getrennt (ein DN steckt voller Kommas), z. B. `OU=Service,DC=example,DC=lan`. |
+
+Geprüft wird überall, wo SAMADCON schreibt: in den Dialogen, im Attribut-Editor, beim
+Zurücksetzen des Kennworts und im Reiter Sicherheit. Einen Wert, den ein Konto schon hat, darf es
+behalten; `havora-admin` selbst bleibt also bearbeitbar, nur ein neuer Wert wird abgelehnt. Einen
+geschützten Benutzer in eine gewöhnliche Gruppe aufzunehmen geht, wie in ADUC: Dabei ändert sich
+nur die Gruppe.
+
+**Das ist eine Hilfe, kein Schutz.** SAMADCON arbeitet mit dem Ticket des angemeldeten Admins,
+und derselbe Admin erreicht diese Objekte auch mit `samba-tool` oder ADUC. Geschützt werden sie
+durch die Berechtigungen im Verzeichnis selbst.
+
 **Protokollierung.**
 
 | Einstellung | Vorgabe | Wofür |

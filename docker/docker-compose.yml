@@ -49,6 +49,12 @@ services:
       # the line above. REQUIRED refuses a sign-in that went round the proxy.
 #      SAMADCON_PROXY_USER_HEADER: "Remote-User"
 #      SAMADCON_PROXY_USER_REQUIRED: "1"
+      # Names SAMADCON will not give to an account or an address, and OUs it
+      # only shows. A help, not protection: the directory's rights protect.
+      # Protected OUs are separated by semicolons; a DN is full of commas.
+#      SAMADCON_RESERVED_PREFIXES: "havora-"
+#      SAMADCON_RESERVED_NAMES: "havora,svc-backup"
+#      SAMADCON_PROTECTED_OUS: "OU=Service,DC=example,DC=lan"
     ports:
       # A value written ${NAME:?...} stops the stack when NAME is empty, and
       # says which one — here the port, and below the resolver. Empty, the port

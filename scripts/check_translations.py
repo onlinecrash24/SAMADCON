@@ -150,10 +150,15 @@ def main() -> int:
 
     hinted = hinted_codes()
     hints = german_hint_keys()
+    # One code can be raised with a literal reason in one place and a computed
+    # one (None here) in another; None does not sort against text.
     unhinted = sorted(
-        (code, reason)
-        for code, reason in hinted
-        if code not in hints and (reason is None or f"{code}.{reason}" not in hints)
+        (
+            (code, reason)
+            for code, reason in hinted
+            if code not in hints and (reason is None or f"{code}.{reason}" not in hints)
+        ),
+        key=lambda pair: (pair[0], pair[1] or ""),
     )
     if unhinted:
         print(f"{len(unhinted)} hint(s) the server sends in English with no German one:")
