@@ -14,6 +14,46 @@ release.
 
 ---
 
+## 0.6.26 — 2026-11-01
+
+Behind an identity provider: OIDC sign-in in front of SAMADCON.
+
+SAMADCON can sit behind a forward-auth proxy such as Authelia, Authentik
+or oauth2-proxy (for Keycloak). You sign in at the identity provider
+first, with its MFA, and then at SAMADCON with your AD account as
+before. There is still no single sign-on without the AD password: every
+change runs with the administrator's own Kerberos ticket, and SAMADCON
+keeps no privileged account of its own. The README has a new section,
+"Behind an identity provider (OIDC)", with the settings, the headers per
+provider and a Nginx Proxy Manager example.
+
+- When the identity provider's session expires, the proxy answers with a
+  redirect or its own page instead of SAMADCON's. The console now says
+  so and offers "Reload": the identity provider's sign-in comes first,
+  and the SAMADCON session carries on without signing in to AD again.
+  Before, this showed as "Request failed", an empty list, or a jump to
+  SAMADCON's sign-in screen.
+- SAMADCON_PROXY_USER_HEADER (e.g. Remote-User) names the header that
+  carries the identity provider's user. It is written into every audit
+  entry of the session as idp_user, and the top bar shows "via <user>".
+  nginx takes the header only from SAMADCON_TRUSTED_PROXIES and drops
+  it, and any X-Samadcon-Idp-User a client sends itself, from everyone
+  else.
+- SAMADCON_PROXY_USER_REQUIRED=1 refuses a sign-in without that header
+  (idp_user_missing), before the domain controller is asked. That closes
+  the way around the proxy, straight to port 8443.
+- Startup stops with a clear message if the header is set without
+  trusted proxies, or required without a header.
+
+Checked behind Nginx Proxy Manager and Authelia: the user in the audit
+log and the top bar, a refused sign-in past the proxy with a forged
+header, and the reload after deleting the Authelia cookie. The headers
+for Authentik and oauth2-proxy are from their documentation.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.26, :0.6 and :latest.
+
+---
+
 ## 0.6.25 — 2026-10-25
 
 Maintenance: newer dependencies, Node 24 and current GitHub Actions.
