@@ -14,6 +14,45 @@ release.
 
 ---
 
+## 0.6.27 — 2026-11-01
+
+Reserved names and protected OUs.
+
+Three optional settings for names SAMADCON will not hand out and OUs it
+only shows. Without them nothing changes.
+
+- SAMADCON_RESERVED_PREFIXES (e.g. havora-) and SAMADCON_RESERVED_NAMES
+  (e.g. havora,svc-backup), separated by commas: SAMADCON refuses them
+  in sAMAccountName, userPrincipalName, mail and proxyAddresses, on
+  every kind of object. Compared with the part
+  before @, regardless of case; a name with @ in it stands for one
+  address. A value an account already has may stay, so the reserved
+  account itself remains editable.
+- SAMADCON_PROTECTED_OUS, separated by semicolons: SAMADCON does not
+  change, create, move, rename or delete anything in these OUs, moves
+  nothing into them, and does not rename, move or delete a container
+  holding one. Adding a protected user to an ordinary group still works;
+  only the group changes, as in ADUC.
+- A typo in any of them stops the start with a message naming it.
+
+Both are checked where every write goes through, so the dialogs, the
+attribute editor, the password reset and the security tab are covered
+alike. The security tab used to write past that point; it no longer
+does. A refusal is in the audit log with reserved_name or protected_ou.
+
+A help inside SAMADCON, not protection: SAMADCON acts with the signed-in
+administrator's ticket, and the same administrator reaches these objects
+with samba-tool or ADUC. The directory's own permissions protect them.
+
+Asked for by a tester whose internal services run on accounts with a
+common prefix. Checked against a domain controller: a reserved logon
+name and mail refused, a move out of a protected OU refused, and a
+broken DN stopping the start.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.27, :0.6 and :latest.
+
+---
+
 ## 0.6.26 — 2026-11-01
 
 Behind an identity provider: OIDC sign-in in front of SAMADCON.
