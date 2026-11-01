@@ -1,7 +1,7 @@
 {
   "name": "samadcon-frontend",
   "private": true,
-  "version": "0.6.26",
+  "version": "0.6.27",
   "license": "AGPL-3.0-or-later",
   "type": "module",
   "scripts": {
