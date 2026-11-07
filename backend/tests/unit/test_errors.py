@@ -119,6 +119,15 @@ def test_unknown_nt_status_is_still_recognised_as_one():
         ("Preauthentication failed", "invalid_credentials"),
         ("Cannot contact any KDC for realm", "kdc_unreachable"),
         ("Client 'x@Y' not found in Kerberos database", "user_not_found"),
+        # What the image's Samba bindings actually say, measured on 0.6.29-dev
+        # against a Samba 4.22 DC: no name between "Client" and "not found".
+        # The pattern wanted one, so an unknown account came out as
+        # internal_error — and that still told it apart from a wrong password.
+        (
+            "kinit for x@MYANTISPAM.LOCAL failed (Client not found in Kerberos database)",
+            "user_not_found",
+        ),
+        ("Server not found in Kerberos database", "spn_not_found"),
         ("certificate verify failed", "tls_verification_failed"),
     ],
 )
