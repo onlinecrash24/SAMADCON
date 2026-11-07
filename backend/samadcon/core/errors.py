@@ -515,14 +515,17 @@ _KRB_PATTERNS: list[tuple[re.Pattern[str], type[SamadconError], str, str, str | 
         "Check SAMADCON_DC_HOSTS, DNS SRV records and that port 88 is open.",
     ),
     (
-        re.compile(r"client .* not found in kerberos database", re.I),
+        # No name required between "Client" and "not found": the image's
+        # Samba says "kinit for x@REALM failed (Client not found in Kerberos
+        # database)", and an unknown account came out as internal_error.
+        re.compile(r"client\b.*?not found in kerberos database", re.I),
         AuthenticationError,
         "user_not_found",
         "No such account in this realm.",
         "Log in as user@REALM and check the realm spelling.",
     ),
     (
-        re.compile(r"(server|principal) .* not found in kerberos database", re.I),
+        re.compile(r"(server|principal)\b.*?not found in kerberos database", re.I),
         UpstreamUnavailable,
         "spn_not_found",
         "The requested service principal does not exist in this realm.",
