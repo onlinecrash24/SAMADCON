@@ -14,6 +14,60 @@ release.
 
 ---
 
+## 0.6.29 — 2026-11-07
+
+Security fixes from an outside review.
+
+Rowie (rowie.at) reviewed 0.6.28 — backend, policy layer, front end and
+container — and reported the following. Thank you. Update recommended.
+
+High: a GPO's SYSVOL path was taken from the directory unchecked.
+- gPCFileSysPath is an attribute anyone who may edit a GPO may set. SAMADCON
+  followed it with the signed-in administrator's ticket: a startup script
+  saved into a GPO pointed at the Default Domain Controllers Policy landed
+  there, and deleting a GPO pointed at the Policies folder deleted every
+  policy in the domain.
+- The folder now comes from the realm and the GPO's own GUID. A path that
+  names another folder is refused for reading, writing and deleting
+  (gpo_path_mismatch), shown in the policy's consistency check and as a
+  high finding. Deleting such a GPO removes only its own folder.
+- Paths with "..", ".", ":" or control characters are refused outright.
+
+Medium: the console page went out without its security headers.
+- nginx drops the server's add_header in a location that sets its own, and
+  / and /assets/ set Cache-Control. CSP, HSTS and X-Frame-Options now come
+  with every page, not only with the API.
+
+Low: krb5.conf could be extended from the sign-in form.
+- A realm with a line break went into the process-wide krb5.conf, before
+  anyone had signed in. Realm, DNS domain and host names are now checked
+  wherever a connection target is built, and once more before the file is
+  written. The default domain no longer takes a realm from the form.
+  SAMADCON_REALM and SAMADCON_DC_HOSTS are checked at start.
+
+Smaller:
+- An unknown account and a wrong password now get the same answer, without
+  the KDC's text. The audit log keeps the real reason. Samba's own wording
+  for an unknown account was not recognised at all and came out as
+  internal_error, in every version before this one.
+- A throttled address gets no worker thread, and at most 16 sign-ins wait
+  at a time, so hanging attempts can no longer crowd out administrators.
+- Before sign-in, /api/v1/servers no longer names domain controllers, and
+  /api/docs and /api/openapi.json answer only with SAMADCON_API_DOCS=1.
+  A profile without a label is shown by its id.
+- Two more POST routes ask for the CSRF token.
+- Compose no longer warns about optional variables left empty. The README
+  says why an override file does not spare the three required ones.
+- SECURITY.md: report vulnerabilities privately through GitHub.
+
+Checked against a domain controller: the headers, the server list, the API
+docs, the ignored realm, and the same answer for an unknown account and a
+wrong password with the audit log telling them apart.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.29, :0.6 and :latest.
+
+---
+
 ## 0.6.28 — 2026-11-07
 
 Maintenance: Debian security updates in the image.
