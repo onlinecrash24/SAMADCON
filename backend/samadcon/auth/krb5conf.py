@@ -26,6 +26,18 @@ logger = logging.getLogger(__name__)
 DEFAULT_TICKET_LIFETIME = "10h"
 DEFAULT_RENEW_LIFETIME = "7d"
 
+# Characters that would change the file's structure rather than a value:
+# a new line, a section, a block, an assignment. ConnectionTarget refuses
+# anything that is not a domain name or an address long before this; this is
+# the last line before the file, for whatever reaches it another way.
+_STRUCTURE = frozenset(" {}=[]#;")
+
+
+def _plain(value: str, what: str) -> str:
+    if any(char in _STRUCTURE or ord(char) < 32 or ord(char) == 127 for char in value):
+        raise ValueError(f"refusing to write {what} {value!r} into krb5.conf")
+    return value
+
 
 @dataclass(frozen=True)
 class RealmEntry:
@@ -71,11 +83,14 @@ class Krb5Configuration:
         Called before every ticket request. Rewrites the file only when
         something actually changed.
         """
-        realm = realm.strip().upper()
+        realm = _plain(realm.strip().upper(), "the realm")
         if not realm:
             return
 
-        entry = RealmEntry(realm=realm, kdcs=tuple(dict.fromkeys(k for k in kdcs if k)))
+        entry = RealmEntry(
+            realm=realm,
+            kdcs=tuple(dict.fromkeys(_plain(k, "the KDC") for k in kdcs if k)),
+        )
 
         with self._lock:
             existing = self._realms.get(realm)
@@ -96,7 +111,7 @@ class Krb5Configuration:
         logger.info("krb5 realm registered: %s (kdc=%s)", realm, ", ".join(entry.kdcs) or "via DNS")
 
     def set_default_realm(self, realm: str) -> None:
-        realm = realm.strip().upper()
+        realm = _plain(realm.strip().upper(), "the realm")
         if not realm:
             return
         with self._lock:

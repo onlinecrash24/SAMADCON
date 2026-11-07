@@ -17,16 +17,16 @@ services:
       # the self-signed certificate, and that is the only thing it does — leave
       # it empty and the certificate is called samadcon.local, which matches no
       # one.
-      SAMADCON_PUBLIC_HOST: "${SAMADCON_PUBLIC_HOST}"
+      SAMADCON_PUBLIC_HOST: "${SAMADCON_PUBLIC_HOST:-}"
       # Only for a deployment that also publishes port 8080. That is where the
       # redirect from HTTP to HTTPS lives, and this is the port it sends people
       # to. With 8443 alone published, as below, nothing reads this.
 #      SAMADCON_PUBLIC_HTTPS_PORT: "${SAMADCON_PUBLIC_HTTPS_PORT:-8443}"
       # The Kerberos realm, upper case, and the domain controller. Both may be
       # empty: the sign-in form then asks for a server address.
-      SAMADCON_REALM: "${SAMADCON_REALM}"
-      SAMADCON_DC_HOSTS: "${SAMADCON_DC_HOSTS}"
-      SAMADCON_LOG_LEVEL: "${SAMADCON_LOG_LEVEL}"
+      SAMADCON_REALM: "${SAMADCON_REALM:-}"
+      SAMADCON_DC_HOSTS: "${SAMADCON_DC_HOSTS:-}"
+      SAMADCON_LOG_LEVEL: "${SAMADCON_LOG_LEVEL:-}"
       # No free address field in the sign-in form: only the domain configured
       # above, and any listed in a servers file below. One instance per domain
       # is the arrangement this stack is written for, so it is a fixed value

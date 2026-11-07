@@ -331,7 +331,7 @@ def write(
         return {"dn": dn, "changed": False, "version": gpo["version"]}
 
     share = sysvol.sysvol_for(conn)
-    _, _, base = sysvol.parse_unc(gpo["path"])
+    base = sysvol.policy_folder(share, gpo)
     target = sysvol.join(base, path_for(half, engine))
     share.makedirs(target.rsplit("\\", 1)[0])
     share.write(target, updated)
@@ -373,7 +373,7 @@ def list_files(conn: DirectoryConnection, dn: str, half: str, event: str) -> lis
         return []
 
     share = sysvol.sysvol_for(conn)
-    _, _, base = sysvol.parse_unc(gpo["path"])
+    base = sysvol.policy_folder(share, gpo)
     resolved = share.resolve(base, directory)
     if resolved is None:
         return []
@@ -432,7 +432,7 @@ def _file_path(conn: DirectoryConnection, dn: str, half: str, event: str, name: 
             code="gpo_without_path",
             context={"dn": dn},
         )
-    _, _, base = sysvol.parse_unc(gpo["path"])
+    base = sysvol.policy_folder(sysvol.sysvol_for(conn), gpo)
     return sysvol.join(base, f"{directory}\\{cleaned}")
 
 
@@ -443,7 +443,7 @@ def _read_file(
     if not gpo["path"]:
         return None
     share = sysvol.sysvol_for(conn)
-    _, _, base = sysvol.parse_unc(gpo["path"])
+    base = sysvol.policy_folder(share, gpo)
     resolved = share.resolve(base, path_for(half, engine))
     return None if resolved is None else share.read_text(resolved)
 

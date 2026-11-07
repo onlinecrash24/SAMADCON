@@ -18,7 +18,7 @@ from samadcon import __version__
 from samadcon.api.v1 import router as api_router
 from samadcon.auth.session import get_store
 from samadcon.config import get_settings
-from samadcon.core.errors import SamadconError
+from samadcon.core.errors import NotFound, SamadconError
 from samadcon.core.executor import get_registry
 
 logger = logging.getLogger("samadcon")
@@ -111,9 +111,12 @@ app = FastAPI(
     ),
     version=__version__,
     lifespan=lifespan,
-    docs_url="/api/docs",
+    # Served by the two routes below, and only with SAMADCON_API_DOCS set:
+    # they answered anyone, before sign-in, with no way to turn them off
+    # (reported by Rowie against 0.6.28).
+    docs_url=None,
     redoc_url=None,
-    openapi_url="/api/openapi.json",
+    openapi_url=None,
     # FastAPI 0.142 traces, meters and logs every request through
     # OpenTelemetry by default, and configures OTLP export by itself when an
     # OTEL_EXPORTER_OTLP_* endpoint is set and the SDK is present. Requests
@@ -131,6 +134,29 @@ app = FastAPI(
 
 app.include_router(api_router)
 
+
+
+def _api_docs_enabled() -> None:
+    if not get_settings().api_docs:
+        raise NotFound(
+            "The API documentation is not served here.",
+            code="api_docs_disabled",
+            hint="Set SAMADCON_API_DOCS=1 to serve it.",
+        )
+
+
+@app.get("/api/openapi.json", include_in_schema=False)
+async def openapi_document() -> JSONResponse:
+    _api_docs_enabled()
+    return JSONResponse(app.openapi())
+
+
+@app.get("/api/docs", include_in_schema=False)
+async def api_docs() -> Any:
+    from fastapi.openapi.docs import get_swagger_ui_html
+
+    _api_docs_enabled()
+    return get_swagger_ui_html(openapi_url="/api/openapi.json", title=app.title)
 
 @app.exception_handler(SamadconError)
 async def handle_samadcon_error(request: Request, exc: SamadconError) -> JSONResponse:

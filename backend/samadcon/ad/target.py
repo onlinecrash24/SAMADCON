@@ -15,10 +15,46 @@ A target comes from one of three places, in this order of precedence:
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, replace
 from pathlib import Path
 
 from samadcon.core.errors import InvalidRequest
+
+# What a realm or a DNS domain may look like: a domain name. Checked because
+# both are written into the process-wide krb5.conf, and a newline or a brace
+# there adds lines of the caller's choosing (reported by Rowie against 0.6.28).
+_DOMAIN_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.-]{0,252}$")
+# A host: a name like the above, or an IPv6 address without its brackets
+# (discovery.normalise_host strips them). IPv4 is a name as far as this goes.
+_HOST_RE = re.compile(r"^(?:[A-Za-z0-9][A-Za-z0-9_.-]{0,252}|[0-9A-Fa-f:.]*:[0-9A-Fa-f:.]*)$")
+
+
+def is_domain_name(text: str) -> bool:
+    return bool(_DOMAIN_RE.match(text))
+
+
+def is_host(text: str) -> bool:
+    return bool(_HOST_RE.match(text)) and len(text) <= 253
+
+
+def _check_realm(value: str, *, label: str = "realm") -> None:
+    if not is_domain_name(value):
+        raise InvalidRequest(
+            "That is not a domain name.",
+            code="invalid_realm",
+            hint="A realm is the domain's DNS name, such as EXAMPLE.LAN.",
+            context={label: value},
+        )
+
+
+def _check_host(value: str) -> None:
+    if not is_host(value):
+        raise InvalidRequest(
+            "That is not a host name or an address.",
+            code="invalid_host",
+            context={"host": value},
+        )
 
 
 @dataclass(frozen=True)
@@ -46,6 +82,15 @@ class ConnectionTarget:
                 hint="Enter a server address, or configure SAMADCON_REALM.",
             )
         object.__setattr__(self, "realm", self.realm.strip().upper())
+        # Every way to a target ends here — the form, a profile, the default,
+        # and the probe through with_discovery — so this is where a value is
+        # stopped before it reaches krb5.conf.
+        _check_realm(self.realm)
+        if self.dns_domain:
+            _check_realm(self.dns_domain, label="dns_domain")
+        for host in (*self.hosts, self.dc_hostname):
+            if host:
+                _check_host(host)
 
     @property
     def netbios_name(self) -> str:

@@ -92,7 +92,7 @@ def write(
         )
 
     share = sysvol.sysvol_for(conn)
-    _, _, base = sysvol.parse_unc(gpo["path"])
+    base = sysvol.policy_folder(share, gpo)
     relative = preference.path(half)
     resolved = share.resolve(base, relative)
     current = share.read(resolved) if resolved else None
@@ -481,7 +481,7 @@ def _read_file(
     if not gpo["path"]:
         return None
     share = sysvol.sysvol_for(conn)
-    _, _, base = sysvol.parse_unc(gpo["path"])
+    base = sysvol.policy_folder(share, gpo)
     resolved = share.resolve(base, preference.path(half))
     return None if resolved is None else share.read(resolved)
 

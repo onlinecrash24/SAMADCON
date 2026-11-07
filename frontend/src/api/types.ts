@@ -111,14 +111,13 @@ export interface SessionInfo {
 export interface ServerProfileInfo {
   id: string
   label: string
-  hosts: string[]
   realm: string | null
   insecure: boolean
 }
 
 export interface ServerListing {
   profiles: ServerProfileInfo[]
-  default: { realm: string; hosts: string[]; discovery: 'dns' | 'static' } | null
+  default: { realm: string; discovery: 'dns' | 'static' } | null
   allow_custom_servers: boolean
 }
 

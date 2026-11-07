@@ -552,6 +552,13 @@ export const de = {
   'error.not_authenticated': 'Bitte melden Sie sich an.',
   'error.session_expired': 'Die Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.',
   'error.invalid_credentials': 'Benutzername oder Kennwort ist falsch.',
+  'error.invalid_realm': 'Das ist kein Domänenname.',
+  'error.invalid_realm.hint': 'Ein Realm ist der DNS-Name der Domäne, etwa EXAMPLE.LAN.',
+  'error.invalid_host': 'Das ist weder ein Hostname noch eine Adresse.',
+  'error.too_many_sign_ins': 'Gerade melden sich zu viele gleichzeitig an.',
+  'error.too_many_sign_ins.hint': 'Versuchen Sie es gleich noch einmal.',
+  'error.api_docs_disabled': 'Die API-Dokumentation wird hier nicht ausgeliefert.',
+  'error.api_docs_disabled.hint': 'Mit SAMADCON_API_DOCS=1 wird sie ausgeliefert.',
   'error.user_not_found': 'Dieses Konto existiert in der Domäne nicht.',
   'error.account_disabled': 'Das Konto ist deaktiviert.',
   'error.account_locked_out': 'Das Konto ist gesperrt.',
@@ -1127,6 +1134,9 @@ export const de = {
   'findings.gpo_version_mismatch': 'Versionen stimmen nicht überein',
   'findings.gpo_version_mismatch.why':
     'Die Version im Verzeichnis und die in der GPT.INI weichen voneinander ab. Clients lesen die Richtlinie dann entweder nie neu oder bei jeder Anmeldung erneut.',
+  'findings.gpo_path_mismatch': 'SYSVOL-Pfad zeigt auf einen fremden Ordner',
+  'findings.gpo_path_mismatch.why':
+    'gPCFileSysPath nennt nicht den Ordner dieser Richtlinie, sondern einen anderen, etwa den einer anderen Richtlinie. Clients wenden überall dort, wo sie verknüpft ist, an, was in diesem Ordner liegt. Das kann eine Manipulation durch jemanden sein, der die Richtlinie bearbeiten darf.',
 
   'findings.none': 'Keine Auffälligkeiten in den geprüften Bereichen.',
   'findings.unreadable':
@@ -1500,6 +1510,8 @@ export const de = {
     'Benutzerkonfiguration: Eine Erweiterung ist eingetragen, obwohl nichts anzuwenden ist — deshalb erscheint diese Hälfte in der Liste als gefüllt. Das ist kein Fehler: Windows behält die Registrierung in diesem Fall, damit Clients eine bereits angewandte Einstellung noch zurücknehmen.',
   'gpo.problem.no_path': 'Das Objekt nennt keinen SYSVOL-Pfad.',
   'gpo.problem.invalid_path': 'Der SYSVOL-Pfad im Objekt ist unbrauchbar.',
+  'gpo.problem.path_mismatch':
+    'Der SYSVOL-Pfad im Objekt zeigt auf einen fremden Ordner. Clients wenden an, was dort liegt; SAMADCON liest und schreibt dort nichts.',
 
   'error.gpo_not_found': 'Die Gruppenrichtlinie existiert nicht.',
   'error.gpo_exists': 'Eine Gruppenrichtlinie mit diesem Namen existiert bereits.',
@@ -1511,6 +1523,10 @@ export const de = {
   'error.invalid_link_order': 'Diese Position gibt es nicht.',
   'error.invalid_link_dn': 'Der Name dieser Richtlinie lässt sich nicht in eine Verknüpfung schreiben.',
   'error.invalid_unc': 'Das ist kein brauchbarer SYSVOL-Pfad.',
+  'error.gpo_path_mismatch':
+    'Der SYSVOL-Pfad dieser Richtlinie zeigt nicht auf ihren eigenen Ordner, sondern auf {path}.',
+  'error.gpo_path_mismatch.hint':
+    'SAMADCON liest, schreibt und löscht dort nichts. Setzen Sie gPCFileSysPath mit ADSI-Edit oder ldbedit zurück auf {expected}.',
   'error.sysvol_unavailable': 'Für SYSVOL liegen dieser Verbindung keine Anmeldedaten vor.',
   'error.no_security_descriptor': 'Das Richtlinienobjekt hat keinen Sicherheitsdeskriptor.',
 
@@ -2622,6 +2638,13 @@ export const en: Record<MessageKey, string> = {
   'error.not_authenticated': 'Please sign in.',
   'error.session_expired': 'The session has expired. Please sign in again.',
   'error.invalid_credentials': 'Wrong user name or password.',
+  'error.invalid_realm': 'That is not a domain name.',
+  'error.invalid_realm.hint': "A realm is the domain's DNS name, such as EXAMPLE.LAN.",
+  'error.invalid_host': 'That is neither a host name nor an address.',
+  'error.too_many_sign_ins': 'Too many sign-ins at the same time.',
+  'error.too_many_sign_ins.hint': 'Try again in a moment.',
+  'error.api_docs_disabled': 'The API documentation is not served here.',
+  'error.api_docs_disabled.hint': 'Set SAMADCON_API_DOCS=1 to serve it.',
   'error.user_not_found': 'No such account in this domain.',
   'error.account_disabled': 'The account is disabled.',
   'error.account_locked_out': 'The account is locked out.',
@@ -3187,6 +3210,9 @@ export const en: Record<MessageKey, string> = {
   'findings.gpo_version_mismatch': 'The versions disagree',
   'findings.gpo_version_mismatch.why':
     'The version in the directory and the one in GPT.INI differ. Clients then either never re-read the policy or re-read it at every logon.',
+  'findings.gpo_path_mismatch': 'SYSVOL path points to a foreign folder',
+  'findings.gpo_path_mismatch.why':
+    "gPCFileSysPath names not this policy's folder but another, such as another policy's. Wherever the policy is linked, clients apply what is in that folder. It may be tampering by someone who may edit the policy.",
 
   'findings.none': 'Nothing stands out in the sections that were checked.',
   'findings.unreadable':
@@ -3556,6 +3582,8 @@ export const en: Record<MessageKey, string> = {
     'User configuration: an extension is registered although there is nothing to apply, which is why this half shows as carrying something in the list. Not a fault: Windows keeps the registration in this case so that clients can still revert a setting they applied earlier.',
   'gpo.problem.no_path': 'The object names no SYSVOL path.',
   'gpo.problem.invalid_path': 'The SYSVOL path on the object is unusable.',
+  'gpo.problem.path_mismatch':
+    'The SYSVOL path on the object points to a folder that is not its own. Clients apply what is there; SAMADCON reads and writes nothing there.',
 
   'error.gpo_not_found': 'The group policy does not exist.',
   'error.gpo_exists': 'A group policy with this name already exists.',
@@ -3567,6 +3595,10 @@ export const en: Record<MessageKey, string> = {
   'error.invalid_link_order': 'That position does not exist.',
   'error.invalid_link_dn': "This policy's name cannot be written into a link.",
   'error.invalid_unc': 'That is not a usable SYSVOL path.',
+  'error.gpo_path_mismatch':
+    "This policy's SYSVOL path does not point to its own folder but to {path}.",
+  'error.gpo_path_mismatch.hint':
+    'SAMADCON reads, writes and deletes nothing there. Set gPCFileSysPath back to {expected}, with ADSI Edit or ldbedit.',
   'error.sysvol_unavailable': 'This connection carries no credentials for SYSVOL.',
   'error.no_security_descriptor': 'The policy object has no security descriptor.',
 

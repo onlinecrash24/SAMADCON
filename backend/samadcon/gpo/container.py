@@ -204,9 +204,13 @@ def status(conn: DirectoryConnection, gpo: dict[str, Any]) -> dict[str, Any]:
         return report
 
     try:
-        _, _, path = sysvol.parse_unc(gpo["path"])
-    except InvalidRequest:
-        report["problems"].append("invalid_path")
+        path = sysvol.policy_folder(share, gpo)
+    except InvalidRequest as exc:
+        # A path to another policy's folder is worse than an unusable one:
+        # clients follow it, so this GPO applies whatever is there.
+        report["problems"].append(
+            "path_mismatch" if exc.code == "gpo_path_mismatch" else "invalid_path"
+        )
         return report
 
     if not share.exists(path):
@@ -449,7 +453,7 @@ def rename_gpo(conn: DirectoryConnection, dn: str, display_name: str) -> dict[st
     if gpo["path"]:
         try:
             share = sysvol.sysvol_for(conn)
-            _, _, path = sysvol.parse_unc(gpo["path"])
+            path = sysvol.policy_folder(share, gpo)
             ini_path = sysvol.join(path, sysvol.GPT_INI)
             if share.exists(ini_path):
                 current = sysvol.parse_gpt_ini(share.read_text(ini_path))
@@ -521,7 +525,7 @@ def bump_version(
 
     if gpo["path"]:
         share = sysvol.sysvol_for(conn)
-        _, _, path = sysvol.parse_unc(gpo["path"])
+        path = sysvol.policy_folder(share, gpo)
         ini_path = sysvol.join(path, sysvol.GPT_INI)
         name = None
         if share.exists(ini_path):
@@ -553,14 +557,36 @@ def delete_gpo(conn: DirectoryConnection, dn: str, *, force: bool = False) -> di
 
     # Files first: an orphaned directory object can still be found and cleaned
     # up, an orphaned SYSVOL tree is invisible in every console.
-    if gpo["path"]:
-        try:
-            _, _, path = sysvol.parse_unc(gpo["path"])
-            share = sysvol.sysvol_for(conn)
-            if share.exists(path):
-                share.delete_tree(path)
-        except InvalidRequest:
-            logger.warning("GPO %s has an unusable path, skipping SYSVOL", gpo["name"])
+    #
+    # Only ever the folder the GPO's own GUID names. The stored path may point
+    # at another policy, or at all of them, and deltree follows it with the
+    # administrator's rights; a policy pointed elsewhere still gets its own
+    # folder removed, so a tampered GPO stays removable.
+    share = sysvol.sysvol_for(conn)
+    mismatch = False
+    path: str | None
+    try:
+        path = sysvol.policy_folder(share, gpo)
+    except InvalidRequest:
+        mismatch = bool(gpo["path"])
+        # A name that is not a GUID names no policy folder at all.
+        path = (
+            sysvol.gpo_path(share.realm, gpo["name"])
+            if _looks_like_guid(gpo["name"]) and gpo["name"].startswith("{")
+            else None
+        )
+        if mismatch:
+            logger.warning(
+                "GPO %s names %r as its SYSVOL path; deleting only %s",
+                gpo["name"],
+                gpo["path"],
+                path,
+            )
+    if path is not None and share.exists(path):
+        share.delete_tree(path)
 
     conn.delete(dn, recursive=True)
-    return {"dn": dn, "name": gpo["name"], "links_left": len(links)}
+    result: dict[str, Any] = {"dn": dn, "name": gpo["name"], "links_left": len(links)}
+    if mismatch:
+        result["path_mismatch"] = True
+    return result

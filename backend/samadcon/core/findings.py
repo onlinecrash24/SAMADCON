@@ -177,8 +177,12 @@ def evaluate_policies(
             found.append(
                 Finding(
                     id=f"gpo_{problem}",
+                    # A path to another policy's folder means this GPO applies
+                    # that policy's settings wherever it is linked.
                     severity=(
-                        "high" if "content_without_extension" in problem else "medium"
+                        "high"
+                        if "content_without_extension" in problem or problem == "path_mismatch"
+                        else "medium"
                     ),
                     area="policies",
                     subject=name,

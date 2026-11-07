@@ -87,6 +87,9 @@ context menu, the detail pane's commands, or the property sheet — and the audi
 it was confirmed. The built-in Administrator itself cannot be deleted at all: Samba provisions it
 as a critical system object, as it does Guest and krbtgt.
 
+**Reporting a vulnerability:** see [SECURITY.md](SECURITY.md) — privately, please, not as an
+issue.
+
 ## Multiple domains
 
 The domain is chosen **at sign-in**, not when the container starts. The sign-in form offers:
@@ -369,6 +372,10 @@ log level is INFO; no trusted proxies means none; an empty public host names the
 certificate `samadcon.local`. A host whose own resolver already knows the domain can delete the
 `dns:` and `dns_search:` lines instead. Example 1 above is the version for a deployment that would
 rather have one file and no second step.
+
+**A `docker-compose.override.yml` does not spare the three.** Compose fills in variables before it
+reads an override file, so a stack that replaces the ports or the `dns:` lines there still needs
+the three in its `.env` — any value will do, the override wins.
 
 Do not put the domain administrator's password in either file. The console never takes one
 from the environment; it asks whoever signs in, and acts with that person's own account.
@@ -659,6 +666,7 @@ directory's own permissions.
 | `SAMADCON_AUDIT_FILE` | `/var/log/samadcon/audit.jsonl` | Every write operation lands here: who, what, DN, attribute diff. |
 | `SAMADCON_SAMBA_LOG_LEVEL` | `0` | Raise for Samba protocol traces. Noisy — leave at 0 outside a hunt. |
 | `SAMADCON_DEV_MODE` | `0` | Extra diagnostics and a more talkative error surface. |
+| `SAMADCON_API_DOCS` | `0` | `1` serves the API documentation at `/api/docs` and `/api/openapi.json`. Off by default: both answer before sign-in. |
 
 **A password is not among them.** There is no setting that takes one, in any of these tables.
 The console asks whoever signs in and acts with that person's own account, which is also what

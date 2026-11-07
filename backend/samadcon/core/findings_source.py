@@ -129,7 +129,9 @@ def _policies(conn: Any, *, deep: bool) -> dict[str, Any]:
 def _inspect(conn: Any, gpo: dict[str, Any]) -> tuple[list[str], dict[str, Any]]:
     """What only the files can answer, for one policy."""
     inspected = container.status(conn, gpo)
-    found = [name for name in inspected["problems"] if name == "version_mismatch"]
+    found = [
+        name for name in inspected["problems"] if name in ("version_mismatch", "path_mismatch")
+    ]
     if inspected["sysvol_present"]:
         found += report.registration_problems(gpo, report.build_report(conn, gpo["dn"]))
     return found, inspected

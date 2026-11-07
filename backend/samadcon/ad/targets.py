@@ -41,16 +41,16 @@ def find_profile(settings: Settings, profile_id: str) -> ServerProfile:
 def describe_profiles(settings: Settings) -> dict[str, Any]:
     """Server list for the sign-in form.
 
-    Deliberately omits CA file paths: this endpoint answers before anyone has
-    authenticated, and a container's file layout is nobody else's business.
+    This endpoint answers before anyone has authenticated, so it says what
+    the form shows and nothing more: no CA file paths, and since 0.6.29 no
+    domain controllers either — their names and addresses are the network's
+    layout, handed to anyone who asked (reported by Rowie). The form shows a
+    profile's label and realm; a profile without a label is shown by its id.
     """
     profiles = [
         {
             "id": profile.id,
-            # Parenthesised: without them this read as (label or hosts[0]) if
-            # hosts else id, and a profile with a realm and no hosts lost its label.
-            "label": profile.label or (profile.hosts[0] if profile.hosts else profile.id),
-            "hosts": profile.hosts,
+            "label": profile.label or profile.id,
             "realm": profile.realm,
             "insecure": profile.insecure,
         }
@@ -63,7 +63,6 @@ def describe_profiles(settings: Settings) -> dict[str, Any]:
         "default": (
             {
                 "realm": default.realm,
-                "hosts": list(default.hosts),
                 "discovery": "dns" if not default.hosts else "static",
             }
             if default is not None
@@ -86,7 +85,7 @@ def resolve_target(
         return _from_profile(settings, profile_id, insecure=insecure)
     if server:
         return _from_address(settings, server, realm=realm, insecure=insecure)
-    return _from_default(settings, realm=realm, insecure=insecure)
+    return _from_default(settings, insecure=insecure)
 
 
 def _from_profile(settings: Settings, profile_id: str, *, insecure: bool) -> ConnectionTarget:
@@ -137,7 +136,7 @@ def _from_address(
     return _enrich(settings, target, host=host, required=realm is None)
 
 
-def _from_default(settings: Settings, *, realm: str | None, insecure: bool) -> ConnectionTarget:
+def _from_default(settings: Settings, *, insecure: bool) -> ConnectionTarget:
     default = settings.default_target
     if default is None:
         raise InvalidRequest(
@@ -145,8 +144,9 @@ def _from_default(settings: Settings, *, realm: str | None, insecure: bool) -> C
             code="no_target",
             hint="Enter the address of a domain controller.",
         )
-    if realm:
-        default = default.with_discovery(realm=realm)
+    # A realm from the form is not taken: the operator chose the default
+    # domain, as with a profile, and the caller does not get to rename it.
+    # It went into krb5.conf before anyone had signed in.
     if insecure:
         default = ConnectionTarget(
             realm=default.realm,

@@ -173,7 +173,7 @@ async def install_bundled(
 
 
 @router.post("/refresh")
-async def refresh(worker: Worker, session: CurrentSession) -> dict[str, Any]:
+async def refresh(worker: VerifiedWorker, session: VerifiedSession) -> dict[str, Any]:
     """Re-read the templates.
 
     The cache notices a changed directory on its own; this is for the case it

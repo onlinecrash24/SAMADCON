@@ -189,11 +189,23 @@ class LoginThrottle:
         return keys
 
     def check(self, username: str, client_ip: str | None = None) -> None:
+        self._check(self._keys(username, client_ip))
+
+    def check_address(self, client_ip: str | None) -> None:
+        """The address alone, before the account name is known.
+
+        The account needs the realm, and the realm needs the target resolved
+        on a worker thread — which a throttled address should not get at all.
+        """
+        if client_ip:
+            self._check([f"ip:{client_ip}"])
+
+    def _check(self, keys: list[str]) -> None:
         if not self.enabled:
             return
         now = _now()
         with self._lock:
-            for key in self._keys(username, client_ip):
+            for key in keys:
                 entry = self._failures.get(key)
                 if entry is None:
                     continue

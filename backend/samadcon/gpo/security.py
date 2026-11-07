@@ -394,7 +394,7 @@ def write_many(
         check_lockout(parse(text or ""))
 
     share = sysvol.sysvol_for(conn)
-    _, _, base = sysvol.parse_unc(gpo["path"])
+    base = sysvol.policy_folder(share, gpo)
     target = share.resolve(base, SECEDIT_PATH) or sysvol.join(base, SECEDIT_PATH)
     share.makedirs(target.rsplit("\\", 1)[0])
     share.write(target, updated)
@@ -455,7 +455,7 @@ def _read_file(conn: DirectoryConnection, gpo: dict[str, Any]) -> str | None:
     if not gpo["path"]:
         return None
     share = sysvol.sysvol_for(conn)
-    _, _, base = sysvol.parse_unc(gpo["path"])
+    base = sysvol.policy_folder(share, gpo)
     resolved = share.resolve(base, SECEDIT_PATH)
     return None if resolved is None else share.read_text(resolved)
 

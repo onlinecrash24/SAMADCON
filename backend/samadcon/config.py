@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_va
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from samadcon.ad import values
+from samadcon.ad.target import is_domain_name, is_host
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +82,18 @@ class ServerProfile(BaseModel):
     @field_validator("realm", mode="after")
     @classmethod
     def _upper_realm(cls, value: str | None) -> str | None:
-        return value.strip().upper() if value else None
+        realm = value.strip().upper() if value else None
+        if realm and not is_domain_name(realm):
+            raise ValueError(f"{realm!r} is not a domain name such as EXAMPLE.LAN.")
+        return realm
+
+    @field_validator("hosts", mode="after")
+    @classmethod
+    def _plain_hosts(cls, value: list[str]) -> list[str]:
+        for host in value:
+            if not is_host(host):
+                raise ValueError(f"{host!r} is not a host name or an address.")
+        return value
 
     @model_validator(mode="after")
     def _something_to_reach(self) -> ServerProfile:
@@ -212,11 +224,19 @@ class Settings(BaseSettings):
     worker_threads: int = 8
     operation_timeout_seconds: int = 120
     dev_mode: bool = False
+    # /api/docs and /api/openapi.json. Off: they answer before sign-in.
+    api_docs: bool = False
 
     @field_validator("realm", mode="after")
     @classmethod
     def _upper_realm(cls, value: str) -> str:
-        return value.strip().upper()
+        # Written into krb5.conf and smb.conf: a domain name or nothing.
+        realm = value.strip().upper()
+        if realm and not is_domain_name(realm):
+            raise ValueError(
+                f"SAMADCON_REALM: {realm!r} is not a domain name such as EXAMPLE.LAN."
+            )
+        return realm
 
     @field_validator("default_language", mode="before")
     @classmethod
@@ -253,6 +273,17 @@ class Settings(BaseSettings):
         # try to read it as JSON.
         if isinstance(value, str):
             return [host.strip() for host in value.split(",") if host.strip()]
+        return value
+
+    @field_validator("dc_hosts", mode="after")
+    @classmethod
+    def _plain_dc_hosts(cls, value: list[str]) -> list[str]:
+        for host in value:
+            if not is_host(host):
+                raise ValueError(
+                    f"SAMADCON_DC_HOSTS: {host!r} is not a host name or an address. "
+                    "Separate several with commas."
+                )
         return value
 
     @field_validator("ldap_transports", mode="before")

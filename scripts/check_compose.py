@@ -28,6 +28,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -73,6 +74,41 @@ def refuses_empty(stack: Path, name: str) -> str | None:
             f"{stack.relative_to(ROOT)}: an empty {name} was refused without naming it: "
             f"{result.stderr.strip()[:200]}"
         )
+    return None
+
+
+# Empty is right for these: a stack with profiles needs no realm and no DC
+# list, and the others have defaults inside. Written ${NAME:-} so that Compose
+# does not warn "variable is not set" on every call (a tester's field report:
+# "wenn Profile da, dann nix meckern").
+OPTIONAL = ("SAMADCON_PUBLIC_HOST", "SAMADCON_REALM", "SAMADCON_DC_HOSTS", "SAMADCON_LOG_LEVEL")
+
+
+def warns_about_optional(stack: Path, workdir: Path) -> str | None:
+    """None when an .env with only the required three draws no warning."""
+    env_file = workdir / "required-only.env"
+    env_file.write_text(
+        "SAMADCON_HTTPS_PORT=8443\nSAMADCON_DNS=192.168.1.1\nSAMADCON_DNS_SEARCH=example.lan\n",
+        encoding="utf-8",
+    )
+    env = {key: value for key, value in os.environ.items() if key not in OPTIONAL}
+    result = subprocess.run(
+        [
+            "docker", "compose",
+            "--file", str(stack),
+            "--env-file", str(env_file),
+            "config", "--format", "json",
+        ],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+    if result.returncode != 0:
+        return f"{stack.relative_to(ROOT)}: config failed with only the required three: {result.stderr.strip()[:200]}"
+    noisy = [name for name in OPTIONAL if name in result.stderr]
+    if noisy:
+        return f"{stack.relative_to(ROOT)}: warns about {', '.join(noisy)} left empty"
     return None
 
 
@@ -133,6 +169,12 @@ def main() -> int:
                 found.append(problem)
             else:
                 print(f"{stack.relative_to(ROOT)}, {name} empty: refused, and named")
+        with tempfile.TemporaryDirectory() as workdir:
+            problem = warns_about_optional(stack, Path(workdir))
+        if problem:
+            found.append(problem)
+        else:
+            print(f"{stack.relative_to(ROOT)}, optional settings unset: no warning")
 
     if found:
         print("\nThe stack does not bind where it says it does:\n", file=sys.stderr)

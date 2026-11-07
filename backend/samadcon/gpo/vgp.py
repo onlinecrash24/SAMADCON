@@ -599,7 +599,7 @@ def write(
         )
 
     share = sysvol.sysvol_for(conn)
-    _, _, base = sysvol.parse_unc(gpo["path"])
+    base = sysvol.policy_folder(share, gpo)
 
     # Every payload an entry names has to be on the share already. Writing a
     # manifest that points at a file nobody uploaded produces a policy which
@@ -728,9 +728,9 @@ def write_payload(
             "This policy has no SYSVOL path.", code="gpo_without_path", context={"dn": dn}
         )
 
-    _, _, base = sysvol.parse_unc(gpo["path"])
-    path = _payload_path(base, kind, name)
     share = sysvol.sysvol_for(conn)
+    base = sysvol.policy_folder(share, gpo)
+    path = _payload_path(base, kind, name)
     share.makedirs(path.rsplit(SEPARATOR, 1)[0])
     share.write(path, data)
     logger.info("stored %s for the %s policy of %s", name, kind.id, gpo["display_name"])
@@ -745,7 +745,7 @@ def list_payloads(conn: DirectoryConnection, dn: str, policy: str) -> list[dict[
         return []
 
     share = sysvol.sysvol_for(conn)
-    _, _, base = sysvol.parse_unc(gpo["path"])
+    base = sysvol.policy_folder(share, gpo)
     directory = share.resolve(base, kind.directory_path)
     if directory is None:
         return []
@@ -766,6 +766,6 @@ def _read_manifest(
     if not gpo["path"]:
         return None
     share = sysvol.sysvol_for(conn)
-    _, _, base = sysvol.parse_unc(gpo["path"])
+    base = sysvol.policy_folder(share, gpo)
     resolved = share.resolve(base, kind.path)
     return None if resolved is None else share.read_text(resolved)

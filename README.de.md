@@ -87,6 +87,9 @@ Eigenschaftenblatt —, und das Audit-Log vermerkt, dass bestätigt wurde. Den e
 Administrator selbst kann man gar nicht löschen: Samba legt ihn als kritisches Systemobjekt an,
 wie auch Gast und krbtgt.
 
+**Sicherheitslücke melden:** siehe [SECURITY.md](SECURITY.md) — bitte vertraulich, nicht als
+Issue.
+
 ## Mehrere Domänen
 
 Die Domäne wird **bei der Anmeldung** gewählt, nicht beim Start des Containers. In der
@@ -377,6 +380,10 @@ leerer Log-Level ist INFO; keine vertrauenswürdigen Proxys heißt keine; ein le
 Name nennt das selbstsignierte Zertifikat `samadcon.local`. Wessen Docker-Host die Domäne schon
 auflöst, streicht stattdessen die Zeilen `dns:` und `dns_search:`. Beispiel 1 oben ist die Fassung
 für eine Installation, die lieber eine Datei und keinen zweiten Schritt hat.
+
+**Eine `docker-compose.override.yml` erspart die drei nicht.** Compose setzt die Variablen ein,
+bevor es eine Override-Datei liest. Wer dort die Ports oder die `dns:`-Zeilen ersetzt, braucht die
+drei trotzdem in der `.env` — irgendein Wert genügt, die Override-Datei gewinnt.
 
 Das Kennwort des Domänenadministrators gehört in keine der beiden Dateien. Die Konsole nimmt
 ohnehin keines aus der Umgebung; sie fragt den, der sich anmeldet, und handelt mit dessen
@@ -678,6 +685,7 @@ durch die Berechtigungen im Verzeichnis selbst.
 | `SAMADCON_AUDIT_FILE` | `/var/log/samadcon/audit.jsonl` | Jede schreibende Operation landet hier: wer, was, DN, Attributdiff. |
 | `SAMADCON_SAMBA_LOG_LEVEL` | `0` | Höher setzen für Samba-Protokollspuren. Laut — außerhalb einer Fehlersuche auf 0 lassen. |
 | `SAMADCON_DEV_MODE` | `0` | Zusätzliche Diagnose und eine gesprächigere Fehlerausgabe. |
+| `SAMADCON_API_DOCS` | `0` | `1` liefert die API-Dokumentation unter `/api/docs` und `/api/openapi.json` aus. Standardmäßig aus: Beide antworten vor der Anmeldung. |
 
 **Ein Kennwort ist nicht darunter.** In keiner dieser Tabellen gibt es eine Einstellung, die
 eines annimmt. Die Konsole fragt den, der sich anmeldet, und handelt mit dessen eigenem Konto —

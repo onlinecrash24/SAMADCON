@@ -102,15 +102,31 @@ def parse_unc(unc: str) -> tuple[str, str, str]:
     attributes, and the difference is not one an administrator should have to
     care about.
     """
-    text = (unc or "").strip().replace("/", "\\")
+    text = (unc or "").strip().replace("/", "\\").rstrip("\\")
     match = _UNC_RE.match(text)
-    if match is None:
+    if match is None or not all(
+        _usable_component(part)
+        for part in (match.group("share"), *match.group("path").split("\\"))
+    ):
         raise InvalidRequest(
             "This is not a usable SYSVOL path.",
             code="invalid_unc",
             context={"path": unc},
         )
     return match.group("host"), match.group("share"), match.group("path")
+
+
+def _usable_component(part: str) -> bool:
+    """One name between backslashes: no climbing, no drive, nothing invisible.
+
+    The same rules as for a backup's members (``transfer._safe_relative``):
+    the path comes from an attribute that whoever may edit the GPO may set.
+    """
+    return (
+        part not in ("", ".", "..")
+        and ":" not in part
+        and not any(ord(char) < 32 or ord(char) == 127 for char in part)
+    )
 
 
 def gpo_unc(realm: str, guid: str) -> str:
@@ -121,6 +137,47 @@ def gpo_unc(realm: str, guid: str) -> str:
 def gpo_path(realm: str, guid: str) -> str:
     """The same location, relative to the share."""
     return f"{realm}\\Policies\\{guid}"
+
+
+_GUID_NAME_RE = re.compile(r"^\{[0-9A-Fa-f]{8}(-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}\}$")
+
+
+def policy_folder(share: Any, gpo: dict[str, Any]) -> str:
+    """The share-relative folder of *gpo*, after checking where it points.
+
+    ``gPCFileSysPath`` is an attribute like any other: whoever may edit a
+    GPO — Group Policy Creator Owners, a delegated "Edit settings" — may also
+    point it at another policy's folder, or at the domain's whole Policies
+    folder, and SAMADCON acts with the signed-in administrator's ticket.
+    Followed blindly, a startup script saved into that GPO landed in the
+    Default Domain Controllers Policy, and deleting the GPO ran deltree over
+    every policy in the domain (reported by Rowie against 0.6.28).
+
+    So the folder is the one the realm and the GPO's own GUID name, and the
+    stored path has to name it too, regardless of case. The host part is not
+    compared: SAMADCON always uses the session's DC, and GPMC writes the
+    domain's name there where a DC's own name is as valid. Returns the stored
+    path, which equals the derived one up to case.
+    """
+    unc = gpo.get("path")
+    _, share_name, path = parse_unc(unc or "")
+    realm = share.realm
+    name = gpo.get("name") or ""
+    if (
+        _GUID_NAME_RE.match(name) is None
+        or share_name.casefold() != SHARE
+        or path.casefold() != gpo_path(realm, name).casefold()
+    ):
+        raise InvalidRequest(
+            "The policy's SYSVOL path points somewhere other than its own folder.",
+            code="gpo_path_mismatch",
+            hint=(
+                "Nothing is read, written or deleted there. Set gPCFileSysPath back "
+                "to the expected path, with ADSI Edit or ldbedit."
+            ),
+            context={"path": unc, "expected": gpo_unc(realm, name)},
+        )
+    return path
 
 
 def join(*parts: str) -> str:

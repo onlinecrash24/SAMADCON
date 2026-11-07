@@ -59,7 +59,7 @@ def registry_entries(conn: DirectoryConnection, gpo: dict[str, Any], half: str) 
         return []
 
     share = sysvol.sysvol_for(conn)
-    _, _, base = sysvol.parse_unc(gpo["path"])
+    base = sysvol.policy_folder(share, gpo)
     path = share.resolve(base, f"{half}\\Registry.pol")
     if path is None:
         return []
@@ -214,7 +214,7 @@ def write_entries(
     )
 
     share = sysvol.sysvol_for(conn)
-    _, _, base = sysvol.parse_unc(gpo["path"])
+    base = sysvol.policy_folder(share, gpo)
     target = share.resolve(base, f"{half}\\Registry.pol") or sysvol.join(
         base, half, "Registry.pol"
     )

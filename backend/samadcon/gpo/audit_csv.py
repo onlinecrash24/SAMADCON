@@ -390,7 +390,7 @@ def write(
         return {"dn": dn, "changed": False, "version": gpo["version"]}
 
     share = sysvol.sysvol_for(conn)
-    _, _, base = sysvol.parse_unc(gpo["path"])
+    base = sysvol.policy_folder(share, gpo)
     target = share.resolve(base, AUDIT_PATH) or sysvol.join(base, AUDIT_PATH)
     share.makedirs(target.rsplit("\\", 1)[0])
     share.write(target, updated)
@@ -405,6 +405,6 @@ def _read_file(conn: DirectoryConnection, gpo: dict[str, Any]) -> bytes | None:
     if not gpo["path"]:
         return None
     share = sysvol.sysvol_for(conn)
-    _, _, base = sysvol.parse_unc(gpo["path"])
+    base = sysvol.policy_folder(share, gpo)
     resolved = share.resolve(base, AUDIT_PATH)
     return None if resolved is None else share.read(resolved)

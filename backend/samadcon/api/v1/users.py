@@ -354,7 +354,7 @@ async def get_certificate(
 
 @router.post("/certificates/inspect")
 async def inspect_certificate(
-    payload: CertificateUploadRequest, session: CurrentSession
+    payload: CertificateUploadRequest, session: VerifiedSession
 ) -> dict[str, Any]:
     """What an uploaded file would look like on the tab. Parses; writes nothing."""
     return certificates.inspect(payload.data)

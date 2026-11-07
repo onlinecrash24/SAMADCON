@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from dataclasses import asdict
 from typing import Any
 
@@ -22,6 +23,48 @@ from samadcon.schemas.requests import LoginRequest
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+# Sign-ins that may wait at the same time. Each holds a worker thread while
+# its target is resolved and its ticket fetched; the registry allows 64 in
+# all, sessions included, so this leaves most of them to people signed in.
+MAX_PENDING_SIGN_INS = 16
+
+
+class SignInSlots:
+    """A count of sign-ins in progress, refusing beyond its limit at once."""
+
+    class _Slot:
+        def __init__(self, owner: SignInSlots) -> None:
+            self._owner: SignInSlots | None = owner
+
+        def release(self) -> None:
+            if self._owner is not None:
+                self._owner._release()
+                self._owner = None
+
+    def __init__(self, limit: int = MAX_PENDING_SIGN_INS) -> None:
+        self.limit = limit
+        self._taken = 0
+        self._lock = threading.Lock()
+
+    def take(self) -> SignInSlots._Slot:
+        with self._lock:
+            if self._taken >= self.limit:
+                raise SamadconError(
+                    "Too many sign-ins at the same time.",
+                    code="too_many_sign_ins",
+                    status_code=503,
+                    hint="Try again in a moment.",
+                )
+            self._taken += 1
+        return SignInSlots._Slot(self)
+
+    def _release(self) -> None:
+        with self._lock:
+            self._taken -= 1
+
+
+sign_in_slots = SignInSlots()
 
 
 @router.post("/login")
@@ -75,6 +118,32 @@ async def login(payload: LoginRequest, request: Request, response: Response) -> 
     if payload.server:
         probe_limiter.check(address or "unknown")
 
+    # The address before anything else: a throttled one gets no worker thread
+    # and no target resolved. Then a slot: resolving the target may wait 30
+    # seconds on a slow DC, and without a cap 64 such attempts filled the
+    # registry and real administrators got too_many_sessions (Rowie).
+    throttle.check_address(address)
+    slot = sign_in_slots.take()
+    try:
+        return await _sign_in(
+            payload, request, response, settings, store, throttle, audit, address, idp
+        )
+    finally:
+        slot.release()
+
+
+async def _sign_in(
+    payload: LoginRequest,
+    request: Request,
+    response: Response,
+    settings: Any,
+    store: Any,
+    throttle: Any,
+    audit: Any,
+    address: str | None,
+    idp: str | None,
+) -> dict[str, Any]:
+    """Everything of a sign-in that holds a worker thread."""
     session_id = store.new_id()
     ccache = kerberos.ccache_path_for(settings, session_id)
     registry = get_registry()
@@ -134,7 +203,7 @@ async def login(payload: LoginRequest, request: Request, response: Response) -> 
         )
     except SamadconError as exc:
         _fail(exc, principal.username, target)
-        raise
+        raise _public(exc) from None
 
     expires_at = kerberos.ticket_expiry(ccache) or kerberos.default_expiry()
     session = store.create(
@@ -167,7 +236,7 @@ async def login(payload: LoginRequest, request: Request, response: Response) -> 
             extra={"domain": target.display_name},
             idp_user=idp,
         )
-        raise
+        raise _public(exc) from None
 
     throttle.record_success(principal.username, address)
     audit.record(
@@ -298,6 +367,21 @@ async def whoami(session: CurrentSession) -> dict[str, Any]:
         return account
 
     return await ad_read(worker, session, _lookup, label="auth.whoami")
+
+
+def _public(exc: SamadconError) -> SamadconError:
+    """A failed sign-in as the caller sees it.
+
+    Kerberos tells an unknown account from a wrong password, and the KDC's
+    own text named the principal: the form told a stranger which accounts
+    exist (reported by Rowie). Both now get the same answer, without the
+    KDC's text; the audit log and the server log keep what happened.
+    """
+    logger.info("sign-in failed: %s (%s): %s", exc.message, exc.code, exc.detail)
+    if exc.code in ("user_not_found", "invalid_credentials"):
+        return AuthenticationError("Wrong user name or password.", code="invalid_credentials")
+    exc.detail = None
+    return exc
 
 
 def _cookie_secure() -> bool:

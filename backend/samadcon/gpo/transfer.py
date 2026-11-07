@@ -98,8 +98,8 @@ def copy_gpo(conn: DirectoryConnection, dn: str, display_name: str) -> dict[str,
 
 def _copy_tree(conn: DirectoryConnection, source: dict[str, Any], target: dict[str, Any]) -> None:
     share = sysvol.sysvol_for(conn)
-    _, _, from_path = sysvol.parse_unc(source["path"])
-    _, _, to_path = sysvol.parse_unc(target["path"])
+    from_path = sysvol.policy_folder(share, source)
+    to_path = sysvol.policy_folder(share, target)
 
     for entry in _entries(share, from_path):
         relative = entry["path"][len(from_path) + 1 :]
@@ -149,7 +149,7 @@ def _write_version(
     conn: DirectoryConnection, gpo: dict[str, Any], version: int, display_name: str
 ) -> None:
     share = sysvol.sysvol_for(conn)
-    _, _, path = sysvol.parse_unc(gpo["path"])
+    path = sysvol.policy_folder(share, gpo)
     share.write(sysvol.join(path, sysvol.GPT_INI), sysvol.format_gpt_ini(version, display_name))
 
 
@@ -169,7 +169,7 @@ def backup_gpo(conn: DirectoryConnection, dn: str) -> tuple[str, bytes]:
         )
 
     share = sysvol.sysvol_for(conn)
-    _, _, base = sysvol.parse_unc(gpo["path"])
+    base = sysvol.policy_folder(share, gpo)
 
     buffer = io.BytesIO()
     total = 0
@@ -316,7 +316,7 @@ def _read_member(archive: zipfile.ZipFile, name: str) -> str:
 
 def _unpack(conn: DirectoryConnection, archive: zipfile.ZipFile, gpo: dict[str, Any]) -> None:
     share = sysvol.sysvol_for(conn)
-    _, _, base = sysvol.parse_unc(gpo["path"])
+    base = sysvol.policy_folder(share, gpo)
 
     total = 0
     for info in archive.infolist():

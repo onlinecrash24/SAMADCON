@@ -301,7 +301,7 @@ def read(conn: DirectoryConnection, dn: str) -> dict[str, Any]:
         return answer
 
     share = sysvol.sysvol_for(conn)
-    _, _, base = sysvol.parse_unc(gpo["path"])
+    base = sysvol.policy_folder(share, gpo)
     resolved = share.resolve(base, FDEPLOY_PATH)
     if resolved is None:
         return answer
@@ -337,7 +337,7 @@ def write(
         )
 
     share = sysvol.sysvol_for(conn)
-    _, _, base = sysvol.parse_unc(gpo["path"])
+    base = sysvol.policy_folder(share, gpo)
     resolved = share.resolve(base, FDEPLOY_PATH)
     current = share.read_text(resolved) if resolved else None
 

@@ -79,13 +79,14 @@ def build_report(conn: DirectoryConnection, dn: str) -> dict[str, Any]:
         report["unreadable"].append({"path": "", "reason": "no_path"})
         return report
 
+    share = sysvol.sysvol_for(conn)
     try:
-        _, _, base = sysvol.parse_unc(gpo["path"])
-    except InvalidRequest:
-        report["unreadable"].append({"path": gpo["path"], "reason": "invalid_path"})
+        base = sysvol.policy_folder(share, gpo)
+    except InvalidRequest as exc:
+        reason = "path_mismatch" if exc.code == "gpo_path_mismatch" else "invalid_path"
+        report["unreadable"].append({"path": gpo["path"], "reason": reason})
         return report
 
-    share = sysvol.sysvol_for(conn)
     children = _listdir(share, base, report["unreadable"])
 
     for half in HALVES:
