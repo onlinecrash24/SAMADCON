@@ -14,6 +14,31 @@ release.
 
 ---
 
+## 0.6.28 — 2026-11-07
+
+Maintenance: Debian security updates in the image.
+
+No change in what SAMADCON does. The image is rebuilt with three updates
+Debian published after 0.6.27:
+
+- zlib1g 1:1.3.dfsg+really1.3.1-1+deb13u1 (DSA-6613-1: CVE-2026-27171,
+  CVE-2026-76844, CVE-2026-85091). The two heap overflows sit in zlib's
+  gz* file-writing functions after a failed write; SAMADCON's uploads and
+  nginx's compression go through inflate and deflate instead.
+- apt and libapt-pkg7.0 3.0.4 (DSA-6607-1: CVE-2026-109518). It concerns
+  apt downloading packages, which happens only while the image is built.
+
+Neither has a known way in through a running container; the update keeps image
+scanners quiet and the image current. pip-audit and npm audit find no
+known vulnerabilities.
+
+The sshhole OpenSSH issue (musl, no PAM) does not affect SAMADCON: the
+image is Debian with glibc and has no SSH server.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.28, :0.6 and :latest.
+
+---
+
 ## 0.6.27 — 2026-11-01
 
 Reserved names and protected OUs.
