@@ -105,7 +105,10 @@ def warns_about_optional(stack: Path, workdir: Path) -> str | None:
         check=False,
     )
     if result.returncode != 0:
-        return f"{stack.relative_to(ROOT)}: config failed with only the required three: {result.stderr.strip()[:200]}"
+        return (
+            f"{stack.relative_to(ROOT)}: config failed with only the required three: "
+            f"{result.stderr.strip()[:200]}"
+        )
     noisy = [name for name in OPTIONAL if name in result.stderr]
     if noisy:
         return f"{stack.relative_to(ROOT)}: warns about {', '.join(noisy)} left empty"
