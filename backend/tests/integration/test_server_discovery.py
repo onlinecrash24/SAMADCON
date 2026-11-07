@@ -128,5 +128,4 @@ def test_sign_in_with_a_wrong_password_reports_credentials(anonymous, reachable_
     assert response.json()["error"]["code"] in (
         "invalid_credentials",
         "login_throttled",
-        "user_not_found",
-    )
+    )  # user_not_found goes out as invalid_credentials since 0.6.29

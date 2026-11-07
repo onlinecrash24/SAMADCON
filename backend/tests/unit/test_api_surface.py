@@ -247,9 +247,17 @@ def test_logout_without_a_session_is_harmless(client: TestClient):
     assert client.post("/api/v1/auth/logout").status_code == 200
 
 
-def test_openapi_document_builds(client: TestClient):
-    """A broken type annotation in a router would surface here."""
-    schema = client.get("/api/openapi.json").json()
+def test_openapi_document_builds(client: TestClient, monkeypatch):
+    """A broken type annotation in a router would surface here. Served only
+    with SAMADCON_API_DOCS (test_pre_sign_in_surface.py)."""
+    from samadcon.config import get_settings
+
+    monkeypatch.setenv("SAMADCON_API_DOCS", "1")
+    get_settings.cache_clear()
+    try:
+        schema = client.get("/api/openapi.json").json()
+    finally:
+        get_settings.cache_clear()
     assert schema["info"]["title"].startswith("SAMADCON")
     assert "/api/v1/users" in schema["paths"]
 

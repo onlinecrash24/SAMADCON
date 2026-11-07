@@ -177,3 +177,44 @@ def test_a_protected_ou_that_is_not_a_dn_stops_the_start(
 
     with pytest.raises(ValidationError, match="SAMADCON_PROTECTED_OUS"):
         _settings(monkeypatch, SAMADCON_REALM="example.lan", SAMADCON_PROTECTED_OUS=value)
+
+
+# The same check as for a target (test_target_validation.py), at start-up:
+# these values go into krb5.conf and smb.conf, and a typo should stop the
+# start with a message, not a broken file.
+
+
+@pytest.mark.parametrize("value", ["EXAMPLE LAN", "EXAMPLE.LAN}", "[libdefaults]"])
+def test_a_realm_that_is_not_a_domain_name_stops_the_start(
+    monkeypatch: pytest.MonkeyPatch, value: str
+):
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="SAMADCON_REALM"):
+        _settings(monkeypatch, SAMADCON_REALM=value)
+
+
+@pytest.mark.parametrize("value", ["dc1 dc2", "dc1;dc2", "dc1}"])
+def test_a_dc_host_that_is_not_a_name_or_address_stops_the_start(
+    monkeypatch: pytest.MonkeyPatch, value: str
+):
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="SAMADCON_DC_HOSTS"):
+        _settings(monkeypatch, SAMADCON_REALM="example.lan", SAMADCON_DC_HOSTS=value)
+
+
+def test_an_empty_realm_is_still_fine(monkeypatch: pytest.MonkeyPatch):
+    assert _settings(monkeypatch, SAMADCON_REALM="").realm == ""
+
+
+@pytest.mark.parametrize(
+    "profile", [{"id": "a", "realm": "X Y"}, {"id": "a", "hosts": ["dc1 }"]}]
+)
+def test_a_profile_with_a_broken_realm_or_host_is_refused(profile):
+    from pydantic import ValidationError
+
+    from samadcon.config import ServerProfile
+
+    with pytest.raises(ValidationError):
+        ServerProfile(**profile)

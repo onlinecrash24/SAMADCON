@@ -56,6 +56,8 @@ def test_a_name_that_escapes_the_policy_is_refused(name):
 
 
 class _RecordingShare:
+    realm = "example.lan"
+
     """A SYSVOL stand-in that accepts writes and remembers them."""
 
     def __init__(self) -> None:
@@ -86,7 +88,7 @@ def test_a_backup_larger_than_the_cap_in_total_is_refused(monkeypatch):
         archive.writestr("Machine/b.pol", b"y" * 60)  # 120 in total, cap is 100
     buffer.seek(0)
 
-    gpo = {"path": "\\\\example.lan\\sysvol\\example.lan\\Policies\\{GUID}"}
+    gpo = {"name": "{0C1D2E3F-4A5B-4C6D-8E7F-9A0B1C2D3E4F}", "path": "\\\\example.lan\\sysvol\\example.lan\\Policies\\{0C1D2E3F-4A5B-4C6D-8E7F-9A0B1C2D3E4F}"}
     with pytest.raises(InvalidRequest) as excinfo:
         transfer._unpack(object(), zipfile.ZipFile(buffer), gpo)
 

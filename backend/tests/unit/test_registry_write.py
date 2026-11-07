@@ -68,13 +68,16 @@ def test_removing_and_setting_the_same_value_sets_it():
 # ---------------------------------------------------------------------------
 
 GPO = {
-    "path": "\\\\example.lan\\sysvol\\example.lan\\Policies\\{X}",
+    "path": "\\\\example.lan\\sysvol\\example.lan\\Policies\\{0C1D2E3F-4A5B-4C6D-8E7F-9A0B1C2D3E4F}",
+    "name": "{0C1D2E3F-4A5B-4C6D-8E7F-9A0B1C2D3E4F}",
     "version": 65537,
     "display_name": "Test",
 }
 
 
 class Share:
+    realm = "example.lan"
+
     def __init__(self, existing: bool) -> None:
         self.existing = existing
         self.written: list[tuple[str, bytes]] = []
