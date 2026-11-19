@@ -45,7 +45,7 @@ dependencies = [
     # (fastapi/routing.py — request.form() at 430, solve_dependencies at 481),
     # and four endpoints take uploads.
     "python-multipart>=0.0.32",
-    "dnspython>=2.9.0",
+    "dnspython>=2.9.2",
     # X.509 for the Published Certificates tab: parsing what is on the
     # account and validating what is uploaded before it goes anywhere.
     "cryptography>=50.0.2",
