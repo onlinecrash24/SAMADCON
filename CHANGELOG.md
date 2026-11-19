@@ -14,6 +14,43 @@ release.
 
 ---
 
+## 0.6.31 — 2026-11-19
+
+Maintenance: nginx and two Python packages, security updates.
+
+No change in what SAMADCON does. 0.6.30 was tagged for the nginx update
+and never published: the dependency audit stopped it over two Python
+packages reported since 0.6.29. This release carries both.
+
+nginx 1.26.3-3+deb13u11 from Debian, with the fixes nginx announced with
+1.30.7 on 18 November 2026. Checked against SAMADCON's configuration:
+
+- CVE-2026-123007 (HTTP/2 flow control) and CVE-2026-123633 (HTTP/2, use
+  after free): SAMADCON serves HTTP/2, so both applied. Anyone who could
+  reach the port could crash nginx workers without signing in.
+- CVE-2026-125283 (try_files, alias) and CVE-2026-118899 (endless loop
+  reading a request body over SSL): SAMADCON uses try_files, TLS and
+  uploads; nginx does not say which configurations are affected.
+- The others concern HTTP/3, the resolver, the mail proxy and the stream
+  module, none of which SAMADCON configures.
+
+Python packages, raised in the lock:
+
+- dnspython 2.9.0 to 2.9.2 (CVE-2026-128089)
+- opentelemetry-api 1.45.1 to 1.45.2 (CVE-2026-126360)
+
+pip-audit and npm audit find no known vulnerabilities.
+
+Update recommended, above all where the port is reachable without a
+reverse proxy in front.
+
+Not affected: the Apache HTTP Server issue CVE-2026-119618 (mod_http2) and
+the PHP security releases of 19 November 2026. The image contains neither.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.31, :0.6 and :latest.
+
+---
+
 ## 0.6.30 — 2026-11-19
 
 Maintenance: nginx security update in the image.
