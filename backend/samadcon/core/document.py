@@ -31,6 +31,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
+from samadcon import __version__
 from samadcon.ad import diagnostics
 from samadcon.core import findings_source
 
@@ -51,6 +52,10 @@ def build(conn: Any, *, deep: bool = False) -> dict[str, Any]:
         # know from here, so the offset is carried rather than assumed.
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "deep": deep,
+        # For a saved file: which SAMADCON wrote it, and a number to raise
+        # when the layout changes in a way a reader of old files must know.
+        "samadcon_version": __version__,
+        "format": 1,
         "domain": diagnostics.domain_facts(conn),
         "connection": security["connection"],
         "roles": roles,

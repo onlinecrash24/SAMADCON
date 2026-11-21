@@ -525,6 +525,9 @@ export const api = {
       `/gpos/report.html?dn=${dnParam(dn)}&language=${language}`,
       `${name}.html`,
     ),
+  // The same report for a reader that is a program.
+  downloadGpoReportMarkdown: (dn: string, name: string, language: string) =>
+    http.download(`/gpos/report.md?dn=${dnParam(dn)}&language=${language}`, `${name}.md`),
   copyGpo: (dn: string, displayName: string) =>
     http.post<Gpo>(`/gpos/copy?dn=${dnParam(dn)}`, { display_name: displayName }),
   downloadGpoBackup: (dn: string, name: string) =>

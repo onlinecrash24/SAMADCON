@@ -9,11 +9,13 @@
 
 import { useQuery } from '@tanstack/react-query'
 
+import { saveBlob } from '../../api/client'
 import { api } from '../../api/endpoints'
 import type { Gpo, GpoHalfReport } from '../../api/types'
 import { ErrorMessage, Spinner } from '../../components/primitives'
 import { useI18n } from '../../i18n'
 import type { MessageKey } from '../../i18n/messages'
+import { reportFileName } from '../diagnostics/reportMarkdown'
 
 export function ReportTab({ gpo }: { gpo: Gpo }) {
   // The language goes to the server for the attachable file: it is written
@@ -43,7 +45,30 @@ export function ReportTab({ gpo }: { gpo: Gpo }) {
         >
           {t('gpo.downloadReport')}
         </button>
+        <button
+          type="button"
+          className="button"
+          onClick={() => {
+            void api.downloadGpoReportMarkdown(gpo.dn, gpo.display_name ?? gpo.guid, language)
+          }}
+        >
+          {t('report.saveMarkdown')}
+        </button>
+        {/* What is on screen, as it was read: no second request. */}
+        <button
+          type="button"
+          className="button"
+          onClick={() =>
+            saveBlob(
+              new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }),
+              reportFileName(gpo.display_name ?? gpo.guid, null, 'json'),
+            )
+          }
+        >
+          {t('report.saveJson')}
+        </button>
       </div>
+      <p className="muted small">{t('report.exportNote')}</p>
 
       {data.empty && <p className="muted">{t('gpo.reportEmpty')}</p>}
 

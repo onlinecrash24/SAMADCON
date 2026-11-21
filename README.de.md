@@ -1149,6 +1149,13 @@ zurückgezogen hat, weil geplante Wechsel Menschen zu vorhersehbaren Varianten e
 drängen; und das Auflisten gesperrter oder deaktivierter Konten, das die Diagnose ohnehin zeigt
 und das die Befunde begraben würde, die eine Entscheidung brauchen.
 
+**Beide Berichte lassen sich als JSON und als Markdown speichern**, ebenso der Bericht über die
+Einstellungen einer einzelnen Richtlinie — für ein Ticket, zum Vergleich zweier Stände oder für
+ein Sprachmodell Ihrer Wahl. Dieser letzte Gebrauch ist Ihre Sache: Die Datei enthält Interna der
+Domäne (Namen, DNs, Richtlinien), und Texte darin stammen aus dem Verzeichnis, in das mehr Konten
+schreiben dürfen, als man annimmt. Die Konsole selbst sendet weiterhin nichts; der Absatz oben
+gilt unverändert.
+
 **Beide Berichte lassen sich drucken.** Es liegt keine PDF-Bibliothek im Image — der Browser
 schreibt bereits PDFs mit durchsuchbarem Text, und die Abhängigkeitsliste ist bewusst kurz. Das
 Dokument trägt die Werte und nicht nur die Befunde, denn wer einen Ausdruck in der Hand hält, kann

@@ -27,8 +27,9 @@ import { useQuery } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
+import { saveBlob } from '../../api/client'
 import { api } from '../../api/endpoints'
-import type { Finding, ReportedGpo } from '../../api/types'
+import type { DomainReport, Finding, ReportedGpo } from '../../api/types'
 import { Badge, ErrorMessage, Spinner, useDateFormat } from '../../components/primitives'
 import { useI18n } from '../../i18n'
 import {
@@ -39,10 +40,20 @@ import {
   ReplicationCard,
   RolesCard,
 } from './DiagnosticsView'
+import { domainReportMarkdown, reportFileName } from './reportMarkdown'
 import { FindingCard } from './SecurityFindings'
 
+const TYPES = { json: 'application/json', md: 'text/markdown;charset=utf-8' }
+
+function save(data: DomainReport, extension: 'json' | 'md', text: string): void {
+  saveBlob(
+    new Blob([text], { type: TYPES[extension] }),
+    reportFileName(data.domain.dns_domain, data.generated_at, extension),
+  )
+}
+
 export function ReportView({ deep, onClose }: { deep: boolean; onClose: () => void }) {
-  const { t } = useI18n()
+  const { t, tn } = useI18n()
   const formatDate = useDateFormat()
   const [error, setError] = useState<unknown>(null)
 
@@ -68,6 +79,27 @@ export function ReportView({ deep, onClose }: { deep: boolean; onClose: () => vo
         >
           {t('report.print')}
         </button>
+
+        {/* The same reading as on screen, as a file. Saved from what is
+            already loaded: a second request would be a second reading, with
+            another timestamp than the one shown. */}
+        <button
+          type="button"
+          className="button"
+          disabled={!data}
+          onClick={() => data && save(data, 'json', JSON.stringify(data, null, 2))}
+        >
+          {t('report.saveJson')}
+        </button>
+        <button
+          type="button"
+          className="button"
+          disabled={!data}
+          onClick={() => data && save(data, 'md', domainReportMarkdown(data, { t, tn }))}
+        >
+          {t('report.saveMarkdown')}
+        </button>
+        <span className="muted small">{t('report.exportNote')}</span>
       </div>
 
       <div className="report__scroll">

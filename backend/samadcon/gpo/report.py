@@ -28,6 +28,7 @@ Two decisions shape the implementation:
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 from xml.etree import ElementTree
 
@@ -1029,3 +1030,191 @@ def _esc(text: Any) -> str:
         .replace(">", "&gt;")
         .replace('"', "&quot;")
     )
+
+
+# ---------------------------------------------------------------------------
+# The same report as Markdown
+# ---------------------------------------------------------------------------
+
+
+def to_markdown(report: dict[str, Any], language: str = "en") -> str:
+    """The report as Markdown, for a reader that is a program.
+
+    Asked for by a tester who hands reports to a language model. Section for
+    section what to_html writes, with the same words from _REPORT_TEXT, so
+    the two cannot tell different stories about one policy.
+
+    Nothing here sends anything anywhere: it is a file, and what becomes of
+    it is up to whoever downloads it.
+    """
+    from samadcon import __version__
+
+    gpo = report["gpo"]
+    text = _text(language)
+    state = lambda enabled: text["enabled"] if enabled else text["disabled"]  # noqa: E731
+
+    lines: list[str] = [
+        f"# {_md(gpo['display_name'] or gpo['guid'])}",
+        "",
+        f"- **{text['identifier']}:** {_md_code(gpo['guid'])}",
+        f"- **{text['path']}:** {_md_code(gpo['path'] or '')}",
+        f"- **{text['version']}:** {text['computer']} {gpo['machine_version']} / "
+        f"{text['user']} {gpo['user_version']}",
+        f"- **{text['computer_half']}:** {state(gpo['machine_enabled'])}",
+        f"- **{text['user_half']}:** {state(gpo['user_enabled'])}",
+        "",
+        f"SAMADCON {__version__}",
+        "",
+    ]
+
+    if report.get("empty"):
+        lines += [text["empty"], ""]
+
+    for half in HALVES:
+        lines += _half_markdown(half, report[half.lower()], text)
+
+    if report["unreadable"]:
+        lines += [f"## {text['unreadable']}", ""]
+        lines += [
+            f"- {_md_code(item['path'])} — {_md(item['reason'])}" for item in report["unreadable"]
+        ]
+        lines.append("")
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _half_markdown(name: str, half: dict[str, Any], text: dict[str, str]) -> list[str]:
+    if not _has_content(half):
+        return []
+
+    heading = text["configuration"].format(
+        half=text["computer"] if name == "Machine" else text["user"]
+    )
+    lines = [f"## {heading}", ""]
+
+    if half["registry"]:
+        lines += [f"### {text['templates']}", ""]
+        for group in half["registry"]:
+            lines += [f"#### {_md_code(group['key'])}", ""]
+            lines += _md_table(
+                [text["col_value"], text["col_type"], text["col_data"]],
+                [
+                    [_md(value["value"]), _md(value["type"]), _md(value["display"])]
+                    for value in group["values"]
+                ],
+            )
+
+    if half["security"]:
+        lines += [f"### {text['security']}", ""]
+        for section, values in half["security"].items():
+            lines += [f"#### {_md(section)}", ""]
+            lines += _md_table(
+                [text["col_item"], text["col_value"]],
+                [[_md(value["name"]), _md(value["value"])] for value in values],
+            )
+
+    if half.get("audit"):
+        lines += [f"### {text['audit']}", ""]
+        lines += _md_table(
+            [text["col_item"], text["col_value"]],
+            [
+                [_md(item[text["lang"]]), _md(text["audit_" + str(item["value"])])]
+                for item in half["audit"]
+            ],
+        )
+
+    if half["scripts"]:
+        lines += [f"### {text['scripts']}", ""]
+        for section, scripts in half["scripts"].items():
+            lines += [f"#### {_md(section)}", ""]
+            lines += _md_table(
+                [text["col_item"], text["col_attributes"]],
+                [
+                    [_md_code(script.get("cmdline", "")), _md(script.get("parameters", ""))]
+                    for script in scripts
+                ],
+            )
+
+    if half["redirection"]:
+        lines += [f"### {text['redirection']}", ""]
+        lines += _md_table(
+            [text["col_folder"], text["col_applies"], text["col_target"]],
+            [
+                [_md_code(folder["guid"]), _md(target["sid"]), _md_code(target["path"])]
+                for folder in half["redirection"]["folders"]
+                for target in (folder["targets"] or [{"sid": "", "path": ""}])
+            ],
+        )
+
+    for group in half["preferences"]:
+        lines += [f"### {text['preferences']} — {_md(group['type'])}", ""]
+        lines += _md_table(
+            [text["col_item"], text["col_attributes"]],
+            [
+                [_md(item["element"]), _md(_attributes(item["attributes"]))]
+                for item in group["items"]
+            ],
+        )
+
+    for group in half["vgp"]:
+        heading = _md(group["name"] or text["samba_policy"])
+        lines += [f"### {heading}", "", _md_code(group["path"]), ""]
+        if not group["entries"]:
+            lines += [text["no_entries"], ""]
+            continue
+        lines += _md_table(
+            [text["col_item"], text["col_value"]],
+            [
+                [
+                    _md(entry["element"]),
+                    _md(
+                        ", ".join(f"{field['name']}={field['value']}" for field in entry["fields"])
+                        or entry["text"]
+                    ),
+                ]
+                for entry in group["entries"]
+            ],
+        )
+
+    if half["other_files"]:
+        lines += [f"### {text['other_files']}", ""]
+        lines += [f"- {_md_code(item['path'])}" for item in half["other_files"]]
+        lines.append("")
+
+    return lines
+
+
+def _md_table(head: list[str], rows: list[list[str]]) -> list[str]:
+    return [
+        "| " + " | ".join(head) + " |",
+        "| " + " | ".join("---" for _ in head) + " |",
+        *("| " + " | ".join(row) + " |" for row in rows),
+        "",
+    ]
+
+
+_MD_SPECIAL = re.compile(r"([\\|`*_<\[#])")
+_MD_BREAK = re.compile(r"\r\n|\r|\n")
+
+
+def _md(value: Any) -> str:
+    """One value as Markdown text that cannot change the document's shape.
+
+    A pipe would end a table cell, a line break the row, and a ``#`` after a
+    break would start a heading; a bracket could pose as a link and an angle
+    bracket as HTML. Everything comes off SYSVOL, so everything goes through
+    here. This protects the shape — it does not make the words harmless to a
+    model that reads them, which is why the console says so at the export.
+    """
+    text = _MD_BREAK.sub(" ", str(value if value is not None else "")).strip()
+    return _MD_SPECIAL.sub(r"\\\1", text)
+
+
+def _md_code(value: Any) -> str:
+    """A value as a code span. Backslashes stay as they are in one, which is
+    what a path wants; a backtick cannot be escaped inside, so it becomes an
+    apostrophe, and a pipe still has to be escaped for a table."""
+    text = _MD_BREAK.sub(" ", str(value if value is not None else "")).strip()
+    if not text:
+        return ""
+    return "`" + text.replace("`", "'").replace("|", "\\|") + "`"

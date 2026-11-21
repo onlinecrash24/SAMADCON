@@ -433,6 +433,27 @@ async def settings_report_html(
     )
 
 
+@router.get("/report.md")
+async def settings_report_markdown(
+    worker: Worker,
+    session: CurrentSession,
+    dn: DnQuery,
+    language: Annotated[str, Query(pattern=r"^[a-z]{2}$")] = "en",
+) -> Response:
+    """The same report as Markdown, for a reader that is a program.
+
+    Asked for by a tester who hands reports to a language model. The console
+    sends nothing anywhere: this is a download like the HTML one.
+    """
+    data = await ad_read(worker, session, report.build_report, dn, label="gpo.report")
+    name = data["gpo"]["display_name"] or data["gpo"]["guid"]
+    return Response(
+        content=report.to_markdown(data, language),
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{_ascii_filename(name)}.md"'},
+    )
+
+
 # ---------------------------------------------------------------------------
 # Copying and moving between domains
 # ---------------------------------------------------------------------------

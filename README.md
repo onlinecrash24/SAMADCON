@@ -1101,6 +1101,12 @@ towards predictable variations of one password; and listing locked or disabled
 accounts, which diagnostics already shows and which would bury the findings that
 need a decision.
 
+**Both reports can be saved as JSON and as Markdown**, and the report on a single policy's
+settings as well — for a ticket, for comparing two readings, or for handing to a language model of
+your own choosing. That last use is yours: the file holds internals of the domain (names, DNs,
+policies), and text in it comes from the directory, where more accounts can write than one might
+assume. The console itself still sends nothing anywhere; the paragraph above stands.
+
 **Both reports print.** There is no PDF library in the image — the browser
 already writes PDFs with selectable text, and the dependency list is short on
 purpose. The document carries the values and not only the findings, since

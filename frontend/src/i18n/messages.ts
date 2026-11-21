@@ -1066,6 +1066,12 @@ export const de = {
   'report.wasShallow':
     'Ohne gründliche Prüfung erstellt. Einstellungen, die auf SYSVOL liegen, aber von keiner registrierten Erweiterung angewendet werden, kann dieser Bericht nicht sehen.',
   'report.print': 'Drucken / als PDF sichern',
+  'report.saveJson': 'JSON',
+  'report.saveMarkdown': 'Markdown',
+  'report.exportNote':
+    'Die Datei enthält Interna der Domäne: Namen, DNs, Richtlinien. Texte darin stammen aus dem Verzeichnis. SAMADCON selbst gibt nichts weiter; was mit der Datei geschieht, entscheiden Sie.',
+  'report.md.severity': 'Stufe',
+  'report.md.subject': 'Betrifft',
   'report.gathering': 'Bericht wird zusammengetragen …',
 
   'report.section.connection': 'Verbindung',
@@ -1539,7 +1545,7 @@ export const de = {
   'gpo.reportHint': 'Alles, was diese Richtlinie auf SYSVOL enthält.',
   'gpo.reportEmpty': 'Diese Richtlinie enthält keine Einstellungen und bewirkt daher nichts.',
   'gpo.reportUnreadable': 'Nicht lesbar — diese Dateien sind vorhanden, ließen sich aber nicht auswerten:',
-  'gpo.downloadReport': 'Als Datei',
+  'gpo.downloadReport': 'HTML',
   'gpo.adminTemplates': 'Administrative Vorlagen',
   'gpo.scripts': 'Skripte',
   'gpo.redirection': 'Ordnerumleitung',
@@ -3142,6 +3148,12 @@ export const en: Record<MessageKey, string> = {
   'report.wasShallow':
     'Produced without the thorough check. Settings that sit on SYSVOL but no registered extension applies are invisible to this report.',
   'report.print': 'Print / save as PDF',
+  'report.saveJson': 'JSON',
+  'report.saveMarkdown': 'Markdown',
+  'report.exportNote':
+    'The file holds internals of the domain: names, DNs, policies. Text in it comes from the directory. SAMADCON itself passes nothing on; what happens to the file is your decision.',
+  'report.md.severity': 'Severity',
+  'report.md.subject': 'Concerns',
   'report.gathering': 'Gathering the report …',
 
   'report.section.connection': 'Connection',
@@ -3608,7 +3620,7 @@ export const en: Record<MessageKey, string> = {
   'gpo.reportHint': 'Everything this policy holds on SYSVOL.',
   'gpo.reportEmpty': 'This policy holds no settings and therefore does nothing.',
   'gpo.reportUnreadable': 'Not readable — these files are present but could not be parsed:',
-  'gpo.downloadReport': 'As a file',
+  'gpo.downloadReport': 'HTML',
   'gpo.adminTemplates': 'Administrative templates',
   'gpo.scripts': 'Scripts',
   'gpo.redirection': 'Folder redirection',

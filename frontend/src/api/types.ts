@@ -364,6 +364,9 @@ export interface DomainReport {
   /** UTC, with its offset — a report is read in a timezone nobody knows here. */
   generated_at: string
   deep: boolean
+  /** Which SAMADCON wrote it, and the document's layout: for a saved file. */
+  samadcon_version?: string
+  format?: number
   domain: DomainSummary
   connection: ConnectionState | null
   roles: FsmoRole[]
