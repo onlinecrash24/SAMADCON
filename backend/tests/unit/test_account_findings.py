@@ -199,18 +199,27 @@ def series(version: str | None, vendor: str | None = SAMBA, today: date = TODAY)
 
 
 def test_a_series_the_samba_team_has_dropped_is_a_note() -> None:
-    """A note and not an alarm: a distribution may well still patch it, and
-    Debian does. What the note says is whom to ask."""
-    found = findings.evaluate(
-        domain={"vendor": SAMBA, "vendor_version": "4.22.11-Debian-4.22.11+dfsg-0+deb13u1"},
-        today=TODAY,
-    )
+    """For a Samba built from the team's own release: nobody else stands
+    behind it."""
+    found = findings.evaluate(domain={"vendor": SAMBA, "vendor_version": "4.22.11"}, today=TODAY)
 
     assert ids(found) == ["samba_series_unmaintained"]
     assert found[0].severity == "info"
     assert found[0].evidence["series"] == "4.22"
     assert found[0].evidence["maintained_until"] == "2026-09"
-    assert found[0].evidence["version"].startswith("4.22.11")
+    assert found[0].evidence["version"] == "4.22.11"
+
+
+def test_a_distribution_s_package_says_nothing() -> None:
+    """Its maintenance is the distribution's and cannot be read from a series
+    number. Measured on zmb-ad: Debian 13 ships 4.22 with its own security
+    updates, fully current, months after the Samba team dropped the series.
+    The maintainer's reaction to the note there was "but it is up to date" —
+    and it was."""
+    assert series("4.22.11-Debian-4.22.11+dfsg-0+deb13u1") == []
+    assert series("4.15.13-Ubuntu") == []
+    assert series("4.9.5-Synology") == []
+    assert series("4.21.3-SerNet-RedHat-12.el9") == []
 
 
 def test_a_maintained_series_is_not() -> None:
@@ -224,7 +233,7 @@ def test_the_month_it_ends_in_still_counts_as_maintained() -> None:
 
 
 def test_a_series_older_than_the_table_is_long_gone() -> None:
-    assert series("4.9.5-Synology") == ["samba_series_unmaintained"]
+    assert series("4.9.5") == ["samba_series_unmaintained"]
 
 
 def test_a_series_newer_than_the_table_says_nothing() -> None:
