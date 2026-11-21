@@ -281,3 +281,23 @@ describe('reportFileName', () => {
     expect(reportFileName('', null, 'json')).toBe('samadcon-report.json')
   })
 })
+
+describe('the account findings', () => {
+  // The ids core/findings.py raises. A finding without words would show its
+  // key, in the report and in every file saved from it.
+  it.each([
+    'guest_enabled',
+    'account_no_preauth',
+    'account_with_spn',
+    'account_password_not_required',
+    'krbtgt_password_old',
+    'pre_windows_2000_open',
+    'machine_account_quota',
+    'samba_series_unmaintained',
+  ])('%s has German and English words', (id) => {
+    for (const catalogue of [de, en] as Record<string, string>[]) {
+      expect(catalogue[`findings.${id}`]).toBeTruthy()
+      expect(catalogue[`findings.${id}.why`]).toBeTruthy()
+    }
+  })
+})

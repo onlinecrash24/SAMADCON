@@ -382,27 +382,3 @@ def test_the_guest_is_found_by_its_number_not_its_name() -> None:
 
     assert read["guest"] == {"name": "Gast", "enabled": True}
     assert f"(objectSid={DOMAIN_SID}-501)" in conn.searches[0]
-
-
-# --- every finding has words ------------------------------------------------
-
-
-def test_every_new_finding_has_german_and_english_words() -> None:
-    from pathlib import Path
-
-    messages = (
-        Path(__file__).resolve().parents[3] / "frontend" / "src" / "i18n" / "messages.ts"
-    ).read_text(encoding="utf-8")
-
-    for name in (
-        "guest_enabled",
-        "account_no_preauth",
-        "account_with_spn",
-        "account_password_not_required",
-        "krbtgt_password_old",
-        "pre_windows_2000_open",
-        "machine_account_quota",
-        "samba_series_unmaintained",
-    ):
-        assert messages.count(f"'findings.{name}':") == 2, name
-        assert messages.count(f"'findings.{name}.why':") == 2, name
