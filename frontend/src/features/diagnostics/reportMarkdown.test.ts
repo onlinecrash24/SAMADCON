@@ -125,6 +125,7 @@ describe('domainReportMarkdown', () => {
       `## ${de['report.section.domain']}`,
       `## ${de['report.section.password']}`,
       `## ${de['report.section.replication']}`,
+      `## ${de['report.section.accounts']}`,
       `## ${de['report.section.securityFindings']}`,
       `## ${de['report.section.policies']}`,
       `## ${de['report.section.policyFindings']}`,
@@ -186,6 +187,40 @@ describe('domainReportMarkdown', () => {
     expect(password.split('## ')[1]).toContain(
       de['findings.unreadable'].replace('{sections}', 'policy'),
     )
+  })
+
+  it('prints what the account rules were decided from', () => {
+    const base = report()
+    const text = domainReportMarkdown(
+      report({
+        security: {
+          ...base.security,
+          accounts: {
+            accounts: [],
+            guest: { name: 'Guest', enabled: false },
+            krbtgt_password_last_set: '2025-03-28T20:34:22+00:00',
+            machine_account_quota: 10,
+            pre_windows_2000_open: [],
+            truncated: false,
+          },
+        },
+      }),
+      german,
+    )
+    const section = text
+      .slice(text.indexOf(`## ${de['report.section.accounts']}`))
+      .split('\n## ')[0]!
+    expect(section).toContain(`- **${de['report.accounts.krbtgt']}:** 2025-03-28T20:34:22+00:00`)
+    expect(section).toContain(`- **${de['report.accounts.guest']}:** ${de['common.no']}`)
+    expect(section).toContain(`- **${de['report.accounts.quota']}:** 10`)
+  })
+
+  it('says that the accounts were not read, in a file from before they were', () => {
+    const text = domainReportMarkdown(report(), german)
+    const section = text
+      .slice(text.indexOf(`## ${de['report.section.accounts']}`))
+      .split('\n## ')[0]!
+    expect(section).toContain(de['findings.unreadable'].replace('{sections}', 'accounts'))
   })
 
   it('says so when there are no findings', () => {
