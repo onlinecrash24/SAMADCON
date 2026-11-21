@@ -1148,7 +1148,8 @@ Die Sicherheitsregeln sehen sich auch **Konten und die Einstellungen der Domäne
 aktiviertes Gastkonto, Konten ohne Kerberos-Vorauthentifizierung, Benutzerkonten mit Dienstnamen,
 Konten ohne Kennwortpflicht, ein krbtgt-Kennwort, das älter als ein Jahr ist, „Jeder“ oder „Anonym“
 in „Prä-Windows 2000 kompatibler Zugriff“, eine Rechnerkonten-Quota über null und eine Samba-Reihe,
-die ihr Team nicht mehr pflegt. Jede Regel wurde vor dem Schreiben an einer Samba-Domäne gemessen
+die ihr Team nicht mehr pflegt (nur bei einem Samba direkt vom Team; das Paket einer Distribution
+pflegt die Distribution und wird nicht gemeldet). Jede Regel wurde vor dem Schreiben an einer Samba-Domäne gemessen
 und überspringt, was eine frische Domäne ohnehin zeigt: den Dienstnamen von krbtgt, das
 deaktivierte Gastkonto, „Authentifizierte Benutzer“ in der Prä-2000-Gruppe. Gegen einen Windows-DC
 sind sie noch nicht gemessen.

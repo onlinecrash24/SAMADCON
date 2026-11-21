@@ -1099,7 +1099,8 @@ The security rules also look at **accounts and at the domain's own settings**: a
 account, accounts without Kerberos pre-authentication, user accounts carrying a service name,
 accounts that need no password, a krbtgt password older than a year, Everyone or Anonymous in
 "Pre-Windows 2000 Compatible Access", a machine account quota above zero, and a Samba series its
-team no longer maintains. Each was measured on a Samba domain before it was written, and each
+team no longer maintains (only for the team's own release; a distribution's package is the
+distribution's to maintain and is not reported). Each was measured on a Samba domain before it was written, and each
 skips what a fresh domain looks like — krbtgt's own service name, the disabled guest, Authenticated
 Users in the pre-2000 group. Against a Windows DC they are not yet measured.
 

@@ -1142,7 +1142,7 @@ export const de = {
     'ms-DS-MachineAccountQuota steht auf dem unten genannten Wert; 10 ist die Vorgabe jeder neuen Domäne. So viele Computerkonten darf jeder normale Benutzer selbst anlegen, und mehrere bekannte Angriffe beginnen genau damit. Setzen Sie den Wert auf 0 und lassen Sie Rechner von einem dafür berechtigten Konto aufnehmen.',
   'findings.samba_series_unmaintained': 'Samba-Reihe wird vom Samba-Team nicht mehr gepflegt',
   'findings.samba_series_unmaintained.why':
-    'Das Samba-Team pflegt eine Reihe rund 18 Monate; für diese liefert es keine Sicherheitsupdates mehr. Das ist ein Hinweis und kein Alarm: Eine Distribution kann die Reihe selbst weiterpflegen, Debian etwa tut das für seine stabile Ausgabe. Ob Ihre Version noch Sicherheitsupdates erhält, sagt nur deren Herausgeber. Die Liste der Reihen in SAMADCON hat den unten genannten Stand.',
+    'Das Samba-Team pflegt eine Reihe rund 18 Monate; für diese liefert es keine Sicherheitsupdates mehr. Gemeldet wird das nur für ein Samba direkt vom Samba-Team, etwa selbst übersetzt: Dahinter steht niemand sonst. Das Paket einer Distribution wird nicht gemeldet, weil die Distribution es selbst pflegt und sich das an der Reihe nicht ablesen lässt. Wechseln Sie auf eine gepflegte Reihe oder auf das Paket einer Distribution. Die Liste der Reihen in SAMADCON hat den unten genannten Stand.',
 
   'findings.gpo_not_linked': 'Nirgends verknüpft',
   'findings.gpo_not_linked.why':
@@ -3255,7 +3255,7 @@ export const en: Record<MessageKey, string> = {
     'ms-DS-MachineAccountQuota has the value below; 10 is the default of every new domain. That many computer accounts any ordinary user may create, and several known attacks begin with exactly that. Set it to 0 and have computers joined by an account permitted to.',
   'findings.samba_series_unmaintained': 'Samba series no longer maintained by the Samba team',
   'findings.samba_series_unmaintained.why':
-    'The Samba team maintains a series for about 18 months; for this one it no longer ships security updates. This is a note and not an alarm: a distribution may maintain the series itself, as Debian does for its stable release. Whether your version still receives security updates only its publisher can say. The list of series in SAMADCON is as of the date below.',
+    'The Samba team maintains a series for about 18 months; for this one it no longer ships security updates. This is reported only for a Samba straight from the Samba team, built by hand for instance: nobody else stands behind it. A distribution’s package is not reported, because the distribution maintains it itself and the series cannot tell for how long. Move to a maintained series or to a distribution’s package. The list of series in SAMADCON is as of the date below.',
 
   'findings.gpo_not_linked': 'Linked nowhere',
   'findings.gpo_not_linked.why':

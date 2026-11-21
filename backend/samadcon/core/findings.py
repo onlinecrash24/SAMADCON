@@ -72,7 +72,9 @@ SAMBA_SERIES_END: dict[int, tuple[int, int]] = {
     24: (2027, 9),
     25: (2028, 3),
 }
-_SAMBA_VERSION = re.compile(r"^\s*4\.(\d{1,3})\.\d")
+# The team's own release and nothing after it. "4.22.11-Debian-…",
+# "…-Ubuntu", "…-SerNet-…", "…-Synology" are somebody's package.
+_SAMBA_VERSION = re.compile(r"^\s*4\.(\d{1,3})\.\d+\s*$")
 
 
 @dataclass(frozen=True)
@@ -496,9 +498,13 @@ def _accounts(read: dict[str, Any], today: date) -> list[Finding]:
 def _samba_series(domain: dict[str, Any], today: date) -> list[Finding]:
     """Whether the Samba team still maintains the series this DC runs.
 
-    A note, not an alarm. A distribution may well patch a series the Samba
-    team has dropped — Debian does — and only its maintainer can say. What
-    this tells the reader is whom to ask.
+    Only for a Samba built from the team's own release. A distribution's
+    package is maintained by the distribution, for as long as it says, and a
+    series number cannot tell: Debian 13 ships 4.22 with its own security
+    updates long after the Samba team dropped the series. The first version
+    of this rule reported exactly that domain, fully patched, and the
+    maintainer's answer was "but it is up to date". It was. So a version with
+    anything after its three numbers says nothing here.
 
     The version is the rootDSE's and nothing else. The DC's computer object
     carries one too, written when the domain was provisioned and not when it
