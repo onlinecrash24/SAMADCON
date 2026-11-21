@@ -14,6 +14,64 @@ release.
 
 ---
 
+## 0.6.33 — 2026-11-21
+
+Eight new security findings about accounts and the domain's own settings.
+
+Prompted by a tester's own audit tool, samaudit, whose catalogue was laid
+next to SAMADCON's findings. The idea is taken from there; the rules are
+written from scratch. No risk score: a finding says what it was decided
+from, and a number would not.
+
+New findings (Diagnostics > Findings > Security, and in the report):
+- High: the guest account is enabled.
+- High: an account without Kerberos pre-authentication (AS-REP roasting).
+- Medium, high on an administrator: a user account with a service name
+  (Kerberoasting).
+- Medium: an account that may have an empty password (PASSWD_NOTREQD).
+- Medium: the krbtgt password is older than a year.
+- Medium: Everyone or Anonymous in "Pre-Windows 2000 Compatible Access".
+- Low: any user may join computers to the domain (machine account quota
+  above zero, the default of every new domain).
+- Note: a Samba series the Samba team no longer maintains.
+
+Each rule was measured on a Samba 4.22 domain before it was written, and
+skips what a fresh domain looks like:
+- krbtgt's own service name, kadmin/changepw;
+- the guest account, which carries PASSWD_NOTREQD while disabled;
+- disabled accounts altogether;
+- Authenticated Users in the pre-Windows 2000 group, which a provision
+  puts there;
+- a distribution's Samba package. Its maintenance is the distribution's and
+  cannot be read from a series number: Debian 13 ships 4.22, fully patched,
+  after the Samba team dropped the series. The rule reports only the team's
+  own release.
+
+The Samba version is taken from the rootDSE. The DC's computer object
+carries one too, written at provision and not at upgrade: 4.17.12 on a DC
+running 4.22.11.
+
+The domain report has a new section, "Accounts and domain", with the values
+the rules were decided from: when the krbtgt password was last changed,
+whether the guest is enabled, the quota. On screen, in Markdown and in JSON.
+A file saved by an earlier version shows the section as not read.
+
+Limits:
+- Not measured against a Windows DC.
+- The table of Samba series reaches 4.25 and is as of 16 October 2026. A
+  newer series says nothing.
+- Still absent on purpose: passwords that never expire (NIST withdrew the
+  advice), and machine passwords never changed (a Samba DC never changes
+  its own).
+
+Cost: two more searches and one read per report.
+
+pip-audit and npm audit find no known vulnerabilities.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.33, :0.6 and :latest.
+
+---
+
 ## 0.6.32 — 2026-11-21
 
 Reports as JSON and Markdown, and the image rebuilt with Debian's updates.
