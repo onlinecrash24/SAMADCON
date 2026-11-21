@@ -514,6 +514,127 @@ def _account_summary(entry: Any) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# What accounts and the domain's own settings give away
+# ---------------------------------------------------------------------------
+
+EXPOSURE_ATTRS = [
+    "distinguishedName",
+    "sAMAccountName",
+    "userAccountControl",
+    "adminCount",
+    "servicePrincipalName",
+    "pwdLastSet",
+    "objectSid",
+]
+
+RID_GUEST = 501
+RID_KRBTGT = 502
+
+# "Pre-Windows 2000 Compatible Access", by its SID: the name is translated.
+PRE_WINDOWS_2000_SID = "S-1-5-32-554"
+# Everyone and Anonymous. Authenticated Users (S-1-5-11) is what a
+# provision puts there, on Samba and on Windows, and is not listed.
+OPEN_PRINCIPALS = ("S-1-1-0", "S-1-5-7")
+
+
+def account_exposure(conn: DirectoryConnection, *, limit: int = 500) -> dict[str, Any]:
+    """Accounts an outsider can work on, and three settings of the domain.
+
+    One search for the accounts, and it brings krbtgt and the guest along:
+    both are looked at for themselves and neither is listed as an account.
+    krbtgt carries ``kadmin/changepw`` in every domain, and the guest carries
+    PASSWD_NOTREQD while disabled — measured on a Samba domain, and listing
+    either would mark every domain there is.
+
+    The guest is found by its RID. Its name is translated on a Windows DC.
+    """
+    flag = "userAccountControl:1.2.840.113556.1.4.803:"
+    wanted = [
+        "(servicePrincipalName=*)",
+        f"({flag}={uac.DONT_REQ_PREAUTH})",
+        f"({flag}={uac.PASSWD_NOTREQD})",
+        "(sAMAccountName=krbtgt)",
+    ]
+    if conn.info.domain_sid:
+        wanted.append(f"(objectSid={conn.info.domain_sid}-{RID_GUEST})")
+
+    result = conn.search(
+        conn.info.base_dn,
+        scope=SCOPE_SUBTREE,
+        expression=f"(&(objectCategory=person)(objectClass=user)(|{''.join(wanted)}))",
+        attrs=EXPOSURE_ATTRS,
+        max_results=limit,
+    )
+
+    accounts: list[dict[str, Any]] = []
+    guest: dict[str, Any] | None = None
+    krbtgt_password_last_set: datetime | None = None
+
+    for entry in result:
+        flags = values.as_int(entry, "userAccountControl", 0) or 0
+        name = values.as_str(entry, "sAMAccountName") or ""
+        enabled = not (flags & uac.ACCOUNTDISABLE)
+        rid = values.rid_of(values.sid_to_str(values.as_bytes(entry, "objectSid")))
+
+        if rid == RID_GUEST:
+            guest = {"name": name, "enabled": enabled}
+            continue
+        if rid == RID_KRBTGT or name.lower() == "krbtgt":
+            krbtgt_password_last_set = values.as_filetime(entry, "pwdLastSet")
+            continue
+
+        accounts.append(
+            {
+                "dn": values.as_str(entry, "distinguishedName") or str(entry.dn),
+                "name": name,
+                "enabled": enabled,
+                # Set by the directory on whoever is, or once was, in a
+                # protected group. Stale now and then, and stale in the
+                # direction that reads a finding as worse than it is.
+                "privileged": values.as_int(entry, "adminCount", 0) == 1,
+                "spns": sorted(values.as_list(entry, "servicePrincipalName")),
+                "no_preauth": bool(flags & uac.DONT_REQ_PREAUTH),
+                "password_not_required": bool(flags & uac.PASSWD_NOTREQD),
+            }
+        )
+
+    accounts.sort(key=lambda account: account["name"].lower())
+
+    domain = conn.get(conn.info.base_dn, attrs=["ms-DS-MachineAccountQuota"])
+
+    return {
+        "accounts": accounts,
+        "guest": guest,
+        "krbtgt_password_last_set": krbtgt_password_last_set,
+        "machine_account_quota": values.as_int(domain, "ms-DS-MachineAccountQuota"),
+        "pre_windows_2000_open": _open_principals(conn),
+        "truncated": result.truncated,
+    }
+
+
+def _open_principals(conn: DirectoryConnection) -> list[str]:
+    """Everyone or Anonymous among the members of the pre-Windows 2000 group.
+
+    Well-known principals are members as foreign security principals, whose
+    name is the SID itself.
+    """
+    result = conn.search(
+        conn.info.base_dn,
+        scope=SCOPE_SUBTREE,
+        expression=f"(objectSid={PRE_WINDOWS_2000_SID})",
+        attrs=["member"],
+        max_results=1,
+    )
+    found: list[str] = []
+    for entry in result:
+        for member in values.as_list(entry, "member"):
+            name = values.name_from_dn(member).upper()
+            if name in OPEN_PRINCIPALS and name not in found:
+                found.append(name)
+    return sorted(found)
+
+
+# ---------------------------------------------------------------------------
 # Everything at once
 # ---------------------------------------------------------------------------
 

@@ -24,6 +24,7 @@
  */
 
 import type {
+  AccountExposure,
   ConnectionState,
   DomainController,
   DomainReport,
@@ -105,6 +106,9 @@ export function domainReportMarkdown(data: DomainReport, words: Words): string {
     ...(data.security.replication
       ? replication(data.security.replication, t)
       : unread(['replication'])),
+    `## ${t('report.section.accounts')}`,
+    '',
+    ...(data.security.accounts ? accounts(data.security.accounts, t, yesNo) : unread(['accounts'])),
     `## ${t('report.section.securityFindings')}`,
     '',
     ...findings(data.security.findings, data.security.unreadable, t, unread),
@@ -261,6 +265,20 @@ function policy(found: PasswordPolicy, words: Words): string[] {
     )
   }
   return lines
+}
+
+/** The values the account rules were decided from; the rules speak below. */
+function accounts(read: AccountExposure, t: T, yesNo: (value: boolean) => string): string[] {
+  const unknown = t('report.accounts.unknown')
+  return facts([
+    [t('report.accounts.krbtgt'), read.krbtgt_password_last_set ?? unknown],
+    [t('report.accounts.guest'), read.guest ? yesNo(read.guest.enabled) : unknown],
+    [
+      t('report.accounts.quota'),
+      read.machine_account_quota === null ? unknown : String(read.machine_account_quota),
+    ],
+    [t('report.accounts.flagged'), String(read.accounts.length) + (read.truncated ? '+' : '')],
+  ])
 }
 
 function replication(status: ReplicationStatus, t: T): string[] {

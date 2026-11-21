@@ -29,7 +29,7 @@ import { createPortal } from 'react-dom'
 
 import { saveBlob } from '../../api/client'
 import { api } from '../../api/endpoints'
-import type { DomainReport, Finding, ReportedGpo } from '../../api/types'
+import type { AccountExposure, DomainReport, Finding, ReportedGpo } from '../../api/types'
 import { Badge, ErrorMessage, Spinner, useDateFormat } from '../../components/primitives'
 import { useI18n } from '../../i18n'
 import {
@@ -155,6 +155,14 @@ export function ReportView({ deep, onClose }: { deep: boolean; onClose: () => vo
               )}
             </Section>
 
+            <Section title={t('report.section.accounts')}>
+              {data.security.accounts ? (
+                <AccountsCard read={data.security.accounts} />
+              ) : (
+                <Unread names={['accounts']} />
+              )}
+            </Section>
+
             <Findings
               title={t('report.section.securityFindings')}
               findings={data.security.findings}
@@ -208,6 +216,33 @@ function Findings({
         <FindingCard key={finding.id + ':' + finding.subject} finding={finding} />
       ))}
     </Section>
+  )
+}
+
+/** The values the account rules were decided from; the rules speak below. */
+function AccountsCard({ read }: { read: AccountExposure }) {
+  const { t } = useI18n()
+  const formatDate = useDateFormat()
+  const unknown = t('report.accounts.unknown')
+
+  return (
+    <section className="card">
+      <dl className="facts">
+        <dt>{t('report.accounts.krbtgt')}</dt>
+        <dd>
+          {read.krbtgt_password_last_set ? formatDate(read.krbtgt_password_last_set) : unknown}
+        </dd>
+        <dt>{t('report.accounts.guest')}</dt>
+        <dd>{read.guest ? t(read.guest.enabled ? 'common.yes' : 'common.no') : unknown}</dd>
+        <dt>{t('report.accounts.quota')}</dt>
+        <dd>{read.machine_account_quota ?? unknown}</dd>
+        <dt>{t('report.accounts.flagged')}</dt>
+        <dd>
+          {read.accounts.length}
+          {read.truncated ? '+' : ''}
+        </dd>
+      </dl>
+    </section>
   )
 }
 

@@ -64,6 +64,9 @@ def _security(conn: Any) -> dict[str, Any]:
         # permits — unconstrained delegation and broken ciphers. One more
         # search, and it answers a question nothing else here does.
         ("members", diagnostics.domain_members),
+        # Accounts an outsider can work on, and three settings of the
+        # domain itself: two more searches and one read.
+        ("accounts", diagnostics.account_exposure),
     ):
         try:
             gathered[name] = read(conn)
@@ -77,9 +80,16 @@ def _security(conn: Any) -> dict[str, Any]:
         replication=gathered.get("replication"),
         connection=connection,
         members=gathered.get("members"),
+        accounts=gathered.get("accounts"),
+        # From the rootDSE, read when the connection was made.
+        domain={
+            "vendor": conn.info.dc_vendor,
+            "vendor_version": conn.info.dc_vendor_version,
+        },
     )
 
     return {
+        "accounts": gathered.get("accounts"),
         "findings": [item.describe() for item in evaluated],
         "unreadable": unreadable,
         "policy": gathered.get("policy"),

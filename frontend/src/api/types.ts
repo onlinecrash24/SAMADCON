@@ -360,6 +360,24 @@ export interface ReportedGpo extends Gpo {
  * Not assembled from the endpoints the screen uses: those would be read
  * minutes apart, and the timestamp on the page would be true of none of them.
  */
+/** What the account rules were decided from. */
+export interface AccountExposure {
+  accounts: {
+    dn: string
+    name: string
+    enabled: boolean
+    privileged: boolean
+    spns: string[]
+    no_preauth: boolean
+    password_not_required: boolean
+  }[]
+  guest: { name: string; enabled: boolean } | null
+  krbtgt_password_last_set: string | null
+  machine_account_quota: number | null
+  pre_windows_2000_open: string[]
+  truncated: boolean
+}
+
 export interface DomainReport {
   /** UTC, with its offset — a report is read in a timezone nobody knows here. */
   generated_at: string
@@ -374,6 +392,8 @@ export interface DomainReport {
   security: {
     policy: PasswordPolicy | null
     replication: ReplicationStatus | null
+    /** Absent in a file saved before 0.6.33; null when it could not be read. */
+    accounts?: AccountExposure | null
     findings: Finding[]
     unreadable: string[]
   }

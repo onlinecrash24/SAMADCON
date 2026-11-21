@@ -1078,6 +1078,12 @@ export const de = {
   'report.section.domain': 'Domäne',
   'report.section.password': 'Kennwortrichtlinie',
   'report.section.replication': 'Replikation',
+  'report.section.accounts': 'Konten und Domäne',
+  'report.accounts.krbtgt': 'krbtgt-Kennwort zuletzt geändert',
+  'report.accounts.guest': 'Gastkonto aktiviert',
+  'report.accounts.quota': 'Rechner, die ein Benutzer aufnehmen darf',
+  'report.accounts.flagged': 'Konten mit SPN, ohne Vorauthentifizierung oder ohne Kennwortpflicht',
+  'report.accounts.unknown': 'nicht gelesen',
   'report.section.securityFindings': 'Befunde: Sicherheit',
   'report.section.policies': 'Gruppenrichtlinien im Bestand',
   'report.section.policyFindings': 'Befunde: Gruppenrichtlinien',
@@ -1112,6 +1118,31 @@ export const de = {
   'findings.member_weak_encryption': 'Gebrochene Verschlüsselung erlaubt',
   'findings.member_weak_encryption.why':
     'Der Rechner verlangt vom KDC ein DES-Verfahren. DES gilt seit 1998 öffentlich als gebrochen. Die betroffenen Verfahren stehen unten.',
+
+  'findings.guest_enabled': 'Gastkonto ist aktiviert',
+  'findings.guest_enabled.why':
+    'Mit dem Gastkonto meldet sich an, wer kein eigenes Konto hat, in der Regel ohne Kennwort. Es ist in jeder Domäne vorhanden und ab Werk deaktiviert. Deaktivieren Sie es, sofern nichts ausdrücklich darauf angewiesen ist.',
+  'findings.account_no_preauth': 'Konto ohne Kerberos-Vorauthentifizierung',
+  'findings.account_no_preauth.why':
+    'Für dieses Konto gibt der KDC jedem, der fragt, Daten heraus, die mit dem Kennwort des Kontos verschlüsselt sind, auch ohne Anmeldung. Daran lässt sich das Kennwort in Ruhe durchprobieren (AS-REP-Roasting). Entfernen Sie die Option „Keine Kerberos-Vorauthentifizierung erforderlich“ am Konto; heute braucht sie fast nichts mehr.',
+  'findings.account_with_spn': 'Benutzerkonto mit Dienstnamen (SPN)',
+  'findings.account_with_spn.why':
+    'Jeder angemeldete Benutzer kann für diesen Dienst ein Ticket anfordern, das mit dem Kennwort des Kontos verschlüsselt ist, und es außerhalb der Domäne durchprobieren (Kerberoasting). Bei einem von Menschen gewählten Kennwort gelingt das oft. Geben Sie dem Konto ein langes Zufallskennwort oder nehmen Sie ein verwaltetes Dienstkonto; hat das Konto Administratorrechte, wiegt der Befund schwerer.',
+  'findings.account_password_not_required': 'Konto darf ein leeres Kennwort haben',
+  'findings.account_password_not_required.why':
+    'Am Konto ist „Kennwort nicht erforderlich“ gesetzt. Die Kennwortrichtlinie gilt dann nicht, und ein leeres Kennwort wird angenommen. Ob eines gesetzt ist, lässt sich von hier nicht sehen. Entfernen Sie die Option und setzen Sie ein Kennwort.',
+  'findings.krbtgt_password_old': 'krbtgt-Kennwort lange nicht geändert',
+  'findings.krbtgt_password_old.why':
+    'Mit dem Schlüssel von krbtgt ist jedes Ticket der Domäne unterschrieben. Wer ihn einmal kopiert hat, stellt sich beliebige Tickets aus, solange er unverändert bleibt, und von allein ändert er sich nie. Ein Jahr ist die übliche Empfehlung, kein Naturgesetz. Der Wechsel erfolgt zweimal, mit Abstand von mindestens der Ticket-Laufzeit, und bei mehreren DCs erst nach abgeschlossener Replikation.',
+  'findings.pre_windows_2000_open': '„Prä-Windows 2000 kompatibler Zugriff“ steht allen offen',
+  'findings.pre_windows_2000_open.why':
+    'Die Gruppe darf fast alle Benutzer und Gruppen der Domäne lesen. Sind „Jeder“ oder „Anonym“ Mitglied, kann das auch, wer sich gar nicht angemeldet hat. „Authentifizierte Benutzer“ ist die Vorgabe und wird nicht gemeldet. Entfernen Sie die unten genannten Mitglieder.',
+  'findings.machine_account_quota': 'Jeder Benutzer darf Rechner in die Domäne aufnehmen',
+  'findings.machine_account_quota.why':
+    'ms-DS-MachineAccountQuota steht auf dem unten genannten Wert; 10 ist die Vorgabe jeder neuen Domäne. So viele Computerkonten darf jeder normale Benutzer selbst anlegen, und mehrere bekannte Angriffe beginnen genau damit. Setzen Sie den Wert auf 0 und lassen Sie Rechner von einem dafür berechtigten Konto aufnehmen.',
+  'findings.samba_series_unmaintained': 'Samba-Reihe wird vom Samba-Team nicht mehr gepflegt',
+  'findings.samba_series_unmaintained.why':
+    'Das Samba-Team pflegt eine Reihe rund 18 Monate; für diese liefert es keine Sicherheitsupdates mehr. Das ist ein Hinweis und kein Alarm: Eine Distribution kann die Reihe selbst weiterpflegen, Debian etwa tut das für seine stabile Ausgabe. Ob Ihre Version noch Sicherheitsupdates erhält, sagt nur deren Herausgeber. Die Liste der Reihen in SAMADCON hat den unten genannten Stand.',
 
   'findings.gpo_not_linked': 'Nirgends verknüpft',
   'findings.gpo_not_linked.why':
@@ -3160,6 +3191,12 @@ export const en: Record<MessageKey, string> = {
   'report.section.domain': 'Domain',
   'report.section.password': 'Password policy',
   'report.section.replication': 'Replication',
+  'report.section.accounts': 'Accounts and domain',
+  'report.accounts.krbtgt': 'krbtgt password last changed',
+  'report.accounts.guest': 'Guest account enabled',
+  'report.accounts.quota': 'Computers a user may join',
+  'report.accounts.flagged': 'Accounts with an SPN, without pre-authentication or without a required password',
+  'report.accounts.unknown': 'not read',
   'report.section.securityFindings': 'Findings: security',
   'report.section.policies': 'Group policies on record',
   'report.section.policyFindings': 'Findings: group policies',
@@ -3194,6 +3231,31 @@ export const en: Record<MessageKey, string> = {
   'findings.member_weak_encryption': 'A broken cipher is permitted',
   'findings.member_weak_encryption.why':
     'The machine asks the KDC for a DES cipher. DES has been publicly broken since 1998. The ciphers concerned are listed below.',
+
+  'findings.guest_enabled': 'The guest account is enabled',
+  'findings.guest_enabled.why':
+    'The guest account signs in whoever has no account of their own, as a rule without a password. Every domain has it, disabled as delivered. Disable it unless something expressly depends on it.',
+  'findings.account_no_preauth': 'Account without Kerberos pre-authentication',
+  'findings.account_no_preauth.why':
+    'For this account the KDC hands data encrypted with the account’s password to anyone who asks, signed in or not. The password can then be guessed at leisure (AS-REP roasting). Remove “Do not require Kerberos pre-authentication” from the account; almost nothing needs it today.',
+  'findings.account_with_spn': 'User account with a service name (SPN)',
+  'findings.account_with_spn.why':
+    'Any signed-in user may request a ticket for this service, encrypted with the account’s password, and guess at it outside the domain (Kerberoasting). With a password a person chose, that often succeeds. Give the account a long random password or use a managed service account; if the account has administrative rights, the finding weighs more.',
+  'findings.account_password_not_required': 'Account may have an empty password',
+  'findings.account_password_not_required.why':
+    '“Password not required” is set on the account. The password policy then does not apply, and an empty password is accepted. Whether one is set cannot be seen from here. Remove the option and set a password.',
+  'findings.krbtgt_password_old': 'krbtgt password unchanged for a long time',
+  'findings.krbtgt_password_old.why':
+    'Every ticket in the domain is signed with krbtgt’s key. Whoever copied it once issues themselves any ticket for as long as it stays unchanged, and it never changes by itself. A year is the usual advice, not a law of nature. Change it twice, at least a ticket lifetime apart, and with several DCs only once replication has completed.',
+  'findings.pre_windows_2000_open': '“Pre-Windows 2000 Compatible Access” is open to all',
+  'findings.pre_windows_2000_open.why':
+    'The group may read nearly every user and group in the domain. With Everyone or Anonymous as a member, so may someone who never signed in. Authenticated Users is the default and is not reported. Remove the members named below.',
+  'findings.machine_account_quota': 'Any user may join computers to the domain',
+  'findings.machine_account_quota.why':
+    'ms-DS-MachineAccountQuota has the value below; 10 is the default of every new domain. That many computer accounts any ordinary user may create, and several known attacks begin with exactly that. Set it to 0 and have computers joined by an account permitted to.',
+  'findings.samba_series_unmaintained': 'Samba series no longer maintained by the Samba team',
+  'findings.samba_series_unmaintained.why':
+    'The Samba team maintains a series for about 18 months; for this one it no longer ships security updates. This is a note and not an alarm: a distribution may maintain the series itself, as Debian does for its stable release. Whether your version still receives security updates only its publisher can say. The list of series in SAMADCON is as of the date below.',
 
   'findings.gpo_not_linked': 'Linked nowhere',
   'findings.gpo_not_linked.why':

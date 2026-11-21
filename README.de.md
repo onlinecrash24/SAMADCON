@@ -1144,6 +1144,15 @@ jede Verknüpfung deaktiviert, oder die Hälfte mit den Einstellungen abgeschalt
 Prüfung liest zusätzlich die Dateien jeder Richtlinie auf SYSVOL; das ist ein Schalter und nicht
 die Vorgabe, weil es einen Zugriff je Richtlinie kostet.
 
+Die Sicherheitsregeln sehen sich auch **Konten und die Einstellungen der Domäne selbst** an: ein
+aktiviertes Gastkonto, Konten ohne Kerberos-Vorauthentifizierung, Benutzerkonten mit Dienstnamen,
+Konten ohne Kennwortpflicht, ein krbtgt-Kennwort, das älter als ein Jahr ist, „Jeder“ oder „Anonym“
+in „Prä-Windows 2000 kompatibler Zugriff“, eine Rechnerkonten-Quota über null und eine Samba-Reihe,
+die ihr Team nicht mehr pflegt. Jede Regel wurde vor dem Schreiben an einer Samba-Domäne gemessen
+und überspringt, was eine frische Domäne ohnehin zeigt: den Dienstnamen von krbtgt, das
+deaktivierte Gastkonto, „Authentifizierte Benutzer“ in der Prä-2000-Gruppe. Gegen einen Windows-DC
+sind sie noch nicht gemessen.
+
 Zwei Regeln fehlen **bewusst**, und Tests halten sie fern: erzwungener Kennwortablauf, den NIST
 zurückgezogen hat, weil geplante Wechsel Menschen zu vorhersehbaren Varianten eines Kennworts
 drängen; und das Auflisten gesperrter oder deaktivierter Konten, das die Diagnose ohnehin zeigt

@@ -64,6 +64,8 @@ def build(conn: Any, *, deep: bool = False) -> dict[str, Any]:
             "policy": security["policy"],
             "replication": security["replication"],
             "members": security["members"],
+            # Absent from a collection that predates it, hence .get.
+            "accounts": security.get("accounts"),
             "findings": security["findings"],
             "unreadable": security["unreadable"] + unreadable,
         },

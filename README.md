@@ -1095,6 +1095,14 @@ fires on real domains, not only constructed ones. A thorough pass walks each
 policy's files on SYSVOL as well; it is a switch and not the default, because it
 costs one round trip per policy.
 
+The security rules also look at **accounts and at the domain's own settings**: an enabled guest
+account, accounts without Kerberos pre-authentication, user accounts carrying a service name,
+accounts that need no password, a krbtgt password older than a year, Everyone or Anonymous in
+"Pre-Windows 2000 Compatible Access", a machine account quota above zero, and a Samba series its
+team no longer maintains. Each was measured on a Samba domain before it was written, and each
+skips what a fresh domain looks like — krbtgt's own service name, the disabled guest, Authenticated
+Users in the pre-2000 group. Against a Windows DC they are not yet measured.
+
 Two rules are **deliberately absent**, and tests keep them absent: forcing
 passwords to expire, which NIST withdrew because scheduled changes push people
 towards predictable variations of one password; and listing locked or disabled
