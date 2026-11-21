@@ -14,6 +14,44 @@ release.
 
 ---
 
+## 0.6.32 — 2026-11-21
+
+Reports as JSON and Markdown, and the image rebuilt with Debian's updates.
+
+Asked for by a tester who wants to hand a report to a language model.
+
+Reports as files:
+- The domain report (Diagnostics > Report) saves as JSON and as Markdown,
+  next to printing. The file is named after the domain and the time of the
+  reading.
+- A policy's settings report saves as Markdown and as JSON, next to HTML.
+  New route GET /api/v1/gpos/report.md, in the language of the interface.
+- JSON is the reading as it was made, complete. The domain report now says
+  which SAMADCON wrote it (samadcon_version) and carries a format number.
+- Markdown says what the screen says, section for section, as headings and
+  tables. A section that could not be read is named as such.
+- Values from the directory and from SYSVOL are escaped: a pipe, a line
+  break or a "#" in a policy's name cannot break a table or pose as a
+  heading.
+
+A note at the export and in the README: the file holds internals of the
+domain (names, DNs, policies), and text in it comes from the directory,
+where more accounts can write than one might assume. Escaping protects the
+shape of the file, not its reader. SAMADCON itself still sends nothing to a
+language model; what happens to the file is the administrator's decision.
+
+No CSV: the reports are nested and do not fit one flat table.
+
+Security updates:
+- The image is built anew and takes Debian's current packages with it
+  (apt-get upgrade at build time).
+- pip-audit and npm audit find no known vulnerabilities; no dependency had
+  to be raised.
+
+Images: ghcr.io/onlinecrash24/samadcon:0.6.32, :0.6 and :latest.
+
+---
+
 ## 0.6.31 — 2026-11-19
 
 Maintenance: nginx and two Python packages, security updates.
